@@ -458,6 +458,63 @@ const computeRanked=(runList,catId)=>{
 };
 
 // ════════════════════════════════════════════════════════════
+// ── SCROLL TIME PICKER ──────────────────────────────────────
+const TimePicker=({value,onChange,allowDefault=false})=>{
+  const {lang}=useLang();
+  const ITEM_H=44;
+  const opts=[];
+  if(allowDefault)opts.push(null);
+  for(let s=0;s<=600;s+=10)opts.push(s);
+  const valToIdx=(v)=>{
+    if((v==null||v===undefined)&&allowDefault)return 0;
+    const base=allowDefault?1:0;
+    return Math.max(0,Math.min(opts.length-1,base+Math.round((v||0)/10)));
+  };
+  const [activeIdx,setActiveIdx]=useState(()=>valToIdx(value));
+  const scrollRef=useRef(null);
+  const snapTimer=useRef(null);
+  useEffect(()=>{
+    const el=scrollRef.current;
+    if(el)el.scrollTop=valToIdx(value)*ITEM_H;
+  },[]);
+  const handleScroll=()=>{
+    const el=scrollRef.current;if(!el)return;
+    const idx=Math.max(0,Math.min(opts.length-1,Math.round(el.scrollTop/ITEM_H)));
+    setActiveIdx(idx);
+    clearTimeout(snapTimer.current);
+    snapTimer.current=setTimeout(()=>{
+      el.scrollTo({top:idx*ITEM_H,behavior:'smooth'});
+      onChange(opts[idx]);
+    },150);
+  };
+  const fmt=(v)=>{
+    if(v===null)return lang==='de'?'Standard':'Default';
+    if(v===0)return lang==='de'?'Kein':'None';
+    return `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
+  };
+  return(
+    <div style={{position:'relative',height:ITEM_H*5,overflow:'hidden',borderRadius:14,background:'rgba(255,255,255,.04)',border:'1px solid var(--border)',userSelect:'none',touchAction:'pan-y'}}>
+      <div style={{position:'absolute',top:ITEM_H*2,left:0,right:0,height:ITEM_H,background:'rgba(255,94,58,.12)',borderTop:'1px solid rgba(255,94,58,.4)',borderBottom:'1px solid rgba(255,94,58,.4)',pointerEvents:'none',zIndex:2,borderRadius:0}}/>
+      <div style={{position:'absolute',top:0,left:0,right:0,height:ITEM_H*2,background:'linear-gradient(to bottom,#0B0B14 20%,transparent)',pointerEvents:'none',zIndex:3}}/>
+      <div style={{position:'absolute',bottom:0,left:0,right:0,height:ITEM_H*2,background:'linear-gradient(to top,#0B0B14 20%,transparent)',pointerEvents:'none',zIndex:3}}/>
+      <div ref={scrollRef} onScroll={handleScroll}
+        style={{height:'100%',overflowY:'scroll',scrollSnapType:'y mandatory',WebkitOverflowScrolling:'touch'}}>
+        <div style={{height:ITEM_H*2}}/>
+        {opts.map((v,i)=>(
+          <div key={i} onClick={()=>{scrollRef.current?.scrollTo({top:i*ITEM_H,behavior:'smooth'});setActiveIdx(i);onChange(v);}}
+            style={{height:ITEM_H,display:'flex',alignItems:'center',justifyContent:'center',scrollSnapAlign:'center',
+              fontSize:i===activeIdx?20:14,fontWeight:i===activeIdx?800:400,
+              color:i===activeIdx?'var(--cor)':'rgba(255,255,255,.28)',
+              fontFamily:'JetBrains Mono',letterSpacing:'.05em',transition:'font-size .1s,color .1s',cursor:'pointer'}}>
+            {fmt(v)}
+          </div>
+        ))}
+        <div style={{height:ITEM_H*2}}/>
+      </div>
+    </div>
+  );
+};
+
 // SETUP WIZARD
 // ════════════════════════════════════════════════════════════
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
@@ -645,49 +702,21 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div className="lbl">{t('numStations')}</div>
           <div style={{display:'flex',gap:6}}>{[1,2,3,4].map(n=><button key={n} className={`chip${info.numStations===n?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>sI('numStations',n)}>{n}</button>)}</div>
           <div className="lbl">⏱ {lang==='de'?'Zeitlimit':'Time limit'}{numSt>1?` (${lang==='de'?'Standard für alle Stages':'Default for all stages'})`:` ${lang==='de'?'pro Lauf':'per run'}`}</div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{[0,60,90,120,150,180,240,300].map(s=><button key={s} className={`chip${(info.timeLimit||0)===s?' active':''}`} style={{justifyContent:'center',minWidth:50}} onClick={()=>sI('timeLimit',s)}>{s===0?(lang==='de'?'Kein':'None'):fmtMs(s*1000).slice(0,-4)}</button>)}
-            <div style={{display:'flex',alignItems:'center',gap:5,flex:1,minWidth:130}}>
-              <input type="number" min="0" max="3600" placeholder={lang==='de'?'Manuell (s)':'Custom (s)'}
-                style={{flex:1,padding:'5px 10px',fontSize:12,borderRadius:20,height:32,textAlign:'center'}}
-                value={[0,60,90,120,150,180,240,300].includes(info.timeLimit||0)?'':info.timeLimit||''}
-                onChange={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0)sI('timeLimit',v);}}/>
-              <span style={{fontSize:11,color:'var(--dim)',flexShrink:0}}>s</span>
-            </div>
-          </div>
+          <TimePicker value={info.timeLimit||0} onChange={v=>sI('timeLimit',v||0)}/>
           {numSt>1&&(
-            <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
+            <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
               <div className="lbl">⏱ {lang==='de'?'Zeitlimit pro Stage (überschreibt Standard)':'Time limit per stage (overrides default)'}</div>
-              {Array.from({length:numSt},(_,i)=>{
-                const n=i+1;
-                const val=info.stageLimits?.[n];
-                const preset=[0,60,90,120,150,180,240,300];
-                return(
-                  <div key={n} style={{display:'flex',alignItems:'center',gap:8}}>
-                    <div style={{fontSize:12,fontWeight:700,color:'var(--cor)',minWidth:54,flexShrink:0}}>Stage {n}</div>
-                    <div style={{display:'flex',gap:4,flex:1,flexWrap:'wrap'}}>
-                      {[null,...preset].map(s=>{
-                        const isActive=s===null?(val==null||val===undefined):(val===s);
-                        return(
-                          <button key={s??'def'} className={`chip${isActive?' active':''}`}
-                            style={{padding:'3px 9px',fontSize:11,justifyContent:'center'}}
-                            onClick={()=>{
-                              if(s===null){setStageLim(n,undefined);}
-                              else setStageLim(n,s);
-                              SFX.hover();
-                            }}>
-                            {s===null?(lang==='de'?'Standard':'Default'):s===0?(lang==='de'?'Kein':'None'):fmtMs(s*1000).slice(0,-4)}
-                          </button>
-                        );
-                      })}
-                      <input type="number" min="0" max="3600"
-                        placeholder={lang==='de'?'Manuell':'Custom'}
-                        style={{width:80,padding:'3px 8px',fontSize:11,borderRadius:20,height:28,textAlign:'center'}}
-                        value={val!=null&&!preset.includes(val)?val:''}
-                        onChange={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0)setStageLim(n,v);}}/>
+              <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(numSt,2)},1fr)`,gap:12}}>
+                {Array.from({length:numSt},(_,i)=>{
+                  const n=i+1;
+                  return(
+                    <div key={n} style={{display:'flex',flexDirection:'column',gap:6}}>
+                      <div style={{fontSize:12,fontWeight:700,color:'var(--cor)',textAlign:'center'}}>Stage {n}</div>
+                      <TimePicker value={info.stageLimits?.[n]} onChange={v=>setStageLim(n,v)} allowDefault/>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
