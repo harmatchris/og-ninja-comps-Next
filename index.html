@@ -418,6 +418,7 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
     for(let i=0;i<rows.length;i++){const r=rows[i].getBoundingClientRect();if(y<r.top+r.height/2)return i;}
     return rows.length;
   };
+  // Desktop drag
   const onCOver=e=>{e.preventDefault();e.dataTransfer.dropEffect='move';setInsertAt(getInsertIdx(e.clientY));};
   const onCDrop=e=>{
     e.preventDefault();
@@ -427,8 +428,22 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
     if(to!==from){const a=[...items];const[m]=a.splice(from,1);a.splice(to,0,m);onReorder(a);SFX.click();}
     dragIdx.current=null;setInsertAt(null);
   };
+  // Touch drag (mobile)
+  const onItemTouchStart=(idx,e)=>{dragIdx.current=idx;setInsertAt(idx);};
+  const onItemTouchMove=(e)=>{
+    if(dragIdx.current===null)return;
+    try{e.preventDefault();}catch(x){}
+    setInsertAt(getInsertIdx(e.touches[0].clientY));
+  };
+  const onItemTouchEnd=()=>{
+    const from=dragIdx.current;let to=insertAt;
+    dragIdx.current=null;setInsertAt(null);
+    if(from===null||to===null)return;
+    if(to>from)to--;
+    if(to!==from){const a=[...items];const[m]=a.splice(from,1);a.splice(to,0,m);onReorder(a);SFX.click();}
+  };
   const showLine=i=>insertAt===i&&dragIdx.current!==null&&insertAt!==dragIdx.current&&insertAt!==dragIdx.current+1;
-  const Line=({i})=><div style={{height:showLine(i)?4:6,background:showLine(i)?'var(--cor)':'transparent',borderRadius:3,boxShadow:showLine(i)?'0 0 10px rgba(255,94,58,.7)':'none',margin:showLine(i)?'0 4px':'0 4px',transition:'height .08s,background .08s,box-shadow .08s'}}/>;
+  const Line=({i})=><div style={{height:showLine(i)?4:6,background:showLine(i)?'var(--cor)':'transparent',borderRadius:3,boxShadow:showLine(i)?'0 0 10px rgba(255,94,58,.7)':'none',margin:'0 4px',transition:'height .08s,background .08s,box-shadow .08s'}}/>;
   return(
     <div ref={containerRef} style={{display:'flex',flexDirection:'column'}}
       onDragOver={onCOver} onDrop={onCDrop}
@@ -439,8 +454,11 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
           <div data-drag-item draggable
             onDragStart={e=>{dragIdx.current=i;e.dataTransfer.effectAllowed='move';}}
             onDragEnd={()=>{dragIdx.current=null;setInsertAt(null);}}
+            onTouchStart={e=>onItemTouchStart(i,e)}
+            onTouchMove={onItemTouchMove}
+            onTouchEnd={onItemTouchEnd}
             className="sh-card"
-            style={{opacity:dragIdx.current===i?.35:1,transition:'opacity .15s'}}>
+            style={{opacity:dragIdx.current===i?.35:1,transition:'opacity .15s',touchAction:'none'}}>
             {renderItem(item,i)}
           </div>
           <Line i={i+1}/>
@@ -934,6 +952,19 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     await fbRemove(`ogn/${compId}/activeRuns`);
     SFX.complete();setShowRestart(false);
   };
+  const handleStageReset=async(stN,catId)=>{
+    const pin=window.prompt(lang==='de'?`PIN für Stage-${stN}-Reset eingeben:`:`Enter PIN to reset Stage ${stN}:`);
+    if(pin===null)return;
+    if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
+    if(!window.confirm(lang==='de'?`Stage ${stN} (${IGN_CATS.find(c=>c.id===catId)?.name.de||catId}) wirklich zurücksetzen?\nAlle Läufe dieser Stage werden gelöscht.`:`Really reset Stage ${stN}?\nAll runs for this stage will be deleted.`))return;
+    if(completedRuns){
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>r.stNum===stN||(r.catId===catId&&!r.stNum));
+      const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});
+      if(Object.keys(updates).length)await db.ref().update(updates);
+    }
+    await fbRemove(`ogn/${compId}/activeRuns/${stN}`);
+    SFX.complete();
+  };
   const handleQuickAddAth=async()=>{
     if(!quickAth.name.trim())return;
     setAddingAth(true);
@@ -1013,6 +1044,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
                     :<div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>Kategorie wählen → Stage starten</div>}
                 </div>
                 <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowQR(showQR===n?null:n)}><I.QR s={15}/></button>
+                {st.cat&&<button className="btn btn-ghost" style={{padding:'7px',color:'rgba(255,120,60,.7)',borderColor:'rgba(255,100,40,.2)'}} title={lang==='de'?`Stage ${n} zurücksetzen (PIN)`:`Reset Stage ${n} (PIN)`} onClick={()=>handleStageReset(n,st.cat)}>🔄</button>}
               </div>
               {/* QR panel */}
               {showQR===n&&(
