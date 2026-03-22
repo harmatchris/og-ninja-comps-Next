@@ -150,7 +150,7 @@ select option{background:#1A1A2C;}
 </style>
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0B0B14;color:#fff;font-family:sans-serif;flex-direction:column;gap:12px"><div style="font-size:42px">🥷</div><div style="font-size:14px;opacity:.5">Lädt…</div></div></div>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback,useContext,createContext}=React;
 
@@ -214,7 +214,17 @@ const useLang=()=>{const lang=useContext(LangCtx);const t=useCallback(k=>T[lang]
 let _ac=null;
 const ac=()=>{if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;};
 const tone=(freq,dur,vol=.1,type='sine',delay=0)=>{try{const ctx=ac(),o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=5000;o.connect(f);f.connect(g);g.connect(ctx.destination);o.type=type;o.frequency.value=freq;const t=ctx.currentTime+delay;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.start(t);o.stop(t+dur+.01);}catch(e){}};
-const SFX={hover:()=>tone(1800,.02,.025),click:()=>{tone(440,.04,.08,'triangle');tone(330,.07,.04,'triangle',.02);},checkpoint:()=>{tone(523,.1,.16);tone(659,.1,.12,'sine',.1);tone(784,.2,.18,'sine',.2);},fall:()=>{tone(280,.12,.14,'sawtooth');tone(160,.22,.09,'sawtooth',.1);},countdown:cb=>{tone(880,.07,.16,'sine',0);tone(880,.07,.16,'sine',.5);tone(880,.07,.16,'sine',1);tone(1100,.8,.22,'sine',1.5);setTimeout(cb,2500);},complete:()=>{tone(523,.08,.18);tone(659,.08,.16,'sine',.1);tone(784,.1,.18,'sine',.2);tone(1047,.35,.2,'sine',.32);}};
+const SFX={hover:()=>tone(1800,.02,.025),click:()=>{tone(440,.04,.08,'triangle');tone(330,.07,.04,'triangle',.02);},checkpoint:()=>{tone(523,.1,.16);tone(659,.1,.12,'sine',.1);tone(784,.2,.18,'sine',.2);},fall:()=>{tone(280,.12,.14,'sawtooth');tone(160,.22,.09,'sawtooth',.1);},countdown:cb=>{
+  // Ski-race start: 3 prep beeps at 1-second intervals, then loud GO horn at 3s
+  tone(880,.09,.22,'sine',0);
+  tone(880,.09,.22,'sine',1.0);
+  tone(880,.09,.22,'sine',2.0);
+  // GO horn: combination for "buzzer" feel — louder, lower, longer
+  tone(440,.9,.34,'square',3.0);
+  tone(880,.18,.22,'sine',3.0);
+  // Timer starts exactly when GO fires
+  setTimeout(()=>cb(performance.now()),3000);
+},complete:()=>{tone(523,.08,.18);tone(659,.08,.16,'sine',.1);tone(784,.1,.18,'sine',.2);tone(1047,.35,.2,'sine',.32);}};
 
 // ── ICONS ─────────────────────────────────────────────────
 const I={
@@ -487,16 +497,20 @@ const HomeView=({onOpen,lang,setLang})=>{
         {comps===undefined&&<Spinner/>}
         {comps!==undefined&&list.length===0&&<EmptyState icon="🥷" text={t('noComps')}/>}
         {list.map((c,i)=>(
-          <button key={c.id} className="sh-card btn fade-up"
-            style={{padding:16,textAlign:'left',flexDirection:'row',gap:14,width:'100%',animationDelay:`${i*.06}s`,cursor:'pointer'}}
+          <div key={c.id} className="sh-card fade-up"
+            style={{padding:16,display:'flex',flexDirection:'row',alignItems:'center',gap:14,width:'100%',animationDelay:`${i*.06}s`,cursor:'pointer',transition:'background .18s,border-color .18s'}}
             onClick={()=>{SFX.click();onOpen(c.id);}}>
             <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🥷</div>
             <div style={{flex:1,textAlign:'left'}}>
               <div style={{fontWeight:800,fontSize:15,letterSpacing:'-.2px'}}>{c.info?.name||'Wettkampf'}</div>
               <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` · ${c.info.location}`:''}</div>
             </div>
-            <div style={{fontSize:10,fontFamily:'JetBrains Mono',padding:'2px 8px',borderRadius:8,background:'rgba(255,94,58,.12)',color:'var(--cor)',letterSpacing:'.1em',alignSelf:'center'}}>{c.id}</div>
-          </button>
+            <div style={{fontSize:10,fontFamily:'JetBrains Mono',padding:'2px 8px',borderRadius:8,background:'rgba(255,94,58,.12)',color:'var(--cor)',letterSpacing:'.1em'}}>{c.id}</div>
+            <button style={{background:'none',border:'none',cursor:'pointer',padding:'6px',display:'flex',flexShrink:0,borderRadius:8,transition:'background .15s'}}
+              onClick={e=>{e.stopPropagation();if(window.confirm(`"${c.info?.name||c.id}" wirklich löschen?\n\nAlle Daten (Athleten, Läufe, Ergebnisse) werden permanent gelöscht.`)){fbRemove(`ogn/${c.id}`);SFX.fall();}}}>
+              <I.Trash s={14} c="rgba(255,59,48,.45)"/>
+            </button>
+          </div>
         ))}
       </div>
     </div>
@@ -666,18 +680,32 @@ const JuryCountdown=({onGo})=>{
   const {lang}=useLang();
   const [count,setCount]=useState(3);const [go,setGo]=useState(false);
   useEffect(()=>{
-    SFX.countdown(()=>{setGo(true);setTimeout(onGo,500);});
-    const t1=setTimeout(()=>setCount(2),500),t2=setTimeout(()=>setCount(1),1000),t3=setTimeout(()=>setCount(0),1500);
+    // countdown(cb) now calls cb(goTime) exactly when GO tone fires at 3s
+    SFX.countdown(goTime=>{setGo(true);onGo(goTime);});
+    // Tick display at 1-second intervals matching the beeps
+    const t1=setTimeout(()=>setCount(2),1000),
+          t2=setTimeout(()=>setCount(1),2000),
+          t3=setTimeout(()=>setCount(0),3000);
     return()=>{clearTimeout(t1);clearTimeout(t2);clearTimeout(t3);};
   },[]);
   return(
-    <div style={{position:'fixed',inset:0,background:'rgba(11,11,20,.95)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:18,zIndex:200}}>
-      <div className="timer-grad" style={{fontSize:go?120:180,letterSpacing:'-6px',animation:'scaleIn .15s ease',lineHeight:1}}>
-        {go?'GO!':(count===0?'GO!':count)}
+    <div style={{position:'fixed',inset:0,background:'rgba(11,11,20,.97)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:18,zIndex:200}}>
+      <div key={go?'go':count} className="timer-grad" style={{fontSize:go?100:172,letterSpacing:'-6px',animation:'scaleIn .3s cubic-bezier(.16,1,.3,1)',lineHeight:1}}>
+        {go||count===0?'GO!':(count)}
       </div>
       <div style={{fontSize:16,color:'rgba(255,255,255,.8)',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700}}>
-        {go?(lang==='de'?'LOS!':'GO!'):(lang==='de'?'Bereit machen…':'Get ready…')}
+        {go?(lang==='de'?'⚡ LOS!':'⚡ GO!'):(lang==='de'?'Bereit machen…':'Get ready…')}
       </div>
+      {!go&&(
+        <div style={{display:'flex',gap:10,marginTop:6}}>
+          {[3,2,1].map(n=>(
+            <div key={n} style={{width:10,height:10,borderRadius:'50%',
+              background:count<=n?'var(--cor)':'rgba(255,255,255,.15)',
+              boxShadow:count<=n?'0 0 8px var(--cor)':'none',
+              transition:'all .3s'}}/>
+          ))}
+        </div>
+      )}
       {go&&<div className="live-dot" style={{marginTop:4,width:14,height:14}}/>}
     </div>
   );
@@ -686,7 +714,7 @@ const JuryCountdown=({onGo})=>{
 // ════════════════════════════════════════════════════════════
 // JURY — ACTIVE RUN
 // ════════════════════════════════════════════════════════════
-const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,onComplete,onStop})=>{
+const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPerf:startPerfProp,onFall,onComplete,onStop})=>{
   const {lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -694,8 +722,16 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,
   const doneCPRef=useRef([]);
   const livesRef=useRef(lives);
   useEffect(()=>{livesRef.current=lives;},[lives]);
-  const [startPerf]=useState(()=>performance.now());
+  // startPerf comes from JuryApp — captured at the exact moment GO tone fired
+  const [startPerf]=useState(()=>startPerfProp!=null?startPerfProp:performance.now());
   const [startEpoch]=useState(()=>Date.now());
+  // Split time display after each CP
+  const [lastSplit,setLastSplit]=useState(null);
+  const [showSplit,setShowSplit]=useState(false);
+  const splitTimerRef=useRef();
+  // Protest / complaint flag
+  const [protested,setProtested]=useState(false);
+  useEffect(()=>{return()=>{if(splitTimerRef.current)clearTimeout(splitTimerRef.current);};},[]);
   const el=useTimer(true,startPerf);
   const [flash,setFlash]=useState(false);
   const hasLives=info.mode==='lives'||info.mode==='segliv';
@@ -728,19 +764,24 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,
     const t=Math.round(performance.now()-startPerf);
     const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:t}];
     doneCPRef.current=nd;setDoneCP(nd);
-    if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives}),400);
+    // Show split time for 3.5s
+    setLastSplit({name:nextCp.name,time:t,idx:nd.length,total:cpObst.length});
+    setShowSplit(true);
+    if(splitTimerRef.current)clearTimeout(splitTimerRef.current);
+    splitTimerRef.current=setTimeout(()=>setShowSplit(false),3500);
+    if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives,protested}),400);
   };
   const handleFall=()=>{
     SFX.fall();
     const elapsed=Math.round(performance.now()-startPerf);
     const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
-    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx});
+    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested});
   };
   const handleStop=()=>{
     SFX.fall();
     const elapsed=Math.round(performance.now()-startPerf);
     const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
-    onStop({doneCP,time:lct,currentTime:elapsed,lives,reason:'stopped'});
+    onStop({doneCP,time:lct,currentTime:elapsed,lives,reason:'stopped',protested});
   };
 
   return(
@@ -776,6 +817,19 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,
           )}
         </div>
       </div>
+
+      {/* Split time flash after each CP */}
+      {showSplit&&lastSplit&&(
+        <div style={{margin:'0 16px 6px',padding:'10px 16px',borderRadius:14,
+          background:'rgba(52,199,89,.1)',border:'1px solid rgba(52,199,89,.3)',
+          display:'flex',justifyContent:'space-between',alignItems:'center',
+          animation:'fadeUp .22s ease'}}>
+          <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>
+            ✓ {lastSplit.name} · CP {lastSplit.idx}/{lastSplit.total}
+          </div>
+          <div className="timer-grad" style={{fontSize:20}}>{fmtMs(lastSplit.time)}</div>
+        </div>
+      )}
 
       {/* CP pills track with fall indicators */}
       <div style={{padding:'4px 16px 8px'}}>
@@ -813,6 +867,13 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,
               🛑 {lang==='de'?'Abbrechen':'Stop run'}
             </button>
           </div>
+          <button className="btn btn-ghost" style={{width:'100%',padding:10,fontSize:12,gap:6,
+            ...(protested?{background:'rgba(255,200,0,.12)',color:'var(--gold)',borderColor:'rgba(255,200,0,.35)'}:{})}}
+            onClick={()=>{setProtested(p=>!p);SFX.hover();}}>
+            🚩 {protested
+              ?(lang==='de'?'Reklamation gesetzt – nochmal drücken zum aufheben':'Protest marked – tap to remove')
+              :(lang==='de'?'Reklamation markieren':'Mark protest')}
+          </button>
         </div>
       )}
 
@@ -999,6 +1060,12 @@ const JuryDone=({athlete,result,cat,onNext})=>{
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="lbl">{t('official')}</div><div className="timer-grad" style={{fontSize:32}}>{fmtMs(result.finalTime)}</div></div>
         <div style={{display:'flex',justifyContent:'space-between'}}><div className="lbl">{t('allCPs')}</div><div style={{fontWeight:700,fontSize:15}}>{result.doneCP?.length||0} / {result.totalCPs||'?'} CPs</div></div>
         <div style={{display:'flex',justifyContent:'space-between'}}><div className="lbl">Status</div><div style={{fontWeight:700,color:statusColor}}>{statusLabel}</div></div>
+        {result.protested&&(
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0 0',borderTop:'1px solid var(--border)',marginTop:4}}>
+            <div className="lbl">🚩 {lang==='de'?'Reklamation':'Protest'}</div>
+            <div style={{fontSize:12,color:'var(--gold)',fontWeight:700}}>{lang==='de'?'Markiert – bitte prüfen':'Marked – please review'}</div>
+          </div>
+        )}
       </div>
       <button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15,gap:8}} onClick={onNext}><I.ChevR s={16}/> {t('nextAth')}</button>
     </div>
@@ -1049,7 +1116,7 @@ const ResultsView=({compId,athletes})=>{
             {ranked[0]&&(()=>{const a=athMap[ranked[0].athleteId]||{name:ranked[0].athleteName||'?',num:'?'};return(
               <div className="winner-card">
                 <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8,fontWeight:600}}>🥇 Platz 1</div>
-                <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px'}}>{a.name}</div>
+                <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px'}}>{a.name}{ranked[0].protested&&<span style={{marginLeft:8,fontSize:14}}>🚩</span>}</div>
                 <div className="timer-grad" style={{fontSize:28,marginTop:6}}>{fmtMs(ranked[0].finalTime)}</div>
                 <div style={{fontSize:11,color:'var(--muted)',marginTop:4}}>{ranked[0].doneCP?.length||0} / {ranked[0].totalCPs||'?'} CPs · #{a.num}</div>
               </div>
@@ -1057,7 +1124,7 @@ const ResultsView=({compId,athletes})=>{
             {ranked.slice(1).map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
               <div key={r.athleteId} className="sh-card fade-up" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
                 <div style={{width:30,height:30,borderRadius:'50%',flexShrink:0,background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'var(--muted)'}}>{i<2?medals[i+1]:i+2}</div>
-                <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{a.name}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>#{a.num} · {r.doneCP?.length||0} CPs</div></div>
+                <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{a.name}{r.protested&&<span style={{marginLeft:6,fontSize:11}}>🚩</span>}</div><div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>#{a.num} · {r.doneCP?.length||0} CPs</div></div>
                 <div className="timer-grad" style={{fontSize:15}}>{r.finalTime?fmtMs(r.finalTime):t('dnf')}</div>
               </div>
             );})}
@@ -1087,6 +1154,7 @@ const JuryApp=({compId,stNum,onBack})=>{
   const [activeFalls,setActiveFalls]=useState([]); // committed falls in current run
   const [doneResult,setDoneResult]=useState(null);
   const [lives,setLives]=useState(3);
+  const [goTime,setGoTime]=useState(null); // performance.now() captured when GO horn fires
   useEffect(()=>{if(info)setLives(info.lives||3);},[info?.lives]);
 
   if(!info||obstacles===undefined)return(
@@ -1138,8 +1206,9 @@ const JuryApp=({compId,stNum,onBack})=>{
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
 
-  const handleStart=ath=>{setCurrentAth(ath);setLives(info.lives||3);setActiveFalls([]);setPhase('countdown');};
-  const handleGo=()=>setPhase('active');
+  const handleStart=ath=>{setCurrentAth(ath);setLives(info.lives||3);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
+  // goTime = performance.now() at the exact moment the GO horn fired — used as timer origin
+  const handleGo=(gt)=>{setGoTime(gt);setPhase('active');};
   // Fall: show modal overlay — JuryActive stays mounted, timer keeps running
   const handleFall=data=>{if(fallModal||stopModal)return;setFallModal(data);};
   const handleStop=data=>{if(fallModal||stopModal)return;setStopModal(data);};
@@ -1157,24 +1226,24 @@ const JuryApp=({compId,stNum,onBack})=>{
   const handleFallConfirm=async({selCount,time})=>{
     const corrected=(fallModal.doneCP||[]).slice(0,selCount);
     const finalFalls=[...activeFalls,{obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime}];
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,status:'fall',timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,protested:fallModal.protested||false,status:'fall',timestamp:Date.now()};
     await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleStopConfirm=async({selCount,time})=>{
     const corrected=(stopModal.doneCP||[]).slice(0,selCount);
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,status:stopModal.reason||'dnf',timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:stopModal.reason||'dnf',timestamp:Date.now()};
     await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleComplete=async data=>{
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,status:'complete',timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,protested:data.protested||false,status:'complete',timestamp:Date.now()};
     await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setDoneResult(result);setPhase('done');
   };
-  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setLives(info.lives||3);};
+  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setLives(info.lives||3);setGoTime(null);};
   const inRun=phase==='active'||phase==='countdown';
 
   const juryContent=(()=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
-    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
+    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} startPerf={goTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext}/>;
     return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId}/>;
   })();
