@@ -388,6 +388,7 @@ const I={
   XCircle:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
   CheckCircle:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   ArrowLeft:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  Edit:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
 };
 
 // ── HOOKS ─────────────────────────────────────────────────
@@ -966,7 +967,31 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const [showAddAth,setShowAddAth]=useState(false);
   const [quickAth,setQuickAth]=useState({name:'',num:'',cat:'am1',gender:'m',country:'',team:'',photo:null});
   const [addingAth,setAddingAth]=useState(false);
+  const [editObsStage,setEditObsStage]=useState(null);
+  const [localObs,setLocalObs]=useState([]);
+  const [newObsName,setNewObsName]=useState('');
   if(!info)return<Spinner/>;
+  const openObsEdit=(n)=>{
+    const stObs=stages?.[n]?.obstacles;
+    const src=stObs
+      ?Object.values(stObs).sort((a,b)=>a.order-b.order)
+      :(obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[...DEF_OBS]);
+    setLocalObs(src.map(o=>({...o})));
+    setEditObsStage(n);setNewObsName('');
+  };
+  const saveObsEdit=async()=>{
+    const om={};localObs.forEach((o,idx)=>{om[o.id]={...o,order:idx};});
+    await fbSet(`ogn/${compId}/stages/${editObsStage}/obstacles`,om);
+    setEditObsStage(null);SFX.complete();
+  };
+  const addLocalObs=()=>{
+    const name=newObsName.trim();if(!name)return;
+    setLocalObs(obs=>[...obs,{id:uid(),name,isCP:true,order:obs.length}]);
+    setNewObsName('');
+  };
+  const moveObs=(idx,dir)=>{
+    setLocalObs(obs=>{const a=[...obs];const ti=idx+dir;if(ti<0||ti>=a.length)return obs;[a[idx],a[ti]]=[a[ti],a[idx]];return a;});
+  };
   const handleRestart=async()=>{
     if(!window.confirm(lang==='de'?`Alle Läufe von "${info.name}" löschen und Wettkampf neu starten?\n\nDie Athleten-Liste und Hindernisse bleiben erhalten.`:`Delete all runs from "${info.name}" and restart?\n\nAthletes and obstacles are kept.`))return;
     await fbRemove(`ogn/${compId}/completedRuns`);
@@ -1064,6 +1089,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
                      </div>
                     :<div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>Kategorie wählen → Stage starten</div>}
                 </div>
+                <button className="btn btn-ghost" style={{padding:'7px',color:editObsStage===n?'var(--cor)':'currentColor',borderColor:editObsStage===n?'rgba(255,94,58,.4)':'var(--border)'}} title={lang==='de'?`Stage ${n} Hindernisse bearbeiten`:`Edit Stage ${n} obstacles`} onClick={()=>editObsStage===n?setEditObsStage(null):openObsEdit(n)}><I.Edit s={14} c={editObsStage===n?'var(--cor)':'currentColor'}/></button>
                 <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowQR(showQR===n?null:n)}><I.QR s={15}/></button>
                 {st.cat&&<button className="btn btn-ghost" style={{padding:'7px',color:'rgba(255,120,60,.7)',borderColor:'rgba(255,100,40,.2)'}} title={lang==='de'?`Stage ${n} zurücksetzen (PIN)`:`Reset Stage ${n} (PIN)`} onClick={()=>handleStageReset(n,st.cat)}><I.RefreshCw s={14} c="rgba(255,120,60,.7)"/></button>}
               </div>
@@ -1090,6 +1116,32 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
                 onClick={()=>{SFX.click();onStage(n);}}>
                 <I.Play s={16}/> Stage {n} starten
               </button>
+              {/* ── Inline obstacle editor ── */}
+              {editObsStage===n&&(
+                <div className="scale-in" style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:7}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
+                    <div className="lbl">{lang==='de'?'Hindernisse bearbeiten':'Edit obstacles'}</div>
+                    <div style={{fontSize:11,color:'var(--muted)'}}>{localObs.length} · {localObs.filter(o=>o.isCP).length} CPs</div>
+                  </div>
+                  {localObs.map((o,idx)=>(
+                    <div key={o.id} style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.03)',borderRadius:8,padding:'4px 6px'}}>
+                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',fontSize:14,lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv — klicken zum deaktivieren':'Kein CP — klicken zum aktivieren'}>{o.isCP?'🎯':'◯'}</button>
+                      <input value={o.name} onChange={e=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,name:e.target.value}:x))} style={{flex:1,padding:'4px 7px',fontSize:12,borderRadius:7,minWidth:0}}/>
+                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===0?.25:1}} onClick={()=>moveObs(idx,-1)} disabled={idx===0}>↑</button>
+                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===localObs.length-1?.25:1}} onClick={()=>moveObs(idx,1)} disabled={idx===localObs.length-1}>↓</button>
+                      <button style={{background:'rgba(255,59,48,.1)',border:'none',borderRadius:6,padding:'3px 7px',color:'var(--red)',cursor:'pointer',fontSize:11,flexShrink:0}} onClick={()=>setLocalObs(obs=>obs.filter((_,i)=>i!==idx))}><I.X s={11} c="var(--red)"/></button>
+                    </div>
+                  ))}
+                  <div style={{display:'flex',gap:6,borderTop:'1px solid var(--border)',paddingTop:8,marginTop:1}}>
+                    <input value={newObsName} onChange={e=>setNewObsName(e.target.value)} placeholder={lang==='de'?'Neues Hindernis…':'New obstacle…'} style={{flex:1,padding:'6px 10px',fontSize:12,borderRadius:8}} onKeyDown={e=>{if(e.key==='Enter')addLocalObs();}}/>
+                    <button className="btn btn-ghost" style={{padding:'6px 11px',fontSize:12,gap:4,flexShrink:0}} onClick={addLocalObs}><I.Plus s={12}/>{lang==='de'?'Hinzu':'Add'}</button>
+                  </div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="btn btn-coral" style={{flex:1,padding:'10px',fontSize:13,gap:6}} onClick={saveObsEdit}><I.Check s={13}/>{lang==='de'?'Speichern':'Save'}</button>
+                    <button className="btn btn-ghost" style={{padding:'10px 14px',fontSize:12}} onClick={()=>setEditObsStage(null)}>{lang==='de'?'Abbrechen':'Cancel'}</button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
