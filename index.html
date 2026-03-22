@@ -152,6 +152,12 @@ select option{background:#1A1A2C;}
 .rw-body{padding:0 16px 16px;font-size:13px;color:var(--muted);line-height:1.75;}
 .rw-body p{margin-bottom:8px;}
 .rw-body strong{color:rgba(255,255,255,.7);}
+.rw-body mark{background:rgba(255,200,0,.35);color:#fff;border-radius:2px;padding:0 1px;}
+.rw-search-bar{position:sticky;top:56px;z-index:40;background:rgba(11,11,20,.97);
+  backdrop-filter:blur(12px);padding:10px 16px;border-bottom:1px solid var(--border);}
+.rw-match-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
+  border-radius:10px;font-size:10px;font-weight:700;background:rgba(255,200,0,.15);
+  color:var(--gold);border:1px solid rgba(255,200,0,.25);}
 </style>
 </head>
 <body>
@@ -195,16 +201,133 @@ const MODES={classic:{id:'classic',name:{de:'Classic',en:'Classic'}},segment:{id
 const DEF_OBS=[{id:'o1',name:'Warped Wall',isCP:true,order:0},{id:'o2',name:'Quintuple Steps',isCP:true,order:1},{id:'o3',name:'Spider Flip',isCP:true,order:2},{id:'o4',name:'Rolling Log',isCP:true,order:3},{id:'o5',name:'Cannonball Alley',isCP:true,order:4},{id:'o6',name:'Cargo Net',isCP:true,order:5},{id:'o7',name:'Lache Leap',isCP:true,order:6},{id:'o8',name:'Mega Wall',isCP:true,order:7}];
 
 const REGELWERK_DE=[
-  {nr:'1',title:'Allgemeines & Wettkampf',color:'#FF5E3A',content:`<p><strong>1.1 Veranstalter</strong> – Verantwortlich für sichere Durchführung, Hindernisse und Regelwerk-Einhaltung.</p><p><strong>1.2 Jury</strong> – Jede Station mind. eine Jury-Person für Zeitnahme und Checkpoint-Beurteilung.</p><p><strong>1.3 Protest</strong> – Innerhalb 15 Min. schriftlich. Gebühr CHF 20, bei berechtigtem Protest zurückerstattet.</p><p><strong>1.4 Ausrüstung</strong> – Geschlossene Schuhe Pflicht. Chalk erlaubt.</p>`},
-  {nr:'2',title:'Startsignal & Zeitnahme',color:'#0A84FF',content:`<p><strong>2.1 Startsignal</strong> – Drei kurze Töne (Beep-Beep-Beep) dann langer Ton (BEEEEP). Timer startet mit dem langen Ton.</p><p><strong>2.2 Frühstart</strong> – Lauf ungültig, Neustart möglich. Drei Frühstarts = Disqualifikation.</p><p><strong>2.3 LK1</strong> – Digitale Zeitmessung auf Millisekunden (MM:SS.mmm) verpflichtend.</p><p><strong>2.4 LK2</strong> – Stoppuhr auf Zehntelsekunden ausreichend.</p>`},
-  {nr:'3',title:'Checkpointsystem',color:'#30D158',content:`<p><strong>3.1 Definition</strong> – Stabiles Halten mind. 1 Sekunde ohne Vor-/Rückwärtsbewegung.</p><p><strong>3.2 Markieren</strong> – Jury markiert sobald stabile Halteposition erreicht.</p><p><strong>3.3 Fall</strong> – Zeit beim letzten gehaltenen CP gilt als offizielle Zeit.</p><p><strong>3.4 Gleichstand</strong> – Bei gleichem letzten CP entscheidet kürzere Zeit zum CP.</p><p><strong>3.5 Vollendung</strong> – Ziellinie überquert → Gesamtzeit gilt.</p>`},
-  {nr:'4',title:'Hindernisregeln',color:'#BF5AF2',content:`<p><strong>4.1 Reihenfolge</strong> – Hindernisse in festgelegter Reihenfolge.</p><p><strong>4.2 Überspringen</strong> – Annullierung ab diesem Punkt.</p><p><strong>4.3 Bodenkontakt</strong> – Berührt Athlet zwischen Hindernissen den Boden = Fall (Ausnahme: definierte Bodenbereiche).</p><p><strong>4.4 Externe Hilfe</strong> – Disqualifikation des Versuchs.</p>`},
-  {nr:'5',title:'Kategorien & LK',color:'#FF9F0A',content:`<p>• <strong>Bambinis</strong> 5–7 J. (gemischt) • <strong>Kids</strong> 8–11 (M/W) × LK1/LK2 • <strong>Teens</strong> 12–15 (M/W) × LK1/LK2 • <strong>Adults</strong> 16–39 (M/W) × LK1/LK2 • <strong>Masters</strong> 40+ (M/W)</p><p><strong>LK1</strong> – Erfahrene Athleten, digitale Zeitmessung Pflicht. <strong>LK2</strong> – Einsteiger. <strong>Aufstieg</strong> nach 3 Podiumsplätzen in LK2 verpflichtend.</p>`},
-  {nr:'6',title:'Wertung & Rangliste',color:'#64D2FF',content:`<p><strong>6.1 Primär</strong> – Anzahl abgeschlossener Checkpoints (absteigend).</p><p><strong>6.2 Sekundär</strong> – Zeit (aufsteigend). <strong>6.3 DNF</strong> – Kein Hindernis absolviert. <strong>6.4 DSQ</strong> – Keine Wertung.</p>`},
-  {nr:'7',title:'Leben-Modus',color:'#FF6B6B',content:`<p><strong>7.1 Anzahl</strong> – Veranstalter legt fest (Standard: 3).</p><p><strong>7.2 Abzug</strong> – Fall = ein Leben weniger, Segment-Neustart. <strong>7.3 Aufgebraucht</strong> – Segment endet, beste Zeit (weitester CP, kürzeste Zeit) gilt.</p>`},
-  {nr:'8',title:'Segment Race',color:'#5AC8FA',content:`<p><strong>8.1</strong> Segmente: Start- bis nächste Landeplattform. <strong>8.2</strong> Nur Segment-Zeit gemessen. <strong>8.3 Wertung</strong> – Primär: abgeschlossene Segmente, Sekundär: Gesamtzeit.</p>`},
+  {nr:'P',title:'Präambel',color:'#FF9F0A',content:`
+    <p><strong>Zweck</strong> – Die IGN (Interessengemeinschaft Ninja-Sport) fördert den Ninja-Sport im deutschsprachigen Raum durch einheitliche Wettkampfregeln, die Fairness, Sicherheit und sportlichen Geist gewährleisten.</p>
+    <p><strong>Gültigkeit</strong> – Dieses Regelwerk Version 2026 gilt für alle IGN-Wettkämpfe ab der Saison 2026. Es ersetzt alle früheren Versionen.</p>
+    <p><strong>Grundsätze</strong> – Ninja-Sport verbindet Kraft, Geschicklichkeit, Ausdauer und mentale Stärke. Die IGN bekennt sich zu inklusivem Sport für alle Altersgruppen und Leistungsniveaus.</p>
+    <p><strong>Änderungen</strong> – Regeländerungen werden durch den IGN-Vorstand beschlossen und mindestens 30 Tage vor Saisonbeginn schriftlich kommuniziert. Dringende Sicherheitsänderungen können sofort in Kraft treten.</p>
+    <p><strong>Sprachregelung</strong> – Bei Widersprüchen zwischen Übersetzungen gilt die deutsche Fassung als massgeblich.</p>
+  `},
+  {nr:'1',title:'Wettkampf-Durchführung',color:'#FF5E3A',content:`
+    <p><strong>1.1 Veranstalter</strong> – Jeder Verein oder Organisation kann mit IGN-Zulassung einen Wettkampf ausrichten. Der Veranstalter ist verantwortlich für die sichere Durchführung, die Hindernisse und die Einhaltung des Regelwerks. Die Zulassung muss mindestens 4 Wochen vor dem Wettkampf beantragt werden.</p>
+    <p><strong>1.2 Jury</strong> – Jede aktive Station benötigt mindestens eine ausgebildete Jury-Person für Zeitnahme und Checkpoint-Beurteilung. Bei LK1-Wettkämpfen werden zwei Jury-Personen pro Station empfohlen. Jury-Personen müssen neutral sein (kein Verwandtschaftsverhältnis zum startenden Athleten).</p>
+    <p><strong>1.3 Wettkampfrichter (WR)</strong> – Mindestens ein ausgebildeter WR pro Wettkampf. Der WR hat abschliessende Entscheidungskompetenz bei Regelunklarheiten und Protesten. WR-Entscheidungen nach Ablauf der Protestfrist sind endgültig und bindend.</p>
+    <p><strong>1.4 Protest / Reklamation</strong> – Athleten oder ihre Betreuer können Reklamation einlegen. Frist: 15 Minuten nach Bekanntgabe des betreffenden Ergebnisses. Schriftliche Einreichung wird empfohlen, ist jedoch nicht zwingend erforderlich. Eine Schutzgebühr von CHF/EUR 20 ist zu entrichten; bei berechtigtem Protest wird diese zurückerstattet. Die Jury entscheidet innerhalb von 30 Minuten. Gegen WR-Entscheid ist kein weiterer Einspruch möglich.</p>
+    <p><strong>1.5 Ergebnisverwaltung</strong> – Die Wettkampfleitung muss alle Ergebnisse digital oder schriftlich festhalten. Ergebnisse werden nach Wettkampfende öffentlich bekannt gegeben, mindestens für 30 Minuten ausgehängt bzw. digital zugänglich gemacht.</p>
+    <p><strong>1.6 Ausrüstung</strong> – Geschlossene Sportschuhe sind Pflicht. Chalk (Magnesia) ist erlaubt. Handschuhe sind erlaubt, sofern keine Haftmittel verwendet werden. Schutzausrüstung (Knieschoner, Handgelenkschoner) ist auf eigenes Risiko erlaubt, sofern kein Vorteil entsteht.</p>
+    <p><strong>1.7 Wiegen / Altersnachweis</strong> – Der Veranstalter kann Alterskontrollen verlangen. Bei Kategorienstreitigkeiten gilt der Jahresgeburtstag.</p>
+  `},
+  {nr:'2',title:'Sicherheit',color:'#FF6B6B',content:`
+    <p><strong>2.1 Grundsätze</strong> – Sicherheit hat oberste Priorität. Bei unmittelbarer Gefahr kann jede Jury-Person oder der WR den Wettkampf sofort unterbrechen. Der Veranstalter haftet für die Sicherheit der Anlage.</p>
+    <p><strong>2.2 Matten und Landezonen</strong> – Unter und hinter allen Hindernissen mit Sturzrisiko müssen ausreichend dimensionierte Crashmatten (min. 20 cm dick) ausgelegt sein. Die Landezone muss frei von Hindernissen sein. Matten müssen fest liegen und dürfen sich nicht verschieben.</p>
+    <p><strong>2.3 Hindernissicherheit</strong> – Alle Hindernisse müssen vor dem Wettkampf auf Stabilität und Sicherheit geprüft werden (Belastungstest). Beschädigte Hindernisse sind sofort zu sperren. Hindernisse dürfen keine scharfen Kanten oder abstehenden Teile aufweisen.</p>
+    <p><strong>2.4 Athleten-Pflichten</strong> – Athleten müssen sich vor dem Start über die Hindernisse informieren (Walk-Through erlaubt). Athleten dürfen nicht starten, wenn sie verletzt sind. Athleten sind für ihre eigene Aufwärmung verantwortlich.</p>
+    <p><strong>2.5 Jury-Pflichten</strong> – Jury-Personen müssen den Lauf jederzeit unterbrechen können (Notfall-Signal vereinbaren). Jury darf einen Lauf bei akuter Verletzungsgefahr stoppen – die Zeit wird bis zum Stoppzeitpunkt gewertet. Bei Sturz mit Verletzung: Erste Hilfe hat Vorrang, Ergebnis wird gesondert gewertet.</p>
+    <p><strong>2.6 Spotter</strong> – Für riskante Hindernisse (grosse Höhe, Rotation) können Spotter eingesetzt werden. Spotter dürfen Athleten nicht aktiv unterstützen (kein physischer Kontakt), nur absichern.</p>
+    <p><strong>2.7 Bambinis (5–7 Jahre)</strong> – Bei der Bambini-Kategorie ist ein Elternteil oder Betreuer als Spotter Pflicht. Die Hindernisse müssen altersgerecht und sicher sein.</p>
+  `},
+  {nr:'3',title:'Wettkampfablauf',color:'#30D158',content:`
+    <p><strong>3.1 Startreihenfolge</strong> – Die Startreihenfolge wird vom Veranstalter festgelegt. Empfohlen wird eine Auslosung oder Anmeldungsreihenfolge. In der Finalrunde wird in umgekehrter Qualifikationsreihenfolge gestartet (Letzter zuerst).</p>
+    <p><strong>3.2 Aufwärmzeit</strong> – Den Athleten ist ausreichend Zeit für das Aufwärmen zu gewähren. Ein Walk-Through der Hindernisse (ohne Starten) muss vor dem Wettkampf ermöglicht werden. Mindestens 15 Minuten Aufwärmzeit vor dem ersten Start.</p>
+    <p><strong>3.3 Startaufruf</strong> – Athleten werden mindestens zweimal ausgerufen. Bei Nichterscheinen innerhalb von 2 Minuten nach drittem Aufruf: Lauf verfallen (DNS). Auf Antrag kann der WR Ausnahmen gewähren (Force Majeure).</p>
+    <p><strong>3.4 Versuch / Wiederholungsversuch</strong> – Jeder Athlet hat pro Wettkampfrunde einen Versuch, sofern vom Veranstalter nicht anders festgelegt. Ein Wiederholungsversuch kann gewährt werden bei: technischem Defekt eines Hindernisses, Einwirkung Dritter oder nachgewiesenem Jury-Fehler.</p>
+    <p><strong>3.5 Frühstart</strong> – Ein Athlet darf das erste Hindernis erst berühren, nachdem das Startsignal vollständig (GO-Ton) ertönt ist. Frühstart: Lauf ungültig, Neustart möglich. Zweiter Frühstart: Lauf ungültig, kein Neustart. Versuche die mit Frühstart beginnen werden nicht gewertet.</p>
+    <p><strong>3.6 Zuschauerpflichten</strong> – Zuschauer dürfen Athleten nicht anfeuern auf eine Weise, die andere Athleten oder die Jury beeinträchtigt. Das Betreten der Aktionsfläche durch Unbefugte ist verboten.</p>
+  `},
+  {nr:'4',title:'Ausschreibung',color:'#64D2FF',content:`
+    <p><strong>4.1 Pflichtangaben</strong> – Jede Wettkampfausschreibung muss enthalten: Datum und Ort, Kategorien, Wettkampfmodus, Hindernisliste, Zeitlimits, Anmeldefrist, Startgebühren, Preisgelder/Sachpreise (falls vorhanden), Kontaktdaten des Veranstalters.</p>
+    <p><strong>4.2 Anmeldefrist</strong> – Die Anmeldefrist muss mindestens 7 Tage vor dem Wettkampf enden. Nach Fristende können keine Anmeldungen mehr garantiert werden. Der Veranstalter kann eine Nachmeldeoption mit Aufpreis anbieten.</p>
+    <p><strong>4.3 Kategorienänderung</strong> – Athleten können bis 48 Stunden vor Wettkampfbeginn die Kategorie wechseln (einmalig, falls Kapazität vorhanden). Startgeld-Differenzen werden verrechnet.</p>
+    <p><strong>4.4 Absage</strong> – Muss der Veranstalter absagen, sind alle Startgebühren innerhalb von 14 Tagen zurückzuerstatten. Bei Absage durch Athleten gelten die Stornobedingungen des Veranstalters (max. 80 % Einbehalt).</p>
+    <p><strong>4.5 Datenschutz</strong> – Der Veranstalter ist verpflichtet, Athletendaten DSGVO-konform zu verarbeiten. Ergebnislisten mit Name und Kategorie dürfen öffentlich veröffentlicht werden.</p>
+  `},
+  {nr:'5',title:'Divisionen & Kategorien',color:'#FF9F0A',content:`
+    <p><strong>5.1 Übersicht</strong> – Die IGN kennt 15 Wettkampfkategorien, gegliedert nach Altersgruppe, Geschlecht und Leistungsklasse (LK1/LK2).</p>
+    <p><strong>5.2 Bambinis</strong> – Alter: 5–7 Jahre, gemischt (M+W). Keine LK-Einteilung. Angepasste Hindernisse zwingend. Kein Zeitlimit. Betreuer als Spotter Pflicht.</p>
+    <p><strong>5.3 Kids</strong> – Alter: 8–11 Jahre. Aufgeteilt in: Kids M LK1, Kids M LK2, Kids W LK1, Kids W LK2. Angepasste Hindernishöhen empfohlen.</p>
+    <p><strong>5.4 Teens</strong> – Alter: 12–15 Jahre. Aufgeteilt in: Teens M LK1, Teens M LK2, Teens W LK1, Teens W LK2.</p>
+    <p><strong>5.5 Adults</strong> – Alter: 16–39 Jahre. Aufgeteilt in: Adults M LK1, Adults M LK2, Adults W LK1, Adults W LK2. Höchste Wettkampfklasse.</p>
+    <p><strong>5.6 Masters</strong> – Alter: 40+ Jahre. Aufgeteilt in: Masters M (40+), Masters W (40+). Hindernisse können angepasst werden.</p>
+    <p><strong>5.7 Leistungsklassen</strong> – <strong>LK1</strong>: Erfahrene Athleten, digitale Zeitmessung auf Millisekunden (MM:SS.mmm) verpflichtend, anspruchsvollere Hindernisse. <strong>LK2</strong>: Einsteiger und Fortgeschrittene, Stoppuhr auf Zehntelsekunden ausreichend, zugänglichere Hindernisse.</p>
+    <p><strong>5.8 Aufstieg LK2 → LK1</strong> – Nach 3 Podiumsplätzen (Plätze 1–3) in LK2 innerhalb einer Saison ist der Aufstieg in LK1 für die Folgesaison verpflichtend. Freiwilliger Aufstieg ist jederzeit möglich.</p>
+    <p><strong>5.9 Altersberechnung</strong> – Massgeblich ist das Alter am Wettkampftag. Athleten an einem Geburtstag starten in der neuen Kategorie. Bei Altersüberschreitung mit Saisonbeginn können Athleten die aktuelle Saison in der bisherigen Kategorie beenden.</p>
+  `},
+  {nr:'6',title:'Wettkampfmodi',color:'#BF5AF2',content:`
+    <p><strong>6.1 Classic</strong> – Athlet durchläuft alle Hindernisse in vorgegebener Reihenfolge. Wertung: primär Anzahl absolvierter Checkpoints (absteigend), sekundär Zeit (aufsteigend). Ein Versuch pro Runde. Bei Fall endet der Lauf am letzten gehaltenen Checkpoint.</p>
+    <p><strong>6.2 Segment Race</strong> – Die Strecke ist in Segmente unterteilt (je nach Anlage 2–5 Segmente). Jedes Segment endet an einer Landeplattform. Pro Segment wird die Zeit einzeln gestoppt. Wertung: primär abgeschlossene Segmente, sekundär Gesamtzeit. Fällt ein Athlet innerhalb eines Segments, scheidet er aus diesem Segment aus; absolvierte Segmente bleiben gewertet.</p>
+    <p><strong>6.3 Classic + Leben (Lives)</strong> – Wie Classic, aber mit einer festgelegten Anzahl Leben (Standard: 3, vom Veranstalter wählbar: 1–5). Jeder Fall kostet ein Leben; der Lauf beginnt neu am letzten Segment-Start. Sind alle Leben aufgebraucht, endet der Lauf. Gewertet wird der beste erreichte Stand (weitester Checkpoint, kürzeste Zeit).</p>
+    <p><strong>6.4 Segment + Leben</strong> – Kombination: Segment Race mit Leben-System. Bei Fall innerhalb eines Segments wird ein Leben abgezogen und das Segment neu gestartet. Alle Leben weg = Segment endet, nächstes Segment entfällt.</p>
+    <p><strong>6.5 Finale-Optionen</strong> – Der Veranstalter kann ein separates Finale mit Top-N-Athleten ausschreiben. Im Finale kann ein anderer Modus als in der Qualifikation verwendet werden. Finale-Ergebnisse überschreiben Qualifikations-Ergebnisse für die Endrangliste.</p>
+  `},
+  {nr:'7',title:'Start- & Landeplattform',color:'#5AC8FA',content:`
+    <p><strong>7.1 Startplattform</strong> – Mindestmasse: 80 cm × 80 cm, rutschfeste Oberfläche. Mindesthöhe über Boden: 30 cm (empfohlen: 50–80 cm). Der Athlet muss vollständig auf der Startplattform stehen, bevor das Startsignal ertönt. Kein Momentum vor dem Startsignal erlaubt (kein Anlaufen, kein Vorlehnen).</p>
+    <p><strong>7.2 Landeplattform</strong> – Muss das Ende eines Segments klar markieren. Mindestmasse: 100 cm × 100 cm. Stabiles Stehen auf der Plattform beendet das Segment (mind. 1 Sekunde, keine Vorwärtsbewegung). Beim Segment-Start muss der Athlet vollständig auf der Plattform stehen.</p>
+    <p><strong>7.3 Bodenkontakt</strong> – Berührt der Athlet zwischen Hindernissen den Boden (ausserhalb definierter Laufbereiche), gilt dies als Fall. Ausnahmen: klar markierte Bodenbereiche zwischen Hindernissen (z.B. Sprungangang). Diese müssen in der Ausschreibung explizit genannt sein.</p>
+    <p><strong>7.4 Zieleinlauf</strong> – Das Ziel wird durch eine klar markierte Ziellinie oder -plattform definiert. Die Zeitmessung endet, wenn der Athlet die Ziellinie überquert (Körperschwerpunkt). Bei Segment Race endet das letzte Segment mit stabiler Position auf der Ziel-Landeplattform.</p>
+  `},
+  {nr:'8',title:'Hindernisse & Checkpoints',color:'#34C759',content:`
+    <p><strong>8.1 Hindernisreihenfolge</strong> – Alle Hindernisse müssen in der vorgegebenen Reihenfolge absolviert werden. Ein Hindernis gilt als absolviert, wenn der Athlet es vollständig durchlaufen/überwunden hat ohne Bodenkontakt (ausser erlaubte Bodenbereiche).</p>
+    <p><strong>8.2 Überspringen</strong> – Überspringt oder umgeht ein Athlet ein Hindernis, sind alle nachfolgenden Resultate ab diesem Hindernis annulliert. Der weiteste korrekt absolvierte Checkpoint bleibt gewertet.</p>
+    <p><strong>8.3 Wiederholung</strong> – Hindernisse dürfen nicht wiederholt werden (kein Zurückgehen). Ausnahme: Der WR kann bei technischem Defekt eines Hindernisses einen Neuversuch anordnen.</p>
+    <p><strong>8.4 Festhalten / Zusatz-Kontakt</strong> – Der Athlet darf nur an den vorgesehenen Griffen und Flächen festhalten. Festhalten an Konstruktionen, Seilen oder unvorgesehenen Teilen gilt als Disqualifikation des aktuellen Versuchs ab diesem Punkt.</p>
+    <p><strong>8.5 Externe Hilfe</strong> – Jede physische Unterstützung durch Dritte (Anfassen, Schieben, Stabilisieren) führt zur Disqualifikation des gesamten Laufs. Ausnahme: Sicherheits-Spotter in vorher festgelegtem Notfall-Szenario.</p>
+    <p><strong>8.6 Hindernisbeschädigung</strong> – Beschädigt ein Athlet absichtlich ein Hindernis oder verändert dessen Position, wird der Lauf disqualifiziert. Bei unbeabsichtigter Beschädigung entscheidet der WR.</p>
+    <p><strong>8.7 Wartezeit</strong> – Bleibt ein Athlet länger als 10 Sekunden an einem Hindernis stehen (kein Fortschritt), kann die Jury einen gelben Ton/Signal geben. Bei nochmaligem Stillstand: rotes Signal = Lauf wird beendet (Zeit zum letzten CP gewertet).</p>
+    <p><strong>8.8 Chalk / Magnesia</strong> – Die Benutzung von Chalk ist erlaubt. Übermässiger Chalk-Einsatz, der andere Athleten beeinträchtigt, kann gerügt werden. Liquid Chalk und Block Chalk sind beide erlaubt.</p>
+    <p><strong>8.9 Checkpointsystem</strong> – Ein Checkpoint (CP) ist eine definierte stabile Halteposition an einem Hindernis. <strong>Definition Stabiles Halten:</strong> Der Athlet hält mind. 1 Sekunde vollständig an der dafür vorgesehenen Position inne, ohne Vor- oder Rückwärtsbewegung. Die Jury bestätigt den CP durch Signal (Ton, Handzeichen oder App-Eingabe). Der zuletzt bestätigte CP gilt als Ausgangspunkt für die Zeitwertung bei Fall.</p>
+  `},
+  {nr:'9',title:'Zeitmessung',color:'#0A84FF',content:`
+    <p><strong>9.1 Allgemein</strong> – Die offizielle Zeit wird von der Jury gemessen. Bei Diskrepanz zwischen digitalem System und Stoppuhr gilt das digitale System (LK1) bzw. die Stoppuhr (LK2) als massgeblich. Die Zeit wird dem Athleten unmittelbar nach dem Lauf mitgeteilt.</p>
+    <p><strong>9.2 Startsignal</strong> – Das offizielle Startsignal besteht aus drei kurzen Vorbereitungstönen (Beep–Beep–Beep) in 1-Sekunden-Abständen, gefolgt von einem langen GO-Horn. <strong>Die Zeitmessung beginnt exakt mit dem GO-Horn.</strong> Der Athlet darf das erste Hindernis erst berühren, nachdem der GO-Horn ertönt hat. Ein akustisches System ist bei LK1 Pflicht; bei LK2 genügt auch ein manuelles Signal.</p>
+    <p><strong>9.3 LK1 Anforderungen</strong> – Digitale Zeitmessung auf Millisekunden (MM:SS.mmm) ist verpflichtend. Empfohlen: automatisches Timing-System (Lichtschranke oder App-gestützt). Manuelle Zeitmessung mit Millisekunden-Stoppuhr ist als Backup erlaubt.</p>
+    <p><strong>9.4 LK2 Anforderungen</strong> – Stoppuhr auf Zehntelsekunden (MM:SS.s) genügt. Digitale Zeitmessung empfohlen. Die Zeit wird auf die nächste Zehntelsekunde gerundet.</p>
+    <p><strong>9.5 Checkpoint-Zeitnahme</strong> – Bei LK1 wird die Zeit jedes bestätigten Checkpoints festgehalten (Zwischenzeit). Diese dient als Wertungsgrundlage bei Fall. Die Zwischenzeit läuft ab dem GO-Horn kontinuierlich; Checkpoints addieren sich nicht, sondern bilden Momentaufnahmen der laufenden Zeit.</p>
+    <p><strong>9.6 Zeitlimit</strong> – Der Veranstalter kann ein Zeitlimit festlegen. Bei Erreichen des Zeitlimits wird der Lauf automatisch beendet; der zuletzt bestätigte Checkpoint und die Zeit bis zum Limit gelten als offizielles Ergebnis. Das Zeitlimit muss in der Ausschreibung klar kommuniziert werden.</p>
+    <p><strong>9.7 Zeitmessung bei Unterbrechung</strong> – Bei einer Unterbrechung durch die Jury (z.B. Sicherheitsvorfall) wird die Zeit angehalten. Bei Wiederaufnahme läuft die Zeit weiter. Kann der Lauf nicht fortgesetzt werden, gilt die Zeit bis zur Unterbrechung am letzten CP als offizielles Ergebnis.</p>
+  `},
+  {nr:'10',title:'Ergebnisse & Rangliste',color:'#FF9F0A',content:`
+    <p><strong>10.1 Wertungsprinzip</strong> – Die Rangliste wird nach folgendem Prinzip erstellt: <strong>Primärkriterium:</strong> Anzahl absolvierter Checkpoints (absteigend – mehr CPs = besser). <strong>Sekundärkriterium:</strong> Offizielle Zeit (aufsteigend – weniger Zeit = besser). Das Checkpointsystem ist für LK1 verpflichtend; für LK2 empfohlen.</p>
+    <p><strong>10.2 Gleichstand</strong> – Bei identischer CP-Anzahl und identischer Zeit entscheidet die Anzahl der Versuche (weniger Versuche = besser). Besteht weiterhin Gleichstand, teilen die Athleten den Rang; der nächste Rang entfällt.</p>
+    <p><strong>10.3 DNF (Did Not Finish)</strong> – Ein Athlet erhält DNF, wenn er kein einziges Hindernis absolviert hat oder die Ziellinie nicht erreicht hat. DNF-Athleten werden nach abgeschlossenen CPs gewertet und hinter alle Athleten mit Zeitwertung gesetzt.</p>
+    <p><strong>10.4 DSQ (Disqualifikation)</strong> – Disqualifizierte Athleten erscheinen nicht in der offiziellen Rangliste. Gründe für DSQ: externe Hilfe, absichtliche Regelverstösse, Ausrüstungsverstoss, Dopingverstoss.</p>
+    <p><strong>10.5 DNS (Did Not Start)</strong> – Angemeldete Athleten, die nicht am Start erscheinen, erhalten DNS. DNS zählt für die Kategorienwertung nicht.</p>
+    <p><strong>10.6 Veröffentlichung</strong> – Vorläufige Ergebnisse müssen spätestens 30 Minuten nach dem letzten Lauf der Kategorie bekannt gegeben werden. Endgültige Ergebnisse nach Ablauf der Protestfrist. Ergebnisse sind mindestens 7 Tage öffentlich zugänglich zu machen.</p>
+    <p><strong>10.7 Serienrangliste</strong> – Richtet ein Verband eine Wettkampfserie aus, werden Punkte nach einem festgelegten Schema vergeben (z.B. 25-18-15-12-10-8-6-4-2-1 für die Plätze 1–10). Streichresultate sind möglich.</p>
+  `},
+  {nr:'11',title:'Anti-Doping',color:'#FF3B30',content:`
+    <p><strong>11.1 Grundsatz</strong> – Die IGN bekennt sich zu einem fairen und dopingfreien Sport. Es gelten die Anti-Doping-Regeln der WADA (World Anti-Doping Agency) in der jeweils gültigen Fassung.</p>
+    <p><strong>11.2 Kontrollen</strong> – Der Veranstalter kann Dopingkontrollen durchführen oder durch eine autorisierte Stelle durchführen lassen. Zielkontrollen sind möglich. Verweigerung einer Kontrolle gilt als positiver Befund.</p>
+    <p><strong>11.3 Verbotene Substanzen</strong> – Es gilt die aktuelle WADA-Verbotsliste. Betahydroxybutyrat (BHB), Stimulanzien, Wachstumshormone und Blutdoping sind explizit verboten. Therapeutische Ausnahmegenehmigungen (TUE) müssen vor dem Wettkampf beantragt und genehmigt sein.</p>
+    <p><strong>11.4 Sanktionen</strong> – Bei positivem Befund: Disqualifikation des Wettkampfergebnisses, Rückforderung von Preisen/Preisgeld. Wiederholungsverstösse führen zu Sperren gemäss WADA-Richtlinien.</p>
+  `},
+  {nr:'12',title:'Sanktionen',color:'#FF2D78',content:`
+    <p><strong>12.1 Verwarnung (Gelbe Karte)</strong> – Für leichte Regelverstösse, unsportliches Verhalten oder wiederholte Frühstarts. Zwei Gelbe Karten im selben Wettkampf = Rote Karte.</p>
+    <p><strong>12.2 Disqualifikation (Rote Karte)</strong> – Sofortige DSQ für: absichtliche Behinderung anderer Athleten, grobe Unsportlichkeit, Beleidigung von Jury/WR, externe Hilfe, Ausrüstungsbetrug, wiederholte grobe Regelverstösse.</p>
+    <p><strong>12.3 Wettkampfsperre</strong> – Kann vom WR oder IGN-Vorstand ausgesprochen werden. Kurze Sperre (1–3 Wettkämpfe): für DSQ-würdige Verhaltensweisen. Lange Sperre (1–2 Saisons): für schwere Verstösse, Gewalt, Doping. Lebenslange Sperre: für schwerste Verstösse.</p>
+    <p><strong>12.4 Berufung</strong> – Gegen Sperren kann innerhalb von 14 Tagen schriftlich Berufung beim IGN-Vorstand eingelegt werden. Der Berufungsausschuss entscheidet innerhalb von 30 Tagen. Entscheid ist endgültig.</p>
+    <p><strong>12.5 Registrierung</strong> – Alle Sanktionen werden vom IGN-Vorstand registriert. Gesperrte Athleten dürfen an keinem IGN-Wettkampf teilnehmen – auch nicht als Zuschauer in der Aktionsfläche.</p>
+  `},
+  {nr:'13',title:'Begriffsdefinitionen',color:'#8E8E93',content:`
+    <p><strong>Checkpoint (CP)</strong> – Klar definierte, von der Jury bestätigte Halteposition an einem Hindernis. Bildet Grundlage der Zeitwertung bei Fall.</p>
+    <p><strong>DNF</strong> – Did Not Finish. Athlet hat keinen Checkpoint erreicht oder die Ziellinie nicht überquert.</p>
+    <p><strong>DNS</strong> – Did Not Start. Angemeldeter Athlet ist nicht am Start erschienen.</p>
+    <p><strong>DSQ</strong> – Disqualifikation. Lauf oder Wettkampf wird aus der Wertung genommen.</p>
+    <p><strong>Fall</strong> – Unkontrollierter Kontakt mit dem Boden oder einer nicht vorgesehenen Stützfläche. Beendet den Lauf am letzten gehaltenen Checkpoint (ausser im Lives-Modus).</p>
+    <p><strong>Frühstart</strong> – Berühren des ersten Hindernisses vor dem GO-Horn. Führt zur Ungültigkeit des Versuchs.</p>
+    <p><strong>GO-Horn</strong> – Der lange Abschluss-Ton des Startsignals. Exakter Startpunkt der Zeitmessung.</p>
+    <p><strong>IGN</strong> – Interessengemeinschaft Ninja-Sport. Dachverband für Ninja-Sport im deutschsprachigen Raum.</p>
+    <p><strong>Jury</strong> – Offizielle Person(en) an einer Station, zuständig für Zeitnahme und Checkpoint-Beurteilung.</p>
+    <p><strong>Leben (Life)</strong> – Im Lives-Modus: Ressource, die bei einem Fall verbraucht wird. Ermöglicht Weiterstarten am Segment-Anfang.</p>
+    <p><strong>LK1 / LK2</strong> – Leistungsklassen. LK1: erfahrene/fortgeschrittene Athleten, LK2: Einsteiger/Fortgeschrittene.</p>
+    <p><strong>Reklamation / Protest</strong> – Formeller Einspruch eines Athleten gegen ein Ergebnis oder eine Entscheidung. Frist: 15 Minuten ab Bekanntgabe.</p>
+    <p><strong>Segment</strong> – Im Segment Race: Streckenabschnitt zwischen zwei Landeplattformen. Wird einzeln gewertet.</p>
+    <p><strong>Spotter</strong> – Sicherheitsperson an einem Hindernis. Darf nur im Notfall physischen Kontakt aufnehmen.</p>
+    <p><strong>Stage</strong> – Eine Jury-Station innerhalb eines Wettkampfs. Mehrere Stages laufen parallel.</p>
+    <p><strong>Wettkampfrichter (WR)</strong> – Ausgebildete Aufsichtsperson mit abschliessender Entscheidungskompetenz bei Regelunklarheiten.</p>
+    <p><strong>Zeitlimit</strong> – Maximale Laufzeit pro Versuch. Wird vom Veranstalter festgelegt und in der Ausschreibung kommuniziert.</p>
+  `},
 ];
-const REGELWERK_EN=REGELWERK_DE.map((c,i)=>({...c,title:['General & Competition','Start Signal & Timing','Checkpoint System','Obstacle Rules','Categories & Levels','Ranking','Lives Mode','Segment Race'][i]||c.title}));
+const REGELWERK_EN=REGELWERK_DE.map((c,i)=>({...c,title:['Preamble','Competition Organization','Safety','Competition Flow','Announcements','Divisions & Categories','Competition Modes','Start & Landing Platform','Obstacles & Checkpoints','Timing','Results & Rankings','Anti-Doping','Sanctions','Definitions'][i]||c.title}));
 
 const T={
   de:{lang:'EN',app:'OG Ninja Comp',competitions:'Wettkämpfe',newComp:'Neuer Wettkampf',join:'Beitreten',compCode:'Wettkampf-Code',enterCode:'Code eingeben…',joinComp:'Beitreten',noComps:'Noch keine Wettkämpfe. Tippe + um zu starten.',compName:'Wettkampf-Name',compDate:'Datum',compLocation:'Ort',mode:'Modus',numStations:'Stages',next:'Weiter',finish:'Speichern',obstacles:'Hindernisse',obsName:'Hindernisname',athletes:'Athleten',addAth:'Athlet hinzufügen',athName:'Name',station:'Stage',openDisplay:'Anzeige öffnen',stationSetup:'Stage-Setup',startCountdown:'Countdown starten',upNext:'Als Nächstes',nextAthlete:'Nächster Athlet',checkpoint:'Checkpoint',fall:'Fall melden',fallTitle:'Fall gemeldet',lastCP:'Letzter Checkpoint',officialTime:'Offizielle Zeit',confirm:'Bestätigen',cancel:'Abbrechen',retry:'Nochmal',runComplete:'Lauf abgeschlossen',official:'Offizielle Zeit',allCPs:'Checkpoints',nextAth:'Nächster Athlet',tabJury:'Jury',tabResults:'Rangliste',tabRules:'Regelwerk',live:'Live',dnf:'DNF',noRuns:'Noch keine Läufe',export:'Exportieren',category:'Kategorie',lives:'Leben',copyUrl:'URL kopieren',copied:'Kopiert!',allDone:'Alle Läufe absolviert!',sortHint:'⠿ ziehen zum sortieren',laufzeit:'Laufzeit'},
@@ -334,28 +457,159 @@ const computeRanked=(runList,catId)=>{
 // ════════════════════════════════════════════════════════════
 // SETUP WIZARD
 // ════════════════════════════════════════════════════════════
-const SetupWizard=({onDone,onBack,existingId=null})=>{
+const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState({name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0});
-  const [obstacles,setObstacles]=useState(DEF_OBS.map(o=>({...o})));
-  const [athletes,setAthletes]=useState([]);
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0});
+  // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
+  const [stageObs,setStageObs]=useState(()=>{
+    const n=initialInfo?.numStations||2;
+    return Array.from({length:4},(_,i)=>{
+      if(initialStages?.[i+1]?.obstacles)return Object.values(initialStages[i+1].obstacles).sort((a,b)=>a.order-b.order);
+      if(initialObstacles&&i===0)return Object.values(initialObstacles).sort((a,b)=>a.order-b.order);
+      return DEF_OBS.map(o=>({...o,id:uid()}));
+    });
+  });
+  // Per-stage athletes: array[stageIdx] = [{id,name,num,cat,stageNum}]
+  const [stageAths,setStageAths]=useState(()=>{
+    const n=initialInfo?.numStations||2;
+    return Array.from({length:4},(_,i)=>{
+      if(initialStages?.[i+1]?.athletes)return Object.values(initialStages[i+1].athletes);
+      if(initialAthletes&&i===0)return Object.values(initialAthletes);
+      return [];
+    });
+  });
+  const [obsStage,setObsStage]=useState(0);// which stage tab is active for obstacles
+  const [athStage,setAthStage]=useState(0);// which stage tab is active for athletes
   const [newObs,setNewObs]=useState('');
-  const [newAth,setNewAth]=useState({name:'',num:'1',cat:'am1'});
+  const [newAth,setNewAth]=useState({name:'',num:'1',cat:'am1',stageNum:1});
   const [saving,setSaving]=useState(false);
+  const [csvError,setCsvError]=useState('');
   const sI=(k,v)=>setInfo(i=>({...i,[k]:v}));
-  const addObs=()=>{if(!newObs.trim())return;setObstacles(o=>[...o,{id:uid(),name:newObs.trim(),isCP:true,order:o.length}]);setNewObs('');SFX.click();};
-  const addAth=()=>{if(!newAth.name.trim())return;setAthletes(p=>[...p,{id:uid(),...newAth}]);setNewAth({name:'',num:String(athletes.length+2),cat:newAth.cat});SFX.click();};
-  const reorderObs=arr=>setObstacles(arr.map((o,i)=>({...o,order:i})));
-  const reorderAth=arr=>setAthletes(arr);
+  const numSt=info.numStations||1;
+  // Sync stageNum in newAth when obsStage changes
+  const curAthStage=athStage;
+
+  const addObs=()=>{
+    if(!newObs.trim())return;
+    const si=Math.min(obsStage,numSt-1);
+    setStageObs(s=>{const n=[...s];n[si]=[...n[si],{id:uid(),name:newObs.trim(),isCP:true,order:n[si].length}];return n;});
+    setNewObs('');SFX.click();
+  };
+  const reorderObs=arr=>{
+    const si=Math.min(obsStage,numSt-1);
+    setStageObs(s=>{const n=[...s];n[si]=arr.map((o,i)=>({...o,order:i}));return n;});
+  };
+  const removeObs=(si,id)=>{
+    setStageObs(s=>{const n=[...s];n[si]=n[si].filter(o=>o.id!==id);return n;});
+  };
+  const toggleObsCP=(si,id)=>{
+    setStageObs(s=>{const n=[...s];n[si]=n[si].map(o=>o.id===id?{...o,isCP:!o.isCP}:o);return n;});
+  };
+  const addAth=()=>{
+    if(!newAth.name.trim())return;
+    const si=Math.min(curAthStage,numSt-1);
+    const stageNum=si+1;
+    setStageAths(a=>{const n=[...a];n[si]=[...n[si],{id:uid(),...newAth,stageNum}];return n;});
+    setNewAth(a=>({...a,name:'',num:String(stageAths[si].length+2)}));
+    SFX.click();
+  };
+  const removeAth=(si,id)=>{
+    setStageAths(a=>{const n=[...a];n[si]=n[si].filter(x=>x.id!==id);return n;});
+  };
+  const reorderAth=(si,arr)=>{
+    setStageAths(a=>{const na=[...a];na[si]=arr;return na;});
+  };
+
+  // CSV Import
+  const importCSV=(si,text)=>{
+    setCsvError('');
+    const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
+    const results=[];
+    for(const line of lines){
+      const parts=line.split(/[,;\t]/).map(s=>s.trim().replace(/^["']|["']$/g,''));
+      if(parts.length<2){setCsvError(`Ungültige Zeile: ${line}`);return;}
+      const [num,name,...rest]=parts;
+      const catRaw=(rest[0]||'').toLowerCase();
+      // Try to match category
+      const cat=IGN_CATS.find(c=>c.id===catRaw||c.name.de.toLowerCase().includes(catRaw)||c.name.en.toLowerCase().includes(catRaw))||IGN_CATS[9]; // default Adults M LK1
+      results.push({id:uid(),num:num||String(results.length+1),name,cat:cat.id,stageNum:si+1});
+    }
+    if(results.length===0){setCsvError('Keine Athleten gefunden');return;}
+    setStageAths(a=>{const n=[...a];n[si]=[...n[si],...results];return n;});
+    SFX.complete();
+    alert(`✅ ${results.length} Athleten importiert`);
+  };
+  const handleFileImport=(si,file)=>{
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{
+      if(file.name.endsWith('.csv')||file.name.endsWith('.txt')){
+        importCSV(si,e.target.result);
+      } else {
+        // Try xlsx via SheetJS if available, else treat as CSV
+        try{
+          const data=new Uint8Array(e.target.result);
+          const wb=XLSX.read(data,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+          // Skip header row if first cell looks like a header
+          const start=(rows[0]&&typeof rows[0][0]==='string'&&isNaN(rows[0][0]))?1:0;
+          const csvLines=rows.slice(start).map(r=>`${r[0]||''},${r[1]||''},${r[2]||''}`).join('\n');
+          importCSV(si,csvLines);
+        }catch{
+          // Fallback: try as text
+          importCSV(si,e.target.result);
+        }
+      }
+    };
+    if(file.name.endsWith('.xlsx')||file.name.endsWith('.xls')){
+      r.readAsArrayBuffer(file);
+    } else {
+      r.readAsText(file);
+    }
+  };
+
   const save=async()=>{
     if(!info.name.trim())return;setSaving(true);
     const id=existingId||uid();
-    const om={};obstacles.forEach((o,i)=>{om[o.id]={...o,order:i};});
-    const am={};athletes.forEach(a=>{am[a.id]=a;});
-    await fbSet(`ogn/${id}`,{info:{...info,createdAt:Date.now()},obstacles:om,athletes:athletes.length?am:null});
+    const stagesData={};
+    for(let i=0;i<numSt;i++){
+      const n=i+1;
+      const om={};stageObs[i].forEach((o,idx)=>{om[o.id]={...o,order:idx};});
+      const am={};stageAths[i].forEach(a=>{am[a.id]=a;});
+      stagesData[n]={obstacles:om,athletes:Object.keys(am).length?am:null};
+    }
+    // Also save first stage as global fallback for backward compat
+    const om0={};stageObs[0].forEach((o,i)=>{om0[o.id]={...o,order:i};});
+    const am0={};
+    // Merge all athletes for global list
+    for(let i=0;i<numSt;i++){stageAths[i].forEach(a=>{am0[a.id]=a;});}
+    await fbSet(`ogn/${id}`,{
+      info:{...info,createdAt:Date.now()},
+      obstacles:om0,
+      athletes:Object.keys(am0).length?am0:null,
+      stages:stagesData,
+    });
     setSaving(false);SFX.complete();onDone(id);
   };
+
+  // Stage tab bar helper
+  const StageTabs=({active,onChange})=>(
+    <div style={{display:'flex',gap:4,overflowX:'auto',padding:'0 0 4px'}}>
+      {Array.from({length:numSt},(_,i)=>(
+        <button key={i} className={`chip${active===i?' active':''}`}
+          style={{flexShrink:0,padding:'4px 14px',fontSize:12}}
+          onClick={()=>{onChange(i);SFX.hover();}}>
+          Stage {i+1}
+        </button>
+      ))}
+    </div>
+  );
+  const si=Math.min(obsStage,numSt-1);
+  const curObs=stageObs[si]||[];
+  const asi=Math.min(athStage,numSt-1);
+  const curAths=stageAths[asi]||[];
 
   return(
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
@@ -387,30 +641,42 @@ const SetupWizard=({onDone,onBack,existingId=null})=>{
           <div className="lbl">{t('numStations')}</div>
           <div style={{display:'flex',gap:6}}>{[1,2,3,4].map(n=><button key={n} className={`chip${info.numStations===n?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>sI('numStations',n)}>{n}</button>)}</div>
           <div className="lbl">⏱ {lang==='de'?'Zeitlimit pro Lauf':'Time limit per run'}</div>
-          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{[0,60,90,120,150,180,240,300].map(s=><button key={s} className={`chip${(info.timeLimit||0)===s?' active':''}`} style={{justifyContent:'center',minWidth:50}} onClick={()=>sI('timeLimit',s)}>{s===0?(lang==='de'?'Kein':'None'):fmtMs(s*1000).slice(0,-4)}</button>)}</div>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>{[0,60,90,120,150,180,240,300].map(s=><button key={s} className={`chip${(info.timeLimit||0)===s?' active':''}`} style={{justifyContent:'center',minWidth:50}} onClick={()=>sI('timeLimit',s)}>{s===0?(lang==='de'?'Kein':'None'):fmtMs(s*1000).slice(0,-4)}</button>)}
+            <div style={{display:'flex',alignItems:'center',gap:5,flex:1,minWidth:130}}>
+              <input type="number" min="0" max="3600" placeholder={lang==='de'?'Manuell (s)':'Custom (s)'}
+                style={{flex:1,padding:'5px 10px',fontSize:12,borderRadius:20,height:32,textAlign:'center'}}
+                value={[0,60,90,120,150,180,240,300].includes(info.timeLimit||0)?'':info.timeLimit||''}
+                onChange={e=>{const v=parseInt(e.target.value,10);if(!isNaN(v)&&v>=0)sI('timeLimit',v);}}/>
+              <span style={{fontSize:11,color:'var(--dim)',flexShrink:0}}>s</span>
+            </div>
+          </div>
         </div>
       )}
 
       {step===1&&(
         <div className="section fade-up" style={{flex:1}}>
+          {numSt>1&&<StageTabs active={si} onChange={setObsStage}/>}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div className="lbl">{t('obstacles')} ({obstacles.length})</div>
+            <div className="lbl">{t('obstacles')} ({curObs.length}){numSt>1&&<span style={{marginLeft:6,color:'var(--muted)',fontWeight:500}}>· Stage {si+1}</span>}</div>
             <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
           </div>
-          <div style={{maxHeight:330,overflowY:'auto'}}>
-            <DragList items={obstacles} onReorder={reorderObs} keyFn={o=>o.id}
+          <div style={{maxHeight:310,overflowY:'auto'}}>
+            <DragList items={curObs} onReorder={reorderObs} keyFn={o=>o.id}
               renderItem={(o,i)=>(
                 <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:8}}>
                   <div className="drag-handle"><I.Drag s={16}/></div>
                   <div style={{fontSize:11,color:'var(--muted)',minWidth:18,fontFamily:'JetBrains Mono',textAlign:'center'}}>{i+1}</div>
                   <div style={{flex:1,fontSize:13,fontWeight:500}}>{o.name}</div>
                   <button className={`chip${o.isCP?' active':''}`} style={{padding:'2px 9px',fontSize:10}}
-                    onClick={()=>setObstacles(obs=>obs.map(x=>x.id===o.id?{...x,isCP:!x.isCP}:x))}>CP</button>
+                    onClick={()=>toggleObsCP(si,o.id)}>CP</button>
                   <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}}
-                    onClick={()=>setObstacles(obs=>obs.filter(x=>x.id!==o.id))}><I.Trash s={13} c="var(--red)"/></button>
+                    onClick={()=>removeObs(si,o.id)}><I.Trash s={13} c="var(--red)"/></button>
                 </div>
               )}/>
           </div>
+          {numSt>1&&<div style={{fontSize:11,color:'var(--muted)',background:'rgba(255,255,255,.03)',borderRadius:10,padding:'8px 12px'}}>
+            💡 {lang==='de'?'Jede Stage hat eigene Hindernisse. Wähle oben den Stage-Tab zum Bearbeiten.':'Each stage has its own obstacles. Select a stage tab above to edit.'}
+          </div>}
           <div style={{display:'flex',gap:8}}>
             <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.key==='Enter')addObs();}} style={{flex:1}}/>
             <button className="btn btn-coral" style={{padding:'10px 16px',flexShrink:0}} onClick={addObs}><I.Plus s={16}/></button>
@@ -420,13 +686,24 @@ const SetupWizard=({onDone,onBack,existingId=null})=>{
 
       {step===2&&(
         <div className="section fade-up" style={{flex:1}}>
+          {numSt>1&&<StageTabs active={asi} onChange={setAthStage}/>}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div className="lbl">{t('athletes')} ({athletes.length})</div>
-            <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
+            <div className="lbl">{t('athletes')} ({curAths.length}){numSt>1&&<span style={{marginLeft:6,color:'var(--muted)',fontWeight:500}}>· Stage {asi+1}</span>}</div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
+              <label className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,cursor:'pointer',gap:5}}>
+                📥 CSV
+                <input type="file" accept=".csv,.txt,.xlsx,.xls" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleFileImport(asi,e.target.files[0]);e.target.value='';}}/>
+              </label>
+            </div>
           </div>
-          <div style={{maxHeight:250,overflowY:'auto'}}>
-            {athletes.length===0?<EmptyState icon="👤" text="Noch keine Athleten"/>:
-              <DragList items={athletes} onReorder={reorderAth} keyFn={a=>a.id}
+          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>⚠️ {csvError}</div>}
+          <div style={{fontSize:11,color:'var(--muted)',background:'rgba(255,255,255,.03)',borderRadius:8,padding:'7px 12px'}}>
+            📋 CSV-Format: <code style={{fontSize:10,color:'var(--cor)'}}>Startnr, Name, Kategorie-ID</code> (z.B. <code style={{fontSize:10}}>1, Max Muster, am1</code>)
+          </div>
+          <div style={{maxHeight:230,overflowY:'auto'}}>
+            {curAths.length===0?<EmptyState icon="👤" text="Noch keine Athleten"/>:
+              <DragList items={curAths} onReorder={arr=>reorderAth(asi,arr)} keyFn={a=>a.id}
                 renderItem={(a,i)=>{const cat=IGN_CATS.find(c=>c.id===a.cat);return(
                   <div style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:8}}>
                     <div className="drag-handle"><I.Drag s={15}/></div>
@@ -434,7 +711,7 @@ const SetupWizard=({onDone,onBack,existingId=null})=>{
                     <div style={{flex:1,fontSize:13,fontWeight:600}}>{a.name}</div>
                     <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>#{a.num}</div>
                     <div style={{fontSize:10,padding:'2px 7px',borderRadius:10,background:`${cat?.color||'#888'}1A`,color:cat?.color||'#888',border:`1px solid ${cat?.color||'#888'}44`,fontWeight:600,whiteSpace:'nowrap'}}>{cat?.name[lang]||'?'}</div>
-                    <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}} onClick={()=>setAthletes(a2=>a2.filter(x=>x.id!==a.id))}><I.Trash s={13} c="var(--red)"/></button>
+                    <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}} onClick={()=>removeAth(asi,a.id)}><I.Trash s={13} c="var(--red)"/></button>
                   </div>
                 );}}/>
             }
@@ -529,13 +806,27 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const {t,catName}=useLang();
   const info=useFbVal(`ogn/${compId}/info`);
   const athletes=useFbVal(`ogn/${compId}/athletes`);
+  const obstacles=useFbVal(`ogn/${compId}/obstacles`);
+  const stages=useFbVal(`ogn/${compId}/stages`);
   const stations=useFbVal(`ogn/${compId}/stations`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const [editing,setEditing]=useState(false);
   const [showQR,setShowQR]=useState(null);
   const [copied,setCopied]=useState(null);
+  const [showRestart,setShowRestart]=useState(false);
   if(!info)return<Spinner/>;
-  if(editing)return<SetupWizard existingId={compId} onDone={()=>setEditing(false)} onBack={()=>setEditing(false)}/>;
+  const handleRestart=async()=>{
+    if(!window.confirm(lang==='de'?`Alle Läufe von "${info.name}" löschen und Wettkampf neu starten?\n\nDie Athleten-Liste und Hindernisse bleiben erhalten.`:`Delete all runs from "${info.name}" and restart?\n\nAthletes and obstacles are kept.`))return;
+    await fbRemove(`ogn/${compId}/completedRuns`);
+    await fbRemove(`ogn/${compId}/activeRuns`);
+    SFX.complete();setShowRestart(false);
+  };
+  if(editing){
+    const initialStages=stages||null;
+    const initialObstacles=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):null;
+    const initialAthletes=athletes?athletes:null;
+    return<SetupWizard existingId={compId} initialInfo={info} initialStages={initialStages} initialObstacles={initialObstacles?{...Object.fromEntries(initialObstacles.map(o=>[o.id,o]))}:null} initialAthletes={initialAthletes} onDone={()=>setEditing(false)} onBack={()=>setEditing(false)}/>;
+  }
   const numSt=info.numStations||1;
   const base=window.location.href.split('?')[0];
   const athList=athletes?Object.values(athletes):[];
@@ -559,9 +850,16 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
             </div>
           ))}
         </div>
-        <button className="btn btn-ghost" style={{width:'100%',padding:13,gap:8}} onClick={()=>window.open(`${base}?mode=display&comp=${compId}`,'_blank')}>
-          <I.Monitor s={15}/> {t('openDisplay')} ↗
-        </button>
+        <div style={{display:'flex',gap:8}}>
+          <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>window.open(`${base}?mode=display&comp=${compId}`,'_blank')}>
+            <I.Monitor s={15}/> {t('openDisplay')} ↗
+          </button>
+          <button className="btn btn-ghost" style={{padding:'12px 14px',gap:7,color:'rgba(255,150,80,.8)',borderColor:'rgba(255,120,50,.2)'}}
+            title={lang==='de'?'Wettkampf neu starten':'Restart competition'}
+            onClick={handleRestart}>
+            🔄 {lang==='de'?'Restart':'Restart'}
+          </button>
+        </div>
         <div className="sep"/>
         <div className="lbl">Stages — direkt starten</div>
         {Array.from({length:numSt},(_,i)=>i+1).map(n=>{
@@ -1081,8 +1379,62 @@ const JuryDone=({athlete,result,cat,onNext})=>{
 // REGELWERK
 // ════════════════════════════════════════════════════════════
 const Regelwerk=()=>{
-  const {lang}=useLang();const rw=lang==='en'?REGELWERK_EN:REGELWERK_DE;
-  return(<div style={{paddingBottom:80}}>{rw.map(ch=>(<details key={ch.nr} className="rw-chapter"><summary><span><span style={{color:ch.color,fontWeight:800,marginRight:8,fontSize:15}}>{ch.nr}</span>{ch.title}</span></summary><div className="rw-body" dangerouslySetInnerHTML={{__html:ch.content}}/></details>))}</div>);
+  const {lang}=useLang();
+  const rw=lang==='en'?REGELWERK_EN:REGELWERK_DE;
+  const [query,setQuery]=useState('');
+  const q=query.trim().toLowerCase();
+  const hl=(html)=>{
+    if(!q)return html;
+    const re=new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
+    return html.replace(re,'<mark>$1</mark>');
+  };
+  const matches=(ch)=>{
+    if(!q)return true;
+    return ch.title.toLowerCase().includes(q)||ch.content.toLowerCase().includes(q)||ch.nr.toLowerCase().includes(q);
+  };
+  const matchCount=(ch)=>{
+    if(!q)return 0;
+    const text=(ch.title+' '+ch.content).toLowerCase();
+    let count=0,pos=0;
+    while((pos=text.indexOf(q,pos))!==-1){count++;pos+=q.length;}
+    return count;
+  };
+  const totalMatches=rw.reduce((s,c)=>s+matchCount(c),0);
+  const visible=rw.filter(matches);
+  return(
+    <div style={{paddingBottom:80}}>
+      <div className="rw-search-bar">
+        <div style={{position:'relative'}}>
+          <input value={query} onChange={e=>setQuery(e.target.value)}
+            placeholder={lang==='de'?'Regelwerk durchsuchen…':'Search rulebook…'}
+            style={{paddingLeft:36,borderRadius:10,fontSize:13}}/>
+          <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:14,opacity:.5}}>🔍</span>
+          {query&&<button onClick={()=>setQuery('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,opacity:.5,color:'var(--text)',padding:'0 2px'}}>✕</button>}
+        </div>
+        {q&&<div style={{marginTop:8,display:'flex',gap:6,alignItems:'center'}}>
+          <span className="rw-match-badge">🔍 {totalMatches} {lang==='de'?'Treffer':'matches'} · {visible.length} {lang==='de'?'Kapitel':'chapters'}</span>
+          {visible.length===0&&<span style={{fontSize:11,color:'var(--muted)'}}>{lang==='de'?'Keine Ergebnisse':'No results'}</span>}
+        </div>}
+      </div>
+      {visible.map(ch=>{
+        const cnt=matchCount(ch);
+        const hasMatch=cnt>0&&!!q;
+        return(
+          <details key={ch.nr} className="rw-chapter" open={hasMatch||undefined}>
+            <summary>
+              <span style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{color:ch.color,fontWeight:800,fontSize:15,minWidth:20}}>{ch.nr}</span>
+                <span>{ch.title}</span>
+                {hasMatch&&<span className="rw-match-badge">{cnt}</span>}
+              </span>
+            </summary>
+            <div className="rw-body" dangerouslySetInnerHTML={{__html:hl(ch.content)}}/>
+          </details>
+        );
+      })}
+      {visible.length===0&&q&&<div style={{padding:'40px 24px',textAlign:'center',color:'var(--muted)',fontSize:13}}>{lang==='de'?`Kein Ergebnis für «${q}»`:`No results for "${q}"`}</div>}
+    </div>
+  );
 };
 
 // ════════════════════════════════════════════════════════════
@@ -1098,12 +1450,30 @@ const ResultsView=({compId,athletes})=>{
   useEffect(()=>{if(!selCat&&catsWithRuns.length>0)setSelCat(catsWithRuns[0].id);},[catsWithRuns.length]);
   const ranked=selCat?computeRanked(runList,selCat):[];
   const medals=['🥇','🥈','🥉'];
-  const exportAll=()=>{
-    const lines=['OG Ninja Comp · Results',new Date().toLocaleDateString(),''];
-    catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}`);});});
-    const text=lines.join('\n');
-    if(navigator.share)navigator.share({title:'OG Ninja Results',text});else if(navigator.clipboard)navigator.clipboard.writeText(text);
-    SFX.complete();
+  const exportAll=(format='csv')=>{
+    if(format==='csv'){
+      const rows=[['Platz','#','Name','Kategorie','CPs','Zeit','Status','Reklamation']];
+      catsWithRuns.forEach(c=>{
+        const r=computeRanked(runList,c.id);
+        if(!r.length)return;
+        r.forEach((run,i)=>{
+          const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
+          rows.push([i+1,`"${a.num}"`,`"${a.name}"`,`"${catName(c)}"`,run.doneCP?.length||0,fmtMs(run.finalTime),run.status||'',run.protested?'🚩':'']);
+        });
+      });
+      const csv=rows.map(r=>r.join(',')).join('\n');
+      const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.href=url;a.download=`ninja-results-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
+      SFX.complete();
+    } else {
+      // Text share fallback
+      const lines=['OG Ninja Comp · Ergebnisse',new Date().toLocaleDateString(),''];
+      catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}${run.protested?' 🚩':''}`);});});
+      const text=lines.join('\n');
+      if(navigator.share)navigator.share({title:'OG Ninja Results',text});else if(navigator.clipboard){navigator.clipboard.writeText(text);alert('📋 In Zwischenablage kopiert');}
+      SFX.complete();
+    }
   };
   return(
     <div style={{paddingBottom:82}}>
@@ -1133,7 +1503,10 @@ const ResultsView=({compId,athletes})=>{
                 <div className="timer-grad" style={{fontSize:15}}>{r.finalTime?fmtMs(r.finalTime):t('dnf')}</div>
               </div>
             );})}
-            <button className="btn btn-ghost" style={{width:'100%',padding:12,gap:8}} onClick={exportAll}><I.Download s={15}/> {t('export')}</button>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('csv')}><I.Download s={15}/> CSV</button>
+              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('text')}>📤 {lang==='de'?'Teilen':'Share'}</button>
+            </div>
           </div>
         );
       })()}
@@ -1148,8 +1521,13 @@ const JuryApp=({compId,stNum,onBack})=>{
   const {t,lang,catName}=useLang();
   const [tab,setTab]=useState('jury');
   const info=useFbVal(`ogn/${compId}/info`);
-  const obstacles=useFbVal(`ogn/${compId}/obstacles`);
-  const athletesMap=useFbVal(`ogn/${compId}/athletes`);
+  const globalObstacles=useFbVal(`ogn/${compId}/obstacles`);
+  const stageObstaclesRaw=useFbVal(`ogn/${compId}/stages/${stNum}/obstacles`);
+  const globalAthletesMap=useFbVal(`ogn/${compId}/athletes`);
+  const stageAthletesRaw=useFbVal(`ogn/${compId}/stages/${stNum}/athletes`);
+  // Per-stage data overrides global with fallback
+  const obstacles=stageObstaclesRaw||globalObstacles;
+  const athletesMap=stageAthletesRaw||globalAthletesMap;
   const stData=useFbVal(`ogn/${compId}/stations/${stNum}`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const [phase,setPhase]=useState('wait');
@@ -1162,7 +1540,7 @@ const JuryApp=({compId,stNum,onBack})=>{
   const [goTime,setGoTime]=useState(null); // performance.now() captured when GO horn fires
   useEffect(()=>{if(info)setLives(info.lives||3);},[info?.lives]);
 
-  if(!info||obstacles===undefined)return(
+  if(!info||globalObstacles===undefined)return(
     <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10}}><Spinner/><div style={{fontSize:12,color:'var(--muted)'}}>Stage {stNum} · {compId}</div></div>
   );
 
