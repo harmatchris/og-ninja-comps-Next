@@ -569,7 +569,7 @@ const TimePicker=({value,onChange,allowDefault=false})=>{
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{}});
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},emoji:'🥷'});
   // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
   const [stageObs,setStageObs]=useState(()=>{
     const n=initialInfo?.numStations||2;
@@ -755,6 +755,12 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
       {step===0&&(
         <div className="section fade-up" style={{flex:1}}>
+          <div className="lbl">{lang==='de'?'Emoji':'Emoji'}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:4}}>
+            {['🥷','🏆','🥇','🎯','💪','🔥','⚡','🌟','🏅','🤸','🧗','🦸','🐉','⚔️','🐯','🦁','🦅','💥','🌊','🎖️'].map(e=>(
+              <button key={e} onClick={()=>sI('emoji',e)} style={{width:38,height:38,fontSize:20,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'var(--border)'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.03)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>{e}</button>
+            ))}
+          </div>
           <div className="lbl">{t('compName')}</div>
           <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="OG Ninja Cup 2026" autoFocus/>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
@@ -932,7 +938,7 @@ const HomeView=({onOpen,lang,setLang})=>{
           <div key={c.id} className="sh-card fade-up"
             style={{padding:16,display:'flex',flexDirection:'row',alignItems:'center',gap:14,width:'100%',animationDelay:`${i*.06}s`,cursor:'pointer',transition:'background .18s,border-color .18s'}}
             onClick={()=>{SFX.click();onOpen(c.id);}}>
-            <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🥷</div>
+            <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{c.info?.emoji||'🥷'}</div>
             <div style={{flex:1,textAlign:'left'}}>
               <div style={{fontWeight:800,fontSize:15,letterSpacing:'-.2px'}}>{c.info?.name||'Wettkampf'}</div>
               <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` · ${c.info.location}`:''}</div>
@@ -2122,7 +2128,7 @@ const DisplayView=({compId,onBack})=>{
             <I.ChevL s={16}/>{lang==='de'?'Jury':'Jury'}
           </button>
         )}
-        <div style={{width:40,height:40,borderRadius:11,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🥷</div>
+        <div style={{width:40,height:40,borderRadius:11,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{info.emoji||'🥷'}</div>
         <div style={{flex:1}}><div style={{fontSize:11,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>OG Ninja Comp</div><div style={{fontSize:21,fontWeight:900,letterSpacing:'-.5px',marginTop:1}}>{info.name}</div></div>
         <div className="live-badge"><div className="live-dot"/>Live</div>
       </div>
