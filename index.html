@@ -17,13 +17,13 @@
   --bg:#0B0B14;--card:#141420;--card2:#1A1A2C;
   --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
   --cor:#FF5E3A;--cor2:#FF9040;
-  --text:#fff;--muted:rgba(255,255,255,0.60);--dim:rgba(255,255,255,0.38);
+  --text:#fff;--muted:rgba(255,255,255,0.78);--dim:rgba(255,255,255,0.55);
   --green:#34C759;--red:#FF3B30;--gold:#FFD60A;--r:16px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overflow-x:hidden;}
 #root{min-height:100%;display:flex;flex-direction:column;}
-button,input,select,textarea{font-family:inherit;}
+button,input,select,textarea{font-family:inherit;color:inherit;}
 input,textarea,select{
   background:rgba(255,255,255,.04);border:1px solid var(--border);
   border-radius:12px;color:var(--text);padding:12px 14px;
@@ -686,7 +686,7 @@ const JuryCountdown=({onGo})=>{
 // ════════════════════════════════════════════════════════════
 // JURY — ACTIVE RUN
 // ════════════════════════════════════════════════════════════
-const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,onStop})=>{
+const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,onFall,onComplete,onStop})=>{
   const {lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -712,7 +712,11 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
   // Auto-stop when time limit expires
   useEffect(()=>{
     if(!timeLimitMs)return;
-    const t=setTimeout(()=>{onStop({doneCP:doneCPRef.current,time:timeLimitMs,lives:livesRef.current,reason:'timeout'});},timeLimitMs);
+    const t=setTimeout(()=>{
+      const dc=doneCPRef.current;
+      const lct=dc.length>0?dc[dc.length-1].time:timeLimitMs;
+      onStop({doneCP:dc,time:lct,currentTime:timeLimitMs,lives:livesRef.current,reason:'timeout'});
+    },timeLimitMs);
     return()=>clearTimeout(t);
   },[]);
 
@@ -721,18 +725,29 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
   const handleCP=()=>{
     if(allDone)return;
     SFX.checkpoint();setFlash(true);setTimeout(()=>setFlash(false),320);
-    const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:Date.now()-startEpoch}];
+    const t=Math.round(performance.now()-startPerf);
+    const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:t}];
     doneCPRef.current=nd;setDoneCP(nd);
-    if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:performance.now()-startPerf,lives}),400);
+    if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives}),400);
   };
-  const handleFall=()=>{SFX.fall();onFall({doneCP,time:performance.now()-startPerf,lives});};
-  const handleStop=()=>{SFX.fall();onStop({doneCP,time:performance.now()-startPerf,lives,reason:'stopped'});};
+  const handleFall=()=>{
+    SFX.fall();
+    const elapsed=Math.round(performance.now()-startPerf);
+    const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
+    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx});
+  };
+  const handleStop=()=>{
+    SFX.fall();
+    const elapsed=Math.round(performance.now()-startPerf);
+    const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
+    onStop({doneCP,time:lct,currentTime:elapsed,lives,reason:'stopped'});
+  };
 
   return(
     <div style={{display:'flex',flexDirection:'column',minHeight:'calc(100vh - 56px)',paddingBottom:16}}>
       {/* Athlete card with gradient glow + timer */}
       <div className="sh-card" style={{margin:'12px 16px',padding:'18px 20px',position:'relative',overflow:'hidden'}}>
-        <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 110%,rgba(255,94,58,.09) 0%,transparent 58%)'}}/>
+        <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 110%,rgba(255,94,58,.09) 0%,transparent 58%)',pointerEvents:'none'}}/>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:16}}>
           <div>
             <div style={{fontSize:22,fontWeight:800,letterSpacing:'-.5px'}}>{athlete.name}</div>
@@ -743,7 +758,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
               <div className="lbl" style={{marginBottom:7}}>{lang==='de'?'Leben':'Lives'}</div>
               <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
                 {Array.from({length:info.lives||3},(_,i)=>(
-                  <div key={i} style={{width:11,height:11,borderRadius:'50%',background:i<lives?'var(--cor)':'rgba(255,255,255,.07)',boxShadow:i<lives?'0 0 8px rgba(255,94,58,.6)':'none',transition:'all .3s'}}/>
+                  <div key={i} style={{width:11,height:11,borderRadius:'50%',background:i<lives?'var(--cor)':'rgba(255,255,255,.12)',boxShadow:i<lives?'0 0 8px rgba(255,94,58,.6)':'none',transition:'all .3s'}}/>
                 ))}
               </div>
             </div>
@@ -762,12 +777,22 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
         </div>
       </div>
 
-      {/* CP name pills track */}
+      {/* CP pills track with fall indicators */}
       <div style={{padding:'4px 16px 8px'}}>
         <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
           {cpObst.map((o,i)=>{
-            const done=doneCP.some(d=>d.obsId===o.id);const cur=!done&&i===nextIdx;const nxt=!done&&!cur&&i===nextIdx+1;
-            return<div key={o.id} className={`cp-pill ${done?'done':cur?'cur':nxt?'next':'future'}`}>{done&&<span style={{fontSize:10,marginRight:3}}>✓</span>}{o.name}</div>;
+            const done=doneCP.some(d=>d.obsId===o.id);
+            const cur=!done&&i===nextIdx;
+            const nxt=!done&&!cur&&i===nextIdx+1;
+            const fallsHere=(activeFalls||[]).filter(f=>f.obsIdx===i).length;
+            return(
+              <div key={o.id} style={{position:'relative',display:'inline-flex'}}>
+                <div className={`cp-pill ${done?'done':cur?'cur':nxt?'next':'future'}`}>
+                  {done&&<span style={{fontSize:10,marginRight:3}}>✓</span>}{o.name}
+                </div>
+                {fallsHere>0&&<span style={{position:'absolute',top:-7,right:-5,background:'var(--red)',color:'#fff',fontSize:9,fontWeight:800,borderRadius:8,padding:'1px 5px',lineHeight:1.5,minWidth:16,textAlign:'center'}}>{'💔'.repeat(Math.min(fallsHere,3))}{fallsHere>3?`×${fallsHere}`:''}</span>}
+              </div>
+            );
           })}
         </div>
       </div>
@@ -784,7 +809,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
             <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7}} onClick={handleFall}>
               <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
             </button>
-            <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7,borderColor:'rgba(255,200,0,.2)',color:'rgba(255,200,80,.65)'}} onClick={handleStop}>
+            <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7,borderColor:'rgba(255,200,0,.2)',color:'rgba(255,200,80,.8)'}} onClick={handleStop}>
               🛑 {lang==='de'?'Abbrechen':'Stop run'}
             </button>
           </div>
@@ -795,9 +820,9 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'0 16px'}}>
           <div style={{fontSize:52}}>🏁</div>
           <div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{lang==='de'?'Ziel erreicht!':'Finish!'}</div>
-          <div className="timer-grad" style={{fontSize:38}}>{fmtMs(el)}</div>
+          <div className="timer-grad" style={{fontSize:38}}>{fmtMs(doneCP[doneCP.length-1]?.time||el)}</div>
           <button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:16,gap:8,marginTop:8}}
-            onClick={()=>onComplete({doneCP,finalTime:performance.now()-startPerf,lives})}>
+            onClick={()=>onComplete({doneCP,finalTime:doneCP[doneCP.length-1]?.time||Math.round(performance.now()-startPerf),lives})}>
             <I.Flag s={16}/> {lang==='de'?'Bestätigen':'Confirm finish'}
           </button>
         </div>
@@ -807,82 +832,145 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,onFall,onComplete,o
 };
 
 // ════════════════════════════════════════════════════════════
-// JURY — FALL MODAL
+// JURY — FALL MODAL  (timer keeps running behind this overlay)
 // ════════════════════════════════════════════════════════════
-const FallModal=({athlete,doneCP,obstacles,time,mode,lives,onConfirm,onRetry,onCancel})=>{
+const FallModal=({athlete,doneCP,cpObst,currentTime,mode,lives,onConfirm,onUseLive,onCancel})=>{
   const {t,lang}=useLang();
-  const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
-  const cpObst=obstArr.filter(o=>o.isCP);
-  const lastCP=doneCP.length>0?cpObst[doneCP.length-1]:null;
+  const [selCount,setSelCount]=useState(doneCP.length);
   const hasLives=mode==='lives'||mode==='segliv';
+  // Show last 2 + next 2 CPs around current done count
+  const rangeStart=Math.max(0,doneCP.length-2);
+  const rangeEnd=Math.min(cpObst.length,doneCP.length+2);
+  const visible=cpObst.slice(rangeStart,rangeEnd);
+  // Official time = time of selected CP, or currentTime if none/future
+  const getTime=sc=>{
+    if(sc===0)return currentTime;
+    const ct=doneCP[sc-1]?.time;
+    return ct!=null?ct:currentTime;
+  };
+  const officialTime=getTime(selCount);
   return(
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay">
       <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center',marginBottom:4}}><div style={{fontSize:40}}>💥</div></div>
         <div style={{fontSize:20,fontWeight:900,textAlign:'center',marginBottom:4}}>{t('fallTitle')}</div>
-        <div style={{fontSize:13,color:'var(--muted)',textAlign:'center',marginBottom:16}}>{athlete.name} · #{athlete.num}</div>
-        <div className="sh-card" style={{padding:16,marginBottom:14}}>
-          <div className="lbl" style={{marginBottom:6}}>{t('lastCP')}</div>
-          <div style={{fontSize:17,fontWeight:700,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span>{lastCP?lastCP.name:t('dnf')}</span>
-            <span style={{color:'var(--cor)',fontSize:13}}>{doneCP.length}/{cpObst.length} CPs</span>
+        <div style={{fontSize:13,color:'var(--muted)',textAlign:'center',marginBottom:14}}>{athlete.name} · #{athlete.num}</div>
+        <div className="sh-card" style={{padding:14,marginBottom:12}}>
+          <div className="lbl" style={{marginBottom:8}}>{lang==='de'?'Letzter erreichter Checkpoint':'Last checkpoint reached'}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:12}}>
+            <button className={`chip${selCount===0?' active':''}`}
+              style={{justifyContent:'space-between',padding:'9px 14px'}}
+              onClick={()=>setSelCount(0)}>
+              <span style={{fontWeight:600,color:'var(--text)'}}>⛔ {lang==='de'?'Kein Checkpoint':'No checkpoint'}</span>
+              <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>—</span>
+            </button>
+            {visible.map((cp,vi)=>{
+              const idx=rangeStart+vi;
+              const count=idx+1;
+              const reached=count<=doneCP.length;
+              const cpTime=reached?doneCP[idx]?.time:null;
+              const isSel=selCount===count;
+              return(
+                <button key={cp.id} className={`chip${isSel?' active':''}`}
+                  style={{justifyContent:'space-between',padding:'9px 14px',opacity:reached?1:.62,
+                    background:isSel?'rgba(255,94,58,.22)':reached?'rgba(255,255,255,.06)':'rgba(255,255,255,.02)'}}
+                  onClick={()=>setSelCount(count)}>
+                  <span style={{fontWeight:600,color:'var(--text)'}}>
+                    {reached&&<span style={{color:'var(--cor)',marginRight:5,fontSize:10}}>✓</span>}
+                    {count}. {cp.name}
+                    {!reached&&<span style={{fontSize:10,color:'var(--dim)',marginLeft:6}}>{lang==='de'?'(nicht erreicht)':'(not yet)'}</span>}
+                  </span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono',fontWeight:700,color:reached?'var(--text)':'var(--dim)',flexShrink:0,marginLeft:8}}>
+                    {cpTime!=null?fmtMs(cpTime):'—'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div className="lbl" style={{marginTop:12,marginBottom:6}}>{t('officialTime')}</div>
-          <div className="timer-grad" style={{fontSize:32}}>{fmtMs(time)}</div>
+          <div className="lbl" style={{marginBottom:4}}>{t('officialTime')}</div>
+          <div className="timer-grad" style={{fontSize:32}}>{fmtMs(officialTime)}</div>
         </div>
-        {hasLives&&lives>1&&onRetry&&(
-          <button className="btn btn-coral" style={{width:'100%',padding:13,marginBottom:8,gap:8}} onClick={onRetry}>❤️ {t('retry')} ({lives-1} {lang==='de'?'Leben übrig':'lives left'})</button>
+        {hasLives&&lives>1&&onUseLive&&(
+          <button className="btn btn-coral" style={{width:'100%',padding:13,marginBottom:8,gap:8}}
+            onClick={()=>onUseLive({selCount,time:officialTime})}>
+            ❤️ {lang==='de'?`Leben verbrauchen & weiter (${lives-1} übrig)`:`Use life & continue (${lives-1} left)`}
+          </button>
         )}
-        <button className="btn" style={{width:'100%',padding:13,marginBottom:8,gap:8,background:'rgba(255,59,48,.1)',color:'var(--red)',border:'1px solid rgba(255,59,48,.2)'}} onClick={onConfirm}><I.Check s={15}/> {t('confirm')} Fall</button>
-        <button className="btn btn-ghost" style={{width:'100%',padding:12}} onClick={onCancel}>{t('cancel')}</button>
+        <button className="btn" style={{width:'100%',padding:13,marginBottom:8,gap:8,
+          background:'rgba(255,59,48,.1)',color:'var(--red)',border:'1px solid rgba(255,59,48,.2)'}}
+          onClick={()=>onConfirm({selCount,time:officialTime})}>
+          <I.Check s={15}/> {lang==='de'?'Fall bestätigen (DNF)':'Confirm fall (DNF)'}
+        </button>
+        <button className="btn btn-ghost" style={{width:'100%',padding:12}} onClick={onCancel}>
+          ↩ {lang==='de'?'Zurück zum Lauf':'Back to run'}
+        </button>
       </div>
     </div>
   );
 };
 
 // ════════════════════════════════════════════════════════════
-// JURY — STOP MODAL (frühzeitiges Beenden / Zeitlimit)
+// JURY — STOP MODAL (timer keeps running behind overlay)
 // ════════════════════════════════════════════════════════════
-const StopModal=({athlete,doneCP,obstacles,time,reason,onConfirm,onCancel})=>{
+const StopModal=({athlete,doneCP,cpObst,time,reason,onConfirm,onCancel})=>{
   const {lang}=useLang();
-  const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
-  const cpObst=obstArr.filter(o=>o.isCP);
-  // Pre-select the number of CPs that were actually done
   const [selCount,setSelCount]=useState(doneCP.length);
   const isTimeout=reason==='timeout';
+  // Official time = selected CP's recorded time, else fallback
+  const getSelTime=()=>{
+    if(selCount===0)return time;
+    const ct=doneCP[selCount-1]?.time;
+    return ct!=null?ct:time;
+  };
   return(
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay">
       <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center',marginBottom:12}}>
           <div style={{fontSize:42,marginBottom:6}}>{isTimeout?'⏱':'🛑'}</div>
           <div style={{fontSize:20,fontWeight:900}}>{isTimeout?(lang==='de'?'Zeitlimit erreicht':'Time limit reached'):(lang==='de'?'Lauf abbrechen':'Stop run')}</div>
           <div style={{fontSize:13,color:'var(--muted)',marginTop:4}}>{athlete.name} · #{athlete.num}</div>
         </div>
-        <div className="sh-card" style={{padding:16,marginBottom:14}}>
-          <div className="lbl" style={{marginBottom:10}}>{lang==='de'?'Letzter erreichter Checkpoint':'Last checkpoint reached'}</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:12}}>
-            <button className={`chip${selCount===0?' active':''}`} style={{justifyContent:'center'}} onClick={()=>setSelCount(0)}>
-              {lang==='de'?'Keiner':'None'}
+        <div className="sh-card" style={{padding:14,marginBottom:12}}>
+          <div className="lbl" style={{marginBottom:8}}>{lang==='de'?'Letzter erreichter Checkpoint':'Last checkpoint reached'}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:12}}>
+            <button className={`chip${selCount===0?' active':''}`}
+              style={{justifyContent:'space-between',padding:'9px 14px'}}
+              onClick={()=>setSelCount(0)}>
+              <span style={{fontWeight:600,color:'var(--text)'}}>⛔ {lang==='de'?'Keiner':'None'}</span>
+              <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>—</span>
             </button>
-            {cpObst.map((cp,i)=>(
-              <button key={cp.id} className={`chip${selCount===i+1?' active':''}`}
-                style={{justifyContent:'center',background:selCount===i+1?'rgba(255,94,58,.22)':undefined}}
-                onClick={()=>setSelCount(i+1)}>
-                {i+1}. {cp.name}
-              </button>
-            ))}
+            {cpObst.map((cp,i)=>{
+              const reached=i<doneCP.length;
+              const cpTime=reached?doneCP[i]?.time:null;
+              const isSel=selCount===i+1;
+              return(
+                <button key={cp.id} className={`chip${isSel?' active':''}`}
+                  style={{justifyContent:'space-between',padding:'9px 14px',opacity:reached?1:.62,
+                    background:isSel?'rgba(255,94,58,.22)':reached?'rgba(255,255,255,.06)':'rgba(255,255,255,.02)'}}
+                  onClick={()=>setSelCount(i+1)}>
+                  <span style={{fontWeight:600,color:'var(--text)'}}>
+                    {reached&&<span style={{color:'var(--cor)',marginRight:5,fontSize:10}}>✓</span>}
+                    {i+1}. {cp.name}
+                  </span>
+                  <span style={{fontSize:12,fontFamily:'JetBrains Mono',fontWeight:700,color:reached?'var(--text)':'var(--dim)',flexShrink:0,marginLeft:8}}>
+                    {cpTime!=null?fmtMs(cpTime):'—'}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div className="lbl" style={{marginBottom:6}}>{lang==='de'?'Gemessene Zeit':'Measured time'}</div>
-          <div className="timer-grad" style={{fontSize:32}}>{fmtMs(time)}</div>
+          <div className="lbl" style={{marginBottom:4}}>{lang==='de'?'Offizielle Zeit':'Official time'}</div>
+          <div className="timer-grad" style={{fontSize:32}}>{fmtMs(getSelTime())}</div>
         </div>
         <div style={{fontSize:11,color:'var(--muted)',textAlign:'center',marginBottom:10}}>
-          {lang==='de'?'Checkpoint korrigieren falls Jury-Fehler passiert ist.':'Adjust checkpoint if a jury error occurred.'}
+          {lang==='de'?'Checkpoint korrigieren falls Jury-Fehler passiert ist.':'Adjust checkpoint if jury error occurred.'}
         </div>
-        <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:8}} onClick={()=>onConfirm({selCount,time})}>
+        <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:8}}
+          onClick={()=>onConfirm({selCount,time:getSelTime()})}>
           <I.Check s={15}/> {lang==='de'?'Bestätigen & speichern':'Confirm & save'}
         </button>
         <button className="btn btn-ghost" style={{width:'100%',padding:12}} onClick={onCancel}>
-          {lang==='de'?'Weiter laufen':'Continue run'}
+          ↩ {lang==='de'?'Zurück zum Lauf':'Back to run'}
         </button>
       </div>
     </div>
@@ -994,7 +1082,9 @@ const JuryApp=({compId,stNum,onBack})=>{
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const [phase,setPhase]=useState('wait');
   const [currentAth,setCurrentAth]=useState(null);
-  const [fallData,setFallData]=useState(null);
+  const [fallModal,setFallModal]=useState(null);   // null or fall data — timer stays running
+  const [stopModal,setStopModal]=useState(null);   // null or stop data — timer stays running
+  const [activeFalls,setActiveFalls]=useState([]); // committed falls in current run
   const [doneResult,setDoneResult]=useState(null);
   const [lives,setLives]=useState(3);
   useEffect(()=>{if(info)setLives(info.lives||3);},[info?.lives]);
@@ -1048,31 +1138,43 @@ const JuryApp=({compId,stNum,onBack})=>{
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
 
-  const handleStart=ath=>{setCurrentAth(ath);setLives(info.lives||3);setPhase('countdown');};
+  const handleStart=ath=>{setCurrentAth(ath);setLives(info.lives||3);setActiveFalls([]);setPhase('countdown');};
   const handleGo=()=>setPhase('active');
-  const handleFall=data=>{setFallData(data);setPhase('fall');};
-  const handleStop=data=>{setFallData(data);setPhase('stop');};
-  const handleRetry=()=>{setLives(l=>l-1);setPhase('active');};
-  const handleFallConfirm=async()=>{
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:fallData.doneCP||[],totalCPs:cpObst.length,finalTime:fallData.time,lives,status:'fall',timestamp:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setDoneResult(result);setPhase('done');SFX.complete();
+  // Fall: show modal overlay — JuryActive stays mounted, timer keeps running
+  const handleFall=data=>{if(fallModal||stopModal)return;setFallModal(data);};
+  const handleStop=data=>{if(fallModal||stopModal)return;setStopModal(data);};
+  // "Back to run" — accidental press, no fall recorded
+  const handleFallCancel=()=>setFallModal(null);
+  const handleStopCancel=()=>setStopModal(null);
+  // "Use life & continue" — record fall, decrement lives, close modal, run continues
+  const handleUseLive=({selCount,time})=>{
+    const newFall={obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime};
+    setActiveFalls(prev=>[...prev,newFall]);
+    setFallModal(null);
+    setLives(l=>l-1);
+  };
+  // Confirm DNF
+  const handleFallConfirm=async({selCount,time})=>{
+    const corrected=(fallModal.doneCP||[]).slice(0,selCount);
+    const finalFalls=[...activeFalls,{obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime}];
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,status:'fall',timestamp:Date.now()};
+    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleStopConfirm=async({selCount,time})=>{
-    // Build doneCP array up to selCount — allows jury to correct checkpoint count
-    const corrected=(fallData.doneCP||[]).slice(0,selCount);
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,status:fallData.reason||'dnf',timestamp:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setDoneResult(result);setPhase('done');SFX.complete();
+    const corrected=(stopModal.doneCP||[]).slice(0,selCount);
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,status:stopModal.reason||'dnf',timestamp:Date.now()};
+    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleComplete=async data=>{
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,status:'complete',timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,status:'complete',timestamp:Date.now()};
     await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setDoneResult(result);setPhase('done');
   };
-  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallData(null);setDoneResult(null);setLives(info.lives||3);};
+  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setLives(info.lives||3);};
   const inRun=phase==='active'||phase==='countdown';
 
   const juryContent=(()=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
-    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
+    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext}/>;
     return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId}/>;
   })();
@@ -1094,13 +1196,16 @@ const JuryApp=({compId,stNum,onBack})=>{
           ))}
         </nav>
       )}
-      {phase==='fall'&&fallData&&(
-        <FallModal athlete={currentAth} doneCP={fallData.doneCP} obstacles={obstacles} time={fallData.time} mode={info.mode} lives={lives}
-          onConfirm={handleFallConfirm} onRetry={(info.mode==='lives'||info.mode==='segliv')&&lives>1?handleRetry:null} onCancel={()=>setPhase('active')}/>
+      {fallModal&&phase==='active'&&(
+        <FallModal athlete={currentAth} doneCP={fallModal.doneCP} cpObst={cpObst} currentTime={fallModal.currentTime}
+          mode={info.mode} lives={lives}
+          onConfirm={handleFallConfirm}
+          onUseLive={(info.mode==='lives'||info.mode==='segliv')&&lives>1?handleUseLive:null}
+          onCancel={handleFallCancel}/>
       )}
-      {phase==='stop'&&fallData&&(
-        <StopModal athlete={currentAth} doneCP={fallData.doneCP||[]} obstacles={obstacles} time={fallData.time} reason={fallData.reason}
-          onConfirm={handleStopConfirm} onCancel={()=>setPhase('active')}/>
+      {stopModal&&phase==='active'&&(
+        <StopModal athlete={currentAth} doneCP={stopModal.doneCP||[]} cpObst={cpObst} time={stopModal.time} reason={stopModal.reason}
+          onConfirm={handleStopConfirm} onCancel={handleStopCancel}/>
       )}
     </div>
   );
