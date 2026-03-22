@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>OG Ninja Comp</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0ZGNUUzQSIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0ZGOTA0MCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE0IiBmaWxsPSIjMEIwQjE0Ii8+PHRleHQgeD0iMzIiIHk9IjI3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwsc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zaXplPSIyMyIgZmlsbD0idXJsKCNnKSI+T0c8L3RleHQ+PHRleHQgeD0iMzIiIHk9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjgwMCIgZm9udC1zaXplPSIxMSIgbGV0dGVyLXNwYWNpbmc9IjIuNSIgZmlsbD0idXJsKCNnKSI+Q09NUFM8L3RleHQ+PC9zdmc+">
-<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIiB4MT0iMCIgeTE9IjAiIHgyPSIxIiB5Mj0iMSI+PHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iI0ZGNUUzQSIvPjxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI0ZGOTA0MCIvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgcng9IjE0IiBmaWxsPSIjMEIwQjE0Ii8+PHRleHQgeD0iMzIiIHk9IjI3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwgQmxhY2ssQXJpYWwsc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zaXplPSIyMyIgZmlsbD0idXJsKCNnKSI+T0c8L3RleHQ+PHRleHQgeD0iMzIiIHk9IjQ4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjgwMCIgZm9udC1zaXplPSIxMSIgbGV0dGVyLXNwYWNpbmc9IjIuNSIgZmlsbD0idXJsKCNnKSI+Q09NUFM8L3RleHQ+PC9zdmc+">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <meta name="theme-color" content="#FF5E3A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ninja Comp">
+<meta name="apple-mobile-web-app-title" content="OG COMPS">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -785,11 +786,8 @@ const HomeView=({onOpen,lang,setLang})=>{
   const {t}=useLang();
   const comps=useFbVal('ogn');
   const [creating,setCreating]=useState(false);
-  const [joinCode,setJoinCode]=useState('');
-  const [showJoin,setShowJoin]=useState(false);
   if(creating)return<SetupWizard onDone={id=>{setCreating(false);onOpen(id);}} onBack={()=>setCreating(false)}/>;
   const list=comps?Object.entries(comps).map(([id,v])=>({id,...v})).sort((a,b)=>(b.info?.createdAt||0)-(a.info?.createdAt||0)):[];
-  const handleJoin=()=>{const c=joinCode.trim().toUpperCase();if(comps&&comps[c])onOpen(c);else{SFX.fall();alert(lang==='de'?'Code nicht gefunden':'Code not found');}};
   return(
     <div style={{minHeight:'100vh'}}>
       <TopBar title="OG Ninja Comp"
@@ -804,17 +802,7 @@ const HomeView=({onOpen,lang,setLang})=>{
         <div style={{fontSize:13,color:'var(--muted)'}}>Firebase Live-Sync · 4 Stages · DE / EN</div>
       </div>
       <div className="section">
-        <div style={{display:'flex',gap:8}}>
-          <button className="btn btn-ghost" style={{flex:1,padding:12,gap:6}} onClick={()=>setShowJoin(s=>!s)}><I.Users s={15}/> {t('join')}</button>
-          <button className="btn btn-coral" style={{flex:1,padding:12,gap:6}} onClick={()=>{SFX.click();setCreating(true);}}><I.Plus s={15}/> {t('newComp')}</button>
-        </div>
-        {showJoin&&(
-          <div className="sh-card scale-in" style={{padding:16,display:'flex',flexDirection:'column',gap:10}}>
-            <div className="lbl">{t('compCode')}</div>
-            <input value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder={t('enterCode')} style={{letterSpacing:'.14em',fontFamily:'JetBrains Mono'}} onKeyDown={e=>{if(e.key==='Enter')handleJoin();}}/>
-            <button className="btn btn-coral" style={{padding:11}} onClick={handleJoin}>{t('joinComp')}</button>
-          </div>
-        )}
+        <button className="btn btn-coral" style={{width:'100%',padding:12,gap:6}} onClick={()=>{SFX.click();setCreating(true);}}><I.Plus s={15}/> {t('newComp')}</button>
         {comps===undefined&&<Spinner/>}
         {comps!==undefined&&list.length===0&&<EmptyState icon="🥷" text={t('noComps')}/>}
         {list.map((c,i)=>(
@@ -889,29 +877,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
             </div>
           ))}
         </div>
-        {/* ── JOIN CODE PANEL ── */}
-        <div className="sh-card" style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:14}}>
-          <div style={{flex:1}}>
-            <div className="lbl" style={{marginBottom:5}}>🔗 {lang==='de'?'Beitrittscode':'Join code'}</div>
-            <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,letterSpacing:'.18em',color:'var(--cor)',lineHeight:1}}>{compId}</div>
-            <div style={{fontSize:11,color:'var(--dim)',marginTop:4}}>{lang==='de'?'Code an Jury-Geräte weitergeben':'Share this code with jury devices'}</div>
-          </div>
-          <div style={{display:'flex',flexDirection:'column',gap:6,flexShrink:0}}>
-            <button className="btn btn-ghost" style={{padding:'8px 12px',fontSize:12,gap:6,whiteSpace:'nowrap'}}
-              onClick={()=>{navigator.clipboard?.writeText(compId);setCopied('code');setTimeout(()=>setCopied(null),2000);SFX.click();}}>
-              {copied==='code'?<><I.Check s={13} c="var(--green)"/> {t('copied')}</>:<>📋 {lang==='de'?'Code kopieren':'Copy code'}</>}
-            </button>
-            <button className="btn btn-ghost" style={{padding:'8px 12px',fontSize:12,gap:6,whiteSpace:'nowrap'}}
-              onClick={()=>{
-                const url=`${base}?comp=${compId}`;
-                if(navigator.share)navigator.share({title:info.name||'OG Ninja Comp',text:`Wettkampf-Code: ${compId}`,url});
-                else{navigator.clipboard?.writeText(url);setCopied('url');setTimeout(()=>setCopied(null),2000);}
-                SFX.click();
-              }}>
-              {copied==='url'?<><I.Check s={13} c="var(--green)"/> {t('copied')}</>:<><I.Download s={13}/> {lang==='de'?'Link teilen':'Share link'}</>}
-            </button>
-          </div>
-        </div>
+
 
         <div style={{display:'flex',gap:8}}>
           <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>window.open(`${base}?mode=display&comp=${compId}`,'_blank')}>
