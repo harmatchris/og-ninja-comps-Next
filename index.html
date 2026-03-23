@@ -2680,7 +2680,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       {stRanked.slice(0,6).map((r,i)=>{
                         const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
                         return(
-                          <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',borderBottom:i<Math.min(stRanked.length,6)-1?'1px solid rgba(255,255,255,.04)':'none',opacity:r.status==='dsq'?.55:1}}>
+                          <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:i===0?'6px 12px':'4px 12px',borderBottom:i<Math.min(stRanked.length,6)-1?'1px solid rgba(255,255,255,.03)':'none',opacity:r.status==='dsq'?.55:1}}>
                             {r.status==='dsq'
                               ?<div style={{fontSize:9,fontWeight:900,color:'#FF3B6B',width:18,textAlign:'center',flexShrink:0,letterSpacing:'.02em'}}>DSQ</div>
                               :<div style={{fontSize:11,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.3)',width:18,textAlign:'center',flexShrink:0}}>{i+1}</div>
@@ -2703,36 +2703,34 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           ):(
             /* ── Single stage: original full-ranking view ── */
             <>
-              <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
-                {top3.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
-                  <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:16,background:isDsqR?'rgba(255,59,80,.06)':`linear-gradient(135deg,${curCat.color}18,${curCat.color}06)`,border:`1px solid ${isDsqR?'rgba(255,59,80,.2)':curCat.color+'28'}`,animation:`fadeUp .4s ${i*.1}s both`,opacity:isDsqR?.6:1}}>
-                    {a.photo?<img src={a.photo} style={{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${isDsqR?'rgba(255,59,80,.3)':curCat.color+'40'}`}}/>:isDsqR?<div style={{width:40,height:40,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:'#FF3B6B',flexShrink:0}}>DSQ</div>:<MedalBadge pos={i} s={40}/>}
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:18,fontWeight:800,letterSpacing:'-.3px'}}>{a.name}</div>
-                      <div style={{fontSize:11,color:'rgba(255,255,255,.4)',marginTop:2}}>#{a.num}{a.team&&<span style={{marginLeft:6,fontWeight:600,color:'rgba(255,144,64,.8)'}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>} · {r.doneCP?.length||0} CPs</div>
-                      {r.status!=='complete'&&r.status!=='dsq'&&r.fellAt?.name&&<div style={{fontSize:11,color:'rgba(255,100,80,.85)',fontWeight:600,marginTop:2,display:'flex',alignItems:'center',gap:4}}><I.XCircle s={10} c="rgba(255,100,80,.85)"/>{r.fellAt.name}</div>}
+              <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
+                {top3.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';const isTop2=i<2;return(
+                  <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:isTop2?14:10,padding:isTop2?'12px 16px':'8px 14px',borderRadius:isTop2?16:12,background:isDsqR?'rgba(255,59,80,.06)':`linear-gradient(135deg,${curCat.color}${isTop2?'18':'10'},${curCat.color}06)`,border:`1px solid ${isDsqR?'rgba(255,59,80,.2)':curCat.color+(isTop2?'28':'18')}`,animation:`fadeUp .4s ${i*.1}s both`,opacity:isDsqR?.6:1}}>
+                    {a.photo?<img src={a.photo} style={{width:isTop2?34:26,height:isTop2?34:26,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${isDsqR?'rgba(255,59,80,.3)':curCat.color+'40'}`}}/>:isDsqR?<div style={{width:isTop2?38:28,height:isTop2?38:28,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#FF3B6B',flexShrink:0}}>DSQ</div>:<MedalBadge pos={i} s={isTop2?38:28}/>}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:isTop2?18:14,fontWeight:800,letterSpacing:'-.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                      <div style={{fontSize:10,color:'rgba(255,255,255,.4)',marginTop:1}}>#{a.num}{a.team&&<span style={{marginLeft:6,fontWeight:600,color:'rgba(255,144,64,.8)'}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>} · {r.doneCP?.length||0} CPs</div>
+                      {r.status!=='complete'&&r.status!=='dsq'&&r.fellAt?.name&&<div style={{fontSize:10,color:'rgba(255,100,80,.85)',fontWeight:600,marginTop:1,display:'flex',alignItems:'center',gap:4}}><I.XCircle s={9} c="rgba(255,100,80,.85)"/>{r.fellAt.name}</div>}
                     </div>
-                    <div style={{textAlign:'right'}}>
-                      {a.photo&&!isDsqR&&<div style={{marginBottom:2}}><MedalBadge pos={i} s={24}/></div>}
-                      <div style={{fontFamily:'JetBrains Mono',fontSize:20,fontWeight:700,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.5)':medalColors[i]}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
+                    <div style={{textAlign:'right',flexShrink:0}}>
+                      {a.photo&&!isDsqR&&isTop2&&<div style={{marginBottom:2}}><MedalBadge pos={i} s={22}/></div>}
+                      <div style={{fontFamily:'JetBrains Mono',fontSize:isTop2?18:13,fontWeight:700,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.5)':medalColors[i]}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
                     </div>
                   </div>
                 );})}
               </div>
               {visRest.length>0&&(
-                <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                  <div style={{fontSize:10,color:'rgba(255,255,255,.25)',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:6}}>Positionen {scrollOff+4}–{Math.min(scrollOff+9,ranked.length)}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  <div style={{fontSize:10,color:'rgba(255,255,255,.2)',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:4}}>Positionen {scrollOff+4}–{Math.min(scrollOff+9,ranked.length)}</div>
                   {visRest.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
-                    <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',borderRadius:8,background:isDsqR?'rgba(255,59,80,.05)':'rgba(255,255,255,.04)',animation:'fadeUp .3s both',opacity:isDsqR?.6:1}}>
-                      <div style={{fontSize:13,color:isDsqR?'#FF3B6B':'rgba(255,255,255,.35)',width:26,fontWeight:700,textAlign:'center'}}>{isDsqR?'—':scrollOff+4+i}</div>
-                      {a.photo?<img src={a.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
+                    <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 12px',borderRadius:7,background:isDsqR?'rgba(255,59,80,.04)':'rgba(255,255,255,.03)',animation:'fadeUp .3s both',opacity:isDsqR?.6:1}}>
+                      <div style={{fontSize:12,color:isDsqR?'#FF3B6B':'rgba(255,255,255,.3)',width:22,fontWeight:700,textAlign:'center',flexShrink:0}}>{isDsqR?'—':scrollOff+4+i}</div>
+                      {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:15,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-                        {(a.country||a.team)&&<div style={{fontSize:10,color:'rgba(255,255,255,.3)',marginTop:1}}>{a.country&&<span>{toFlag(a.country)} {a.country}</span>}{a.team&&<span style={{marginLeft:5,color:'rgba(255,144,64,.6)'}}>{a.team}</span>}</div>}
-                        {!isDsqR&&r.status!=='complete'&&r.fellAt?.name&&<div style={{fontSize:10,color:'rgba(255,100,80,.8)',fontWeight:600,marginTop:1,display:'flex',alignItems:'center',gap:3}}><I.XCircle s={9} c="rgba(255,100,80,.8)"/>{r.fellAt.name}</div>}
+                        <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                        {!isDsqR&&r.status!=='complete'&&r.fellAt?.name&&<div style={{fontSize:9,color:'rgba(255,100,80,.8)',fontWeight:600,display:'flex',alignItems:'center',gap:2}}><I.XCircle s={8} c="rgba(255,100,80,.8)"/>{r.fellAt.name}</div>}
                       </div>
-                      <div style={{fontSize:11,color:'rgba(255,255,255,.35)',flexShrink:0}}>{isDsqR?'':r.doneCP?.length||0+' CPs'}</div>
-                      <div style={{fontFamily:'JetBrains Mono',fontSize:14,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.4)':'rgba(255,255,255,.6)'}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):t('dnf')}</div>
+                      <div style={{fontFamily:'JetBrains Mono',fontSize:12,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.38)':'rgba(255,255,255,.55)',flexShrink:0}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):t('dnf')}</div>
                     </div>
                   );})}
                 </div>
