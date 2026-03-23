@@ -184,6 +184,50 @@ const today=()=>new Date().toISOString().slice(0,10);
 const storage={get:(k,d=null)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}}};
 const fmtMs=ms=>{if(ms==null||ms<0)return '--:--.---';const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000),ms3=Math.floor(ms%1000);return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms3).padStart(3,'0')}`;};
 
+// ── FLAG EMOJI HELPER ──────────────────────────────────────
+const toFlag=code=>{if(!code||code.length<2)return '';try{return String.fromCodePoint(...[...code.toUpperCase().slice(0,2)].map(c=>0x1F1E6+c.charCodeAt(0)-65));}catch{return '';}};
+
+// ── AUTOCOMPLETE STORE (localStorage) ─────────────────────
+const AC_KEYS={names:'ogn-ac-names',teams:'ogn-ac-teams',countries:'ogn-ac-countries'};
+const acLoad=k=>{try{return JSON.parse(localStorage.getItem(k)||'[]');}catch{return [];}};
+const acSave=(k,val)=>{if(!val||!val.trim())return;const arr=acLoad(k);const trimmed=val.trim();if(!arr.includes(trimmed)){arr.unshift(trimmed);localStorage.setItem(k,JSON.stringify(arr.slice(0,60)));}};
+const acSuggest=(k,q)=>{if(!q||q.length<2)return[];const arr=acLoad(k);const ql=q.toLowerCase();return arr.filter(v=>v.toLowerCase().includes(ql)&&v.toLowerCase()!==ql).slice(0,6);};
+
+// ── AUTOCOMPLETE INPUT COMPONENT ──────────────────────────
+const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoFocus,inputStyle})=>{
+  const [open,setOpen]=React.useState(false);
+  const [sugs,setSugs]=React.useState([]);
+  const ref=React.useRef(null);
+  React.useEffect(()=>{
+    const fn=e=>{if(ref.current&&!ref.current.contains(e.target))setOpen(false);};
+    document.addEventListener('mousedown',fn);return()=>document.removeEventListener('mousedown',fn);
+  },[]);
+  const handleChange=e=>{
+    const v=e.target.value;onChange(e);
+    const s=acSuggest(acKey,v);setSugs(s);setOpen(s.length>0);
+  };
+  const pick=v=>{onChange({target:{value:v}});setOpen(false);};
+  return(
+    <div ref={ref} style={{position:'relative',flex:1,...(style||{})}}>
+      <input value={value} onChange={handleChange} placeholder={placeholder} autoFocus={autoFocus}
+        style={{width:'100%',...(inputStyle||{})}}
+        onKeyDown={e=>{if(e.key==='Escape')setOpen(false);if(onKeyDown)onKeyDown(e);}}
+        onFocus={()=>{const s=acSuggest(acKey,value);if(s.length>0){setSugs(s);setOpen(true);}}}/>
+      {open&&sugs.length>0&&(
+        <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:999,background:'#1C1C28',border:'1px solid var(--border)',borderRadius:10,marginTop:3,boxShadow:'0 8px 24px rgba(0,0,0,.4)',overflow:'hidden'}}>
+          {sugs.map(s=>(
+            <div key={s} onMouseDown={()=>pick(s)} style={{padding:'9px 13px',fontSize:13,cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,.05)',display:'flex',alignItems:'center',gap:7,transition:'background .1s'}}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(255,94,58,.12)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── CONSTANTS ─────────────────────────────────────────────
 const IGN_CATS=[
   {id:'bam',name:{de:'Bambinis 5–7',en:'Bambinis 5–7'},color:'#FF6B6B'},
@@ -624,6 +668,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const si=Math.min(curAthStage,numSt-1);
     const stageNum=si+1;
     setStageAths(a=>{const n=[...a];n[si]=[...n[si],{id:uid(),...newAth,stageNum}];return n;});
+    // Persist for autocomplete
+    acSave(AC_KEYS.names,newAth.name);
+    if(newAth.team)acSave(AC_KEYS.teams,newAth.team);
+    if(newAth.country)acSave(AC_KEYS.countries,newAth.country);
     setNewAth(a=>({...a,name:'',num:String(stageAths[si].length+2)}));
     SFX.click();
   };
@@ -873,7 +921,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:14,display:'flex',flexDirection:'column',gap:8}}>
             <div style={{display:'flex',gap:8}}>
               <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
-              <input value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}}/>
+              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}}/>
             </div>
             <select value={newAth.cat} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
               {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
@@ -885,8 +933,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               ))}
             </div>
             <div style={{display:'flex',gap:8}}>
-              <input value={newAth.country||''} onChange={e=>setNewAth(a=>({...a,country:e.target.value}))} placeholder={lang==='de'?'Land (z.B. CH)':'Country (e.g. CH)'} style={{flex:1}}/>
-              <input value={newAth.team||''} onChange={e=>setNewAth(a=>({...a,team:e.target.value}))} placeholder={lang==='de'?'Team (optional)':'Team (optional)'} style={{flex:1}}/>
+              <AutocompleteInput acKey={AC_KEYS.countries} value={newAth.country||''} onChange={e=>setNewAth(a=>({...a,country:e.target.value.toUpperCase().slice(0,3)}))} placeholder={lang==='de'?`${toFlag('CH')} Land (CH, AT…)`:`${toFlag('US')} Country (US, DE…)`} style={{flex:1}}/>
+              <AutocompleteInput acKey={AC_KEYS.teams} value={newAth.team||''} onChange={e=>setNewAth(a=>({...a,team:e.target.value}))} placeholder={lang==='de'?'Team (optional)':'Team (optional)'} style={{flex:1}}/>
             </div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid var(--border)'}}>
               {newAth.photo
@@ -1243,8 +1291,8 @@ const JuryWait=({cat,queue,obstacles,onStart,compId})=>{
           <div className="sh-card fade-up" style={{padding:20,position:'relative',overflow:'hidden'}}>
             <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 110%,rgba(255,94,58,.06) 0%,transparent 65%)',pointerEvents:'none'}}/>
             <div className="lbl" style={{marginBottom:10}}>{t('nextAthlete')}</div>
-            <div style={{fontSize:26,fontWeight:900,letterSpacing:'-.6px',marginBottom:4}}>{next.name}</div>
-            <div style={{fontSize:13,color:'var(--muted)',fontFamily:'JetBrains Mono',marginBottom:14}}>#{next.num}</div>
+            <div style={{fontSize:26,fontWeight:900,letterSpacing:'-.6px',marginBottom:4}}>{next.country&&<span style={{marginRight:6}}>{toFlag(next.country)}</span>}{next.name}</div>
+            <div style={{fontSize:13,color:'var(--muted)',fontFamily:'JetBrains Mono',marginBottom:14}}>#{next.num}{next.team&&<span style={{marginLeft:8,color:'var(--cor2)',fontWeight:600,fontFamily:'Inter,sans-serif',fontSize:12}}>{next.team}</span>}</div>
             {/* CP obstacle name pills */}
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
               {cpObst.map(o=><div key={o.id} className="cp-pill future">{o.name}</div>)}
@@ -1869,7 +1917,7 @@ const ResultsView=({compId,athletes})=>{
                   {a.photo?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,215,10,.4)',flexShrink:0}}/>:null}
                   <div>
                     <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px'}}>{a.name}{ranked[0].protested&&<span style={{marginLeft:8}}><I.Flag s={13} c="var(--gold)"/></span>}</div>
-                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>#{a.num}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{a.country}</span>}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>#{a.num}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>}</div>
                   </div>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginTop:6}}>
@@ -1878,9 +1926,9 @@ const ResultsView=({compId,athletes})=>{
                 </div>
                 <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1,height:5,background:'rgba(255,255,255,.1)',borderRadius:3,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${ranked[0].totalCPs?((ranked[0].doneCP?.length||0)/ranked[0].totalCPs)*100:0}%`,background:ranked[0].status==='complete'?'var(--green)':'var(--cor)',borderRadius:3}}/>
+                    <div style={{height:'100%',width:`${(()=>{const done=ranked[0].doneCP?.length||0;const tot=Math.max(ranked[0].totalCPs||0,done)||1;return(done/tot)*100;})()}%`,background:ranked[0].status==='complete'?'var(--green)':'var(--cor)',borderRadius:3}}/>
                   </div>
-                  <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{ranked[0].doneCP?.length||0}/{ranked[0].totalCPs||'?'} CPs</span>
+                  <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{ranked[0].doneCP?.length||0}{ranked[0].totalCPs?`/${ranked[0].totalCPs}`:''} CPs</span>
                 </div>
                 {ranked[0].status!=='complete'&&(ranked[0].fellAt?.name
                   ?<div style={{fontSize:12,color:'var(--red)',marginTop:4,fontWeight:600,display:'flex',alignItems:'center',gap:5}}><I.XCircle s={13} c="var(--red)"/> Failed @ {ranked[0].fellAt.name}</div>
@@ -1902,13 +1950,13 @@ const ResultsView=({compId,athletes})=>{
                   <div style={{display:'flex',gap:5,alignItems:'center',marginTop:2,flexWrap:'wrap'}}>
                     <span style={{fontSize:10,fontFamily:'JetBrains Mono',color:'var(--muted)'}}>#{a.num}</span>
                     {a.team&&<span style={{fontSize:10,color:'var(--cor2)',fontWeight:700,background:'rgba(255,144,64,.13)',borderRadius:5,padding:'1px 5px'}}>{a.team}</span>}
-                    {a.country&&<span style={{fontSize:10,color:'var(--muted)'}}>{a.country}</span>}
+                    {a.country&&<span style={{fontSize:10,color:'var(--muted)'}}>{toFlag(a.country)} {a.country}</span>}
                   </div>
                   <div style={{marginTop:5,display:'flex',alignItems:'center',gap:5}}>
                     <div style={{flex:1,height:3,background:'rgba(255,255,255,.08)',borderRadius:2,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${r.totalCPs?((r.doneCP?.length||0)/r.totalCPs)*100:0}%`,background:r.status==='complete'?'var(--green)':'var(--cor)',borderRadius:2}}/>
+                      <div style={{height:'100%',width:`${(()=>{const done=r.doneCP?.length||0;const tot=Math.max(r.totalCPs||0,done)||1;return(done/tot)*100;})()}%`,background:r.status==='complete'?'var(--green)':'var(--cor)',borderRadius:2}}/>
                     </div>
-                    <span style={{fontSize:9,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{r.doneCP?.length||0}/{r.totalCPs||'?'}</span>
+                    <span style={{fontSize:9,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{r.doneCP?.length||0}{r.totalCPs?`/${r.totalCPs}`:''}</span>
                   </div>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
@@ -2146,7 +2194,7 @@ const DisplayView=({compId,onBack})=>{
           <button onClick={onBack} style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:10,padding:'7px 10px',cursor:'pointer',color:'rgba(255,255,255,.55)',display:'flex',alignItems:'center',gap:5,fontSize:12,fontWeight:600,flexShrink:0,transition:'background .15s,color .15s'}}
             onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.12)';e.currentTarget.style.color='#fff';}}
             onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.06)';e.currentTarget.style.color='rgba(255,255,255,.55)';}}>
-            <I.ChevL s={16}/>{lang==='de'?'Jury':'Jury'}
+            <I.ChevL s={16}/>{lang==='de'?'Wettkampf wählen':'Select competition'}
           </button>
         )}
         <div style={{width:40,height:40,borderRadius:11,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{info.emoji||'🥷'}</div>
@@ -2211,7 +2259,7 @@ const DisplayView=({compId,onBack})=>{
                       <div style={{fontSize:cols===1?26:20,fontWeight:900,letterSpacing:'-.6px',lineHeight:1.15,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ath.name||run.athleteName}</div>
                       <div style={{fontSize:12,color:'rgba(255,255,255,.45)',marginTop:4,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
                         <span style={{fontFamily:'JetBrains Mono'}}>#{ath.num||'?'}</span>
-                        {ath.country&&<span style={{background:'rgba(255,255,255,.07)',borderRadius:6,padding:'1px 6px',fontSize:11}}>{ath.country}</span>}
+                        {ath.country&&<span style={{background:'rgba(255,255,255,.07)',borderRadius:6,padding:'1px 6px',fontSize:11}}>{toFlag(ath.country)} {ath.country}</span>}
                         {ath.team&&<span style={{color:`${catColor}CC`,fontWeight:600,fontSize:11}}>{ath.team}</span>}
                       </div>
                     </div>
@@ -2280,7 +2328,7 @@ const DisplayView=({compId,onBack})=>{
                             <div style={{fontSize:11,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.3)',width:18,textAlign:'center',flexShrink:0}}>{i+1}</div>
                             {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
                             <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                              <div style={{fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.country&&<span style={{marginRight:4}}>{toFlag(a.country)}</span>}{a.name}</div>
                               <div style={{fontSize:10,color:'rgba(255,255,255,.3)'}}>{r.doneCP?.length||0} CPs{r.status==='complete'?<span style={{color:'var(--green)',marginLeft:4}}>✓</span>:r.fellAt?.name?<span style={{marginLeft:4,color:'rgba(255,255,255,.25)'}}>{r.fellAt.name.substring(0,12)}</span>:null}</div>
                             </div>
                             <div style={{fontFamily:'JetBrains Mono',fontSize:11,fontWeight:700,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.5)',flexShrink:0}}>{r.status==='complete'&&r.finalTime?fmtMs(r.finalTime):'—'}</div>
@@ -2302,7 +2350,7 @@ const DisplayView=({compId,onBack})=>{
                     {a.photo?<img src={a.photo} style={{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${curCat.color}40`}}/>:<div style={{fontSize:28,width:40,textAlign:'center'}}>{medals[i]}</div>}
                     <div style={{flex:1}}>
                       <div style={{fontSize:18,fontWeight:800,letterSpacing:'-.3px'}}>{a.name}</div>
-                      <div style={{fontSize:11,color:'rgba(255,255,255,.4)',marginTop:2}}>#{a.num} · {r.doneCP?.length||0} CPs{a.country&&` · ${a.country}`}</div>
+                      <div style={{fontSize:11,color:'rgba(255,255,255,.4)',marginTop:2}}>#{a.num}{a.team&&<span style={{marginLeft:6,fontWeight:600,color:'rgba(255,144,64,.8)'}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>} · {r.doneCP?.length||0} CPs</div>
                     </div>
                     <div style={{textAlign:'right'}}>
                       {a.photo&&<div style={{fontSize:22,marginBottom:2}}>{medals[i]}</div>}
@@ -2318,8 +2366,11 @@ const DisplayView=({compId,onBack})=>{
                     <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 16px',borderRadius:10,background:'rgba(255,255,255,.04)',animation:'fadeUp .3s both'}}>
                       <div style={{fontSize:13,color:'rgba(255,255,255,.35)',width:26,fontWeight:700,textAlign:'center'}}>{scrollOff+4+i}</div>
                       {a.photo?<img src={a.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
-                      <div style={{flex:1,fontSize:15,fontWeight:600}}>{a.name}</div>
-                      <div style={{fontSize:11,color:'rgba(255,255,255,.35)'}}>{r.doneCP?.length||0} CPs</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:15,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                        {(a.country||a.team)&&<div style={{fontSize:10,color:'rgba(255,255,255,.3)',marginTop:1}}>{a.country&&<span>{toFlag(a.country)} {a.country}</span>}{a.team&&<span style={{marginLeft:5,color:'rgba(255,144,64,.6)'}}>{a.team}</span>}</div>}
+                      </div>
+                      <div style={{fontSize:11,color:'rgba(255,255,255,.35)',flexShrink:0}}>{r.doneCP?.length||0} CPs</div>
                       <div style={{fontFamily:'JetBrains Mono',fontSize:14,color:'rgba(255,255,255,.6)'}}>{r.finalTime?fmtMs(r.finalTime):t('dnf')}</div>
                     </div>
                   );})}
@@ -2453,7 +2504,7 @@ const App=()=>{
       {view==='home'&&<HomeView onOpen={openComp} lang={lang} setLang={setLang}/>}
       {view==='coordinator'&&compId&&<CoordinatorView compId={compId} onBack={()=>{setView('home');setCompId(null);}} onStage={openStage} lang={lang} setLang={setLang}/>}
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} onBack={()=>setView('coordinator')}/>}
-      {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setView('coordinator')}/>}
+      {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
       {/* Install prompt — only shows on mobile, dismissable, "not again" saves to localStorage */}
       <InstallPrompt lang={lang}/>
