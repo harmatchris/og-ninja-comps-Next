@@ -1583,7 +1583,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
     if(splitTimerRef.current)clearTimeout(splitTimerRef.current);
     splitTimerRef.current=setTimeout(()=>setShowSplit(false),3500);
     if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives,protested}),400);
-    else if(onRefillLives)onRefillLives();
+    else if(onRefillLives&&/endplattform/i.test(nextCp.name||''))onRefillLives(); // segliv: refill only at Endplattform
   };
   const handleFall=()=>{
     SFX.fall();
@@ -1653,13 +1653,26 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
             const cur=!done&&i===nextIdx;
             const nxt=!done&&!cur&&i===nextIdx+1;
             const fallsHere=(activeFalls||[]).filter(f=>f.obsIdx===i).length;
+            const isSegEnd=info.mode==='segliv'&&/endplattform/i.test(o.name||'');
+            const isSegStart=info.mode==='segliv'&&/startplattform/i.test(o.name||'');
             return(
-              <div key={o.id} style={{position:'relative',display:'inline-flex'}}>
-                <div className={`cp-pill ${done?'done':cur?'cur':nxt?'next':'future'}`}>
-                  {done&&<span style={{fontSize:10,marginRight:3}}>✓</span>}{o.name}
+              <React.Fragment key={o.id}>
+                {isSegStart&&i>0&&<div style={{width:'100%',height:0,flexBasis:'100%'}}/>}
+                <div style={{position:'relative',display:'inline-flex',flexDirection:'column',alignItems:'center',gap:2}}>
+                  <div className={`cp-pill ${done?'done':cur?'cur':nxt?'next':'future'}${isSegEnd?' seg-end':''}`}
+                    style={isSegEnd?{borderColor:done?'rgba(52,199,89,.5)':'rgba(255,200,0,.45)',boxShadow:cur?'0 0 0 2px rgba(255,200,0,.3)':undefined}:
+                           isSegStart?{borderColor:'rgba(255,255,255,.18)',opacity:.8}:undefined}>
+                    {isSegStart&&<span style={{fontSize:8,marginRight:2,opacity:.6}}>▶</span>}
+                    {done&&!isSegStart&&<span style={{fontSize:10,marginRight:3}}>✓</span>}
+                    {o.name}
+                    {isSegEnd&&<span style={{fontSize:8,marginLeft:3,opacity:.75}}>⬛</span>}
+                  </div>
+                  {isSegEnd&&info.mode==='segliv'&&<div style={{fontSize:8,color:done?'var(--green)':'rgba(255,200,0,.6)',letterSpacing:'.06em',textTransform:'uppercase',marginTop:-1}}>
+                    {done?(lang==='de'?'Leben aufgefüllt':'Lives refilled'):(lang==='de'?'Leben ↑ hier':'Lives ↑ here')}
+                  </div>}
+                  {fallsHere>0&&<span style={{position:'absolute',top:-7,right:-5,background:'var(--red)',color:'#fff',fontSize:9,fontWeight:800,borderRadius:8,padding:'1px 5px',lineHeight:1.5,minWidth:16,textAlign:'center'}}>{'💔'.repeat(Math.min(fallsHere,3))}{fallsHere>3?`×${fallsHere}`:''}</span>}
                 </div>
-                {fallsHere>0&&<span style={{position:'absolute',top:-7,right:-5,background:'var(--red)',color:'#fff',fontSize:9,fontWeight:800,borderRadius:8,padding:'1px 5px',lineHeight:1.5,minWidth:16,textAlign:'center'}}>{'💔'.repeat(Math.min(fallsHere,3))}{fallsHere>3?`×${fallsHere}`:''}</span>}
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -1668,11 +1681,15 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
       {/* THE BIG CHECKPOINT BUTTON */}
       {!allDone&&(
         <div style={{padding:'6px 16px',flex:1,display:'flex',flexDirection:'column',gap:8}}>
-          <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:185}} onClick={handleCP}>
-            <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
-            <div>CHECKPOINT</div>
+          {(()=>{const isEndPlat=nextCp&&/endplattform/i.test(nextCp.name||'')&&info.mode==='segliv';const isStartPlat=nextCp&&/startplattform/i.test(nextCp.name||'')&&info.mode==='segliv';return(
+          <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:185,
+            ...(isEndPlat?{borderColor:'rgba(255,200,0,.35)',background:'rgba(255,200,0,.06)'}:
+               isStartPlat?{borderColor:'rgba(150,150,255,.3)',background:'rgba(100,100,255,.05)'}:{})}} onClick={handleCP}>
+            <div style={{width:52,height:52,borderRadius:'50%',background:isEndPlat?'rgba(255,200,0,.1)':'rgba(255,94,58,.08)',border:`1px solid ${isEndPlat?'rgba(255,200,0,.3)':'rgba(255,94,58,.15)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
+            <div>{isEndPlat?(lang==='de'?'SEGMENT ENDE':'SEGMENT END'):isStartPlat?(lang==='de'?'SEGMENT START':'SEGMENT START'):'CHECKPOINT'}</div>
             {nextCp&&<div style={{fontSize:15,opacity:.82,fontWeight:600,letterSpacing:'.01em'}}>{nextCp.name}</div>}
-          </button>
+            {isEndPlat&&<div style={{fontSize:11,color:'rgba(255,200,0,.7)',letterSpacing:'.1em',textTransform:'uppercase',marginTop:2}}>{lang==='de'?'⬛ Leben werden aufgefüllt':'⬛ Lives will refill'}</div>}
+          </button>);})()}
           <div style={{display:'flex',gap:8}}>
             <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7}} onClick={handleFall}>
               <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
