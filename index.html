@@ -50,6 +50,8 @@ select option{background:#1A1A2C;}
 @keyframes cpFlash{0%{transform:scale(1)}30%{transform:scale(1.08)}100%{transform:scale(1)}}
 @keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 @keyframes buzzerGlow{0%,100%{box-shadow:0 0 6px rgba(52,199,89,.6),0 0 14px rgba(52,199,89,.25)}50%{box-shadow:0 0 12px rgba(52,199,89,1),0 0 28px rgba(52,199,89,.5)}}
+@keyframes slideUpIn{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+.slide-up-in{animation:slideUpIn .45s cubic-bezier(.16,1,.3,1) both;}
 .buzzer-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(52,199,89,.18);border:1px solid rgba(52,199,89,.5);border-radius:8px;padding:2px 8px;font-size:11px;font-weight:800;color:var(--green);animation:buzzerGlow 1.8s ease-in-out infinite;white-space:nowrap;}
 .fade-up{animation:fadeUp .28s cubic-bezier(.16,1,.3,1) both;}
 .scale-in{animation:scaleIn .22s cubic-bezier(.16,1,.3,1) both;}
@@ -2166,6 +2168,7 @@ const DisplayView=({compId,onBack})=>{
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const [catIdx,setCatIdx]=useState(0);const [scrollOff,setScrollOff]=useState(0);const [nowMs,setNowMs]=useState(Date.now());
+  const doneStartRef=useRef({});
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
   const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
@@ -2173,6 +2176,19 @@ const DisplayView=({compId,onBack})=>{
   const activeArr=activeRuns
     ?Object.entries(activeRuns).filter(([,r])=>r?.athleteId).map(([stNum,r])=>({stNum,...r}))
     :[];
+  // Track done phase start times
+  activeArr.forEach(run=>{
+    if(run.phase==='done'){if(!doneStartRef.current[run.stNum])doneStartRef.current[run.stNum]=Date.now();}
+    else{delete doneStartRef.current[run.stNum];}
+  });
+  // Compute queue for a given catId (athletes not yet done)
+  const getQueue=(catId)=>{
+    if(!catId||!athletesMap)return[];
+    const doneIds=new Set(runList.filter(r=>r.catId===catId).map(r=>r.athleteId));
+    // also exclude currently running athletes
+    activeArr.forEach(r=>{if(r.catId===catId&&r.phase!=='done')doneIds.add(r.athleteId);});
+    return Object.values(athletesMap).filter(a=>a.cat===catId&&!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
+  };
   useEffect(()=>{if(catsWithData.length<=1)return;const id=setInterval(()=>{setCatIdx(i=>(i+1)%catsWithData.length);setScrollOff(0);},15000);return()=>clearInterval(id);},[catsWithData.length]);
   useEffect(()=>{const id=setInterval(()=>{setScrollOff(off=>{const cat=catsWithData[catIdx];if(!cat)return 0;const total=computeRanked(runList,cat.id).length-3;return total>0?(off+1)%total:0;});},3000);return()=>clearInterval(id);},[catIdx,catsWithData.length,runList.length]);
   useEffect(()=>{let raf;const tick=()=>{setNowMs(Date.now());raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);},[]);
@@ -2223,26 +2239,53 @@ const DisplayView=({compId,onBack})=>{
                     <div style={{fontSize:13,color:'rgba(255,255,255,.5)',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700,marginTop:8}}>Stage {run.stNum} · {lang==='de'?'Bereit…':'Get ready…'}</div>
                   </div>
                 )}
-                {/* Done result overlay (shown 5s after run ends) */}
-                {run.phase==='done'&&(
-                  <div style={{position:'absolute',inset:0,background:run.status==='complete'?'rgba(11,11,20,.9)':'rgba(11,11,20,.9)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:10,borderRadius:20,gap:6}}>
-                    {run.status==='complete'
-                      ?<>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(52,199,89,.15)',border:'2px solid rgba(52,199,89,.3)'}}><I.CheckCircle s={cols===1?36:28} c="var(--green)"/></div>
-                        <div style={{fontSize:cols===1?36:28,fontWeight:900,color:'var(--green)',letterSpacing:'-.5px'}}>ZIEL!</div>
-                        {run.finalTime&&<div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?34:26,fontWeight:700,color:'#FF5E3A'}}>{fmtMs(run.finalTime)}</div>}
-                        <div style={{fontSize:12,color:'rgba(255,255,255,.45)',marginTop:2,display:'flex',alignItems:'center',gap:5}}><I.Target s={12} c="rgba(255,255,255,.45)"/> {lang==='de'?'Buzzer':'Buzzer'}</div>
-                      </>
-                      :<>
-                        <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.3)'}}><I.XCircle s={cols===1?36:28} c="var(--red)"/></div>
-                        <div style={{fontSize:cols===1?32:26,fontWeight:900,color:'var(--red)',letterSpacing:'-.3px'}}>{lang==='de'?'FAIL':'FAIL'}</div>
-                        {run.fellAt?.name&&<div style={{fontSize:cols===1?15:13,color:'rgba(255,255,255,.55)',textAlign:'center',padding:'0 8px',display:'flex',alignItems:'center',gap:5,justifyContent:'center'}}><I.XCircle s={14} c="rgba(255,255,255,.45)"/> {run.fellAt.name}</div>}
-                        {run.doneCP?.length>0&&<div style={{fontSize:12,color:'rgba(255,255,255,.35)',fontFamily:'JetBrains Mono'}}>{run.doneCP.length} CPs</div>}
-                      </>
-                    }
-                    <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,.25)',letterSpacing:'.08em',marginTop:4}}>{ath.name||run.athleteName}</div>
-                  </div>
-                )}
+                {/* Done result overlay — fades after 3s, shows next athlete after 5s */}
+                {run.phase==='done'&&(()=>{
+                  const doneAge=nowMs-(doneStartRef.current[run.stNum]||nowMs);
+                  const showNext=doneAge>5000;
+                  const resultOpacity=showNext?0:1;
+                  const nextQueue=getQueue(run.catId);
+                  return(
+                    <div style={{position:'absolute',inset:0,background:'rgba(11,11,20,.93)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:10,borderRadius:20,gap:6,transition:'background .4s',overflow:'hidden'}}>
+                      {/* Result (fades out after 5s) */}
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,transition:'opacity .5s,transform .5s',opacity:resultOpacity,transform:showNext?'translateY(-20px)':'translateY(0)'}}>
+                        {run.status==='complete'
+                          ?<>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(52,199,89,.15)',border:'2px solid rgba(52,199,89,.3)'}}><I.CheckCircle s={cols===1?36:28} c="var(--green)"/></div>
+                            <div style={{fontSize:cols===1?36:28,fontWeight:900,color:'var(--green)',letterSpacing:'-.5px'}}>ZIEL!</div>
+                            {run.finalTime&&<div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?34:26,fontWeight:700,color:'#FF5E3A'}}>{fmtMs(run.finalTime)}</div>}
+                            <div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5}}><I.Target s={12} c="rgba(255,255,255,.45)"/> Buzzer</div>
+                          </>
+                          :<>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.3)'}}><I.XCircle s={cols===1?36:28} c="var(--red)"/></div>
+                            <div style={{fontSize:cols===1?32:26,fontWeight:900,color:'var(--red)',letterSpacing:'-.3px'}}>FAIL</div>
+                            {run.fellAt?.name&&<div style={{fontSize:cols===1?15:13,color:'rgba(255,255,255,.55)',textAlign:'center',padding:'0 8px',display:'flex',alignItems:'center',gap:5,justifyContent:'center'}}><I.XCircle s={14} c="rgba(255,255,255,.45)"/> {run.fellAt.name}</div>}
+                            {run.doneCP?.length>0&&<div style={{fontSize:12,color:'rgba(255,255,255,.35)',fontFamily:'JetBrains Mono'}}>{run.doneCP.length} CPs</div>}
+                          </>
+                        }
+                        <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,.25)',letterSpacing:'.08em',marginTop:2}}>{ath.name||run.athleteName}</div>
+                      </div>
+                      {/* Next athlete slides up after 5s */}
+                      {showNext&&nextQueue.length>0&&(()=>{const nx=nextQueue[0];return(
+                        <div className="slide-up-in" style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,padding:'20px 16px'}}>
+                          <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:2}}>{lang==='de'?'⏭ Nächster Start':'⏭ Up Next'}</div>
+                          {nx.photo
+                            ?<img src={nx.photo} style={{width:cols===1?72:60,height:cols===1?72:60,borderRadius:'50%',objectFit:'cover',border:`3px solid ${catColor}60`,boxShadow:`0 0 20px ${catColor}40`}}/>
+                            :<div style={{width:cols===1?72:60,height:cols===1?72:60,borderRadius:'50%',background:`radial-gradient(135deg,${catColor}40,${catColor}15)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:cols===1?30:24,fontWeight:900,color:catColor,border:`2px solid ${catColor}40`}}>{(nx.name||'?')[0].toUpperCase()}</div>
+                          }
+                          <div style={{textAlign:'center'}}>
+                            <div style={{fontSize:cols===1?26:20,fontWeight:900,letterSpacing:'-.5px'}}>{nx.country&&<span style={{marginRight:5}}>{toFlag(nx.country)}</span>}{nx.name}</div>
+                            <div style={{fontSize:12,color:'rgba(255,255,255,.4)',marginTop:3,display:'flex',gap:8,justifyContent:'center',alignItems:'center',flexWrap:'wrap'}}>
+                              <span style={{fontFamily:'JetBrains Mono'}}>#{nx.num}</span>
+                              {nx.team&&<span style={{color:`${catColor}CC`,fontWeight:600}}>{nx.team}</span>}
+                            </div>
+                          </div>
+                          {nextQueue.length>1&&<div style={{fontSize:11,color:'rgba(255,255,255,.22)',marginTop:4}}>{lang==='de'?`Danach: ${nextQueue[1].name}`:`Then: ${nextQueue[1].name}`}</div>}
+                        </div>
+                      );})()}
+                    </div>
+                  );
+                })()}
                 <div style={{padding:cols===1?'22px 24px':'18px 20px'}}>
                   {/* Stage + category row */}
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
@@ -2291,6 +2334,48 @@ const DisplayView=({compId,onBack})=>{
           })}
         </div>
       )}
+
+      {/* ── Next athletes strip ── */}
+      {activeArr.length>0&&(()=>{
+        // collect queues for each active stage (excluding done-phase stages that already show next inline)
+        const strips=activeArr.map(run=>{
+          const q=getQueue(run.catId);
+          // show next 2, but skip if "done" phase already shows next inline (after 5s)
+          const doneAge=run.phase==='done'?nowMs-(doneStartRef.current[run.stNum]||nowMs):0;
+          if(run.phase==='done'&&doneAge>5000)return null; // inline already showing
+          if(q.length===0)return null;
+          const cat=IGN_CATS.find(c=>c.id===run.catId);
+          const catColor=cat?.color||'#FF5E3A';
+          return{stNum:run.stNum,q:q.slice(0,2),catColor,cat};
+        }).filter(Boolean);
+        if(!strips.length)return null;
+        return(
+          <div style={{padding:'0 20px 14px',display:'grid',gridTemplateColumns:`repeat(${Math.min(strips.length,cols)},1fr)`,gap:12}}>
+            {strips.map(({stNum,q,catColor,cat})=>(
+              <div key={stNum} style={{background:'rgba(255,255,255,.03)',border:`1px solid ${catColor}20`,borderRadius:14,padding:'10px 14px'}}>
+                <div style={{fontSize:10,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8}}>{lang==='de'?'Nächste':'Up Next'} · Stage {stNum}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                  {q.map((a,i)=>(
+                    <div key={a.id} className={i===0?'slide-up-in':''} style={{display:'flex',alignItems:'center',gap:10,animationDelay:i===0?'0s':'0.1s'}}>
+                      <div style={{fontSize:11,fontWeight:800,color:i===0?catColor:'rgba(255,255,255,.2)',width:16,flexShrink:0}}>{i===0?'▶':'·'}</div>
+                      {a.photo
+                        ?<img src={a.photo} style={{width:i===0?34:26,height:i===0?34:26,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1.5px solid ${i===0?catColor+'60':'rgba(255,255,255,.1)'}`,transition:'all .3s'}}/>
+                        :<div style={{width:i===0?34:26,height:i===0?34:26,borderRadius:'50%',flexShrink:0,background:i===0?`linear-gradient(135deg,${catColor}30,${catColor}10)`:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i===0?14:11,fontWeight:800,color:i===0?catColor:'rgba(255,255,255,.3)',transition:'all .3s'}}>{(a.name||'?')[0].toUpperCase()}</div>
+                      }
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:i===0?15:12,fontWeight:i===0?800:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:i===0?'#fff':'rgba(255,255,255,.45)'}}>
+                          {a.country&&<span style={{marginRight:4}}>{toFlag(a.country)}</span>}{a.name}
+                        </div>
+                        {(a.team||a.num)&&<div style={{fontSize:10,color:'rgba(255,255,255,.28)',marginTop:1,fontFamily:'JetBrains Mono'}}>#{a.num}{a.team&&<span style={{marginLeft:5,fontFamily:'Inter,sans-serif',color:i===0?`${catColor}99`:'rgba(255,255,255,.2)'}}>{a.team}</span>}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── Rankings ── */}
       {catsWithData.length>1&&(
