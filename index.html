@@ -1850,7 +1850,7 @@ const StopModal=({athlete,doneCP,cpObst,obstArr=[],time,reason,onConfirm,onCance
 // ════════════════════════════════════════════════════════════
 // JURY — DONE
 // ════════════════════════════════════════════════════════════
-const JuryDone=({athlete,result,cat,onNext})=>{
+const JuryDone=({athlete,result,cat,onNext,onRestart,onSwitchAth})=>{
   const {t,lang,catName}=useLang();
   const ok=result.status==='complete';
   const isDnf=result.status==='dnf'||result.status==='stopped';
@@ -1859,6 +1859,7 @@ const JuryDone=({athlete,result,cat,onNext})=>{
   const statusIcon=ok?'🏆':isTimeout?'⏱':'💪';
   const statusLabel=ok?(lang==='de'?'✅ Abgeschlossen':'✅ Completed'):isTimeout?(lang==='de'?'⏱ Zeitlimit':'⏱ Timeout'):isDnf?(lang==='de'?'🛑 Abgebrochen':'🛑 Stopped'):'💥 Fall';
   const statusColor=ok?'var(--green)':isTimeout?'var(--gold)':isDnf?'rgba(255,200,80,.8)':'var(--cor)';
+  const canRestart=!ok; // Restart only makes sense for non-complete results
   return(
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'44px 20px 20px',gap:16}}>
       <div style={{fontSize:54}}>{statusIcon}</div>
@@ -1876,6 +1877,17 @@ const JuryDone=({athlete,result,cat,onNext})=>{
           </div>
         )}
       </div>
+      {/* Restart / switch athlete section — only shown for non-complete runs */}
+      {canRestart&&(onRestart||onSwitchAth)&&(
+        <div style={{width:'100%',background:'rgba(255,200,80,.06)',border:'1px solid rgba(255,200,80,.2)',borderRadius:14,padding:'14px 16px',display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{fontSize:12,color:'rgba(255,200,80,.8)',fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase'}}>{lang==='de'?'Lauf korrigieren':'Correct run'}</div>
+          <div style={{display:'flex',gap:8}}>
+            {onRestart&&<button className="btn" style={{flex:1,padding:'10px',gap:6,background:'rgba(255,200,80,.12)',border:'1px solid rgba(255,200,80,.3)',color:'#FFD060',fontWeight:700,fontSize:13}} onClick={onRestart}>🔄 {lang==='de'?'Nochmal starten':'Restart run'}</button>}
+            {onSwitchAth&&<button className="btn" style={{flex:1,padding:'10px',gap:6,fontSize:13}} onClick={onSwitchAth}><I.User s={13}/> {lang==='de'?'Athlet wechseln':'Switch athlete'}</button>}
+          </div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,.35)',lineHeight:1.4}}>{lang==='de'?'Das Ergebnis wird gelöscht und der Lauf neu gestartet.':'The result will be deleted and the run restarted.'}</div>
+        </div>
+      )}
       <button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15,gap:8}} onClick={onNext}><I.ChevR s={16}/> {t('nextAth')}</button>
     </div>
   );
@@ -2111,6 +2123,7 @@ const JuryApp=({compId,stNum,onBack})=>{
   const [stopModal,setStopModal]=useState(null);   // null or stop data — timer stays running
   const [activeFalls,setActiveFalls]=useState([]); // committed falls in current run
   const [doneResult,setDoneResult]=useState(null);
+  const [completedRunKey,setCompletedRunKey]=useState(null);
   const [lives,setLives]=useState(3);
   const [goTime,setGoTime]=useState(null); // performance.now() captured when GO horn fires
   useEffect(()=>{if(info)setLives(info.lives||3);},[info?.lives]);
@@ -2211,24 +2224,45 @@ const JuryApp=({compId,stNum,onBack})=>{
     const corrected=(fallModal.doneCP||[]).slice(0,selCount);
     const finalFalls=[...activeFalls,{obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime}];
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,protested:fallModal.protested||false,status:'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
+    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleStopConfirm=async({selCount,time,fellAtObst})=>{
     const corrected=(stopModal.doneCP||[]).slice(0,selCount);
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:stopModal.reason||'dnf',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
+    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleComplete=async data=>{
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,protested:data.protested||false,status:'complete',timestamp:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${uid()}`,result);setDoneResult(result);setPhase('done');
+    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setDoneResult(result);setPhase('done');
   };
-  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setLives(info.lives||3);setGoTime(null);};
+  const handleNext=()=>{setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setCompletedRunKey(null);setLives(info.lives||3);setGoTime(null);};
+  // Restart: delete completed result, show "restarting" on Display, then go to countdown for same athlete
+  const handleRestartRun=async()=>{
+    if(completedRunKey)await fbRemove(`ogn/${compId}/completedRuns/${completedRunKey}`);
+    setCompletedRunKey(null);
+    await fbSet(`ogn/${compId}/activeRuns/${stNum}`,{
+      athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat||null,
+      phase:'restarting',doneAt:null
+    });
+    setTimeout(()=>{
+      setDoneResult(null);setActiveFalls([]);setGoTime(null);setLives(info.lives||3);setPhase('countdown');
+    },1800);
+    SFX.click();
+  };
+  // Switch athlete: delete completed result, go back to wait queue
+  const handleSwitchAth=async()=>{
+    if(completedRunKey)await fbRemove(`ogn/${compId}/completedRuns/${completedRunKey}`);
+    setCompletedRunKey(null);
+    await fbRemove(`ogn/${compId}/activeRuns/${stNum}`);
+    setPhase('wait');setCurrentAth(null);setFallModal(null);setStopModal(null);setActiveFalls([]);setDoneResult(null);setLives(info.lives||3);setGoTime(null);
+    SFX.click();
+  };
   const inRun=phase==='active'||phase==='countdown';
 
   const juryContent=(()=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
     if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} startPerf={goTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
-    if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext}/>;
+    if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
     return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId}/>;
   })();
 
@@ -2386,6 +2420,14 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                     <div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?22:18,fontWeight:700,color:'rgba(255,255,255,.7)'}}>{fmtMs(stageTimeLimit)}</div>
                     {lastCP&&<div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5,marginTop:2}}><span style={{color:'var(--green)'}}>✓</span>{lang==='de'?'Letzter CP:':'Last CP:'} {lastCP.name}</div>}
                     <div style={{fontSize:11,color:'rgba(255,255,255,.3)',marginTop:4}}>{run.doneCP?.length||0} CP{(run.doneCP?.length||0)!==1?'s':''} · {ath.name}</div>
+                  </div>
+                )}
+                {/* Restarting overlay — shown when jury pressed "restart run" */}
+                {run.phase==='restarting'&&(
+                  <div style={{position:'absolute',inset:0,background:'rgba(11,11,20,.93)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:11,borderRadius:20,gap:10}}>
+                    <div style={{fontSize:cols===1?44:36}}>🔄</div>
+                    <div style={{fontSize:cols===1?24:20,fontWeight:900,color:'#FFD060',letterSpacing:'-.3px',textAlign:'center',padding:'0 12px'}}>{lang==='de'?'Lauf wird neu gestartet':'Run restarting…'}</div>
+                    <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:4}}>{ath.name||run.athleteName}</div>
                   </div>
                 )}
                 {/* Done result overlay — fades after 3s, shows next athlete after 5s */}
