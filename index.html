@@ -563,13 +563,13 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
 // ── RANKING UTIL ──────────────────────────────────────────
 // Best result per athlete across ALL stages (for overall view)
 const computeRanked=(runList,catId)=>{
-  const cr=runList.filter(r=>r.catId===catId);const byA={};
+  const cr=runList.filter(r=>r.catId===catId&&r.status!=='dsq');const byA={};
   cr.forEach(r=>{const ex=byA[r.athleteId];const rc=r.doneCP?.length||0,ec=ex?.doneCP?.length||0;if(!ex||rc>ec||(rc===ec&&r.finalTime<(ex.finalTime||Infinity)))byA[r.athleteId]=r;});
   return Object.values(byA).sort((a,b)=>{const ac=a.doneCP?.length||0,bc=b.doneCP?.length||0;if(ac!==bc)return bc-ac;return(a.finalTime||Infinity)-(b.finalTime||Infinity);});
 };
 // Best result per athlete for a SPECIFIC stage (Option B — per-stage leaderboard)
 const computeRankedStage=(runList,catId,stNum)=>{
-  const cr=runList.filter(r=>r.catId===catId&&r.stNum===stNum);const byA={};
+  const cr=runList.filter(r=>r.catId===catId&&r.stNum===stNum&&r.status!=='dsq');const byA={};
   cr.forEach(r=>{const ex=byA[r.athleteId];const rc=r.doneCP?.length||0,ec=ex?.doneCP?.length||0;if(!ex||rc>ec||(rc===ec&&r.finalTime<(ex.finalTime||Infinity)))byA[r.athleteId]=r;});
   return Object.values(byA).sort((a,b)=>{const ac=a.doneCP?.length||0,bc=b.doneCP?.length||0;if(ac!==bc)return bc-ac;return(a.finalTime||Infinity)-(b.finalTime||Infinity);});
 };
@@ -1236,13 +1236,14 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
                   </button>
                 </div>
               )}
-              {/* Category chips */}
+              {/* Category chips — only cats with registered athletes */}
               <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-                {IGN_CATS.map(c=>(
+                {IGN_CATS.filter(c=>athList.some(a=>a.cat===c.id)).map(c=>(
                   <button key={c.id} className={`chip${st.cat===c.id?' active':''}`}
                     style={{fontSize:10,padding:'3px 9px',...(st.cat===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
                     onClick={()=>assignCat(n,c.id)}>{c.name[lang]}</button>
                 ))}
+                {athList.length===0&&<div style={{fontSize:11,color:'var(--muted)',padding:'4px 2px'}}>{lang==='de'?'Keine Athleten registriert':'No athletes registered'}</div>}
               </div>
               {/* BIG START BUTTON */}
               {occupiedStages.has(n)
@@ -1382,7 +1383,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
 // ════════════════════════════════════════════════════════════
 // JURY — WAIT
 // ════════════════════════════════════════════════════════════
-const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset})=>{
+const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset,onDsq})=>{
   const {t,catName,lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -1428,9 +1429,14 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
               {cpObst.map(o=><div key={o.id} className="cp-pill future">{o.name}</div>)}
             </div>
             <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} Hindernisse</div>
-            <button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:16,gap:8,marginTop:16}} onClick={()=>{SFX.click();onStart(next);}}>
-              <I.Play s={16}/> {t('startCountdown')}
-            </button>
+            <div style={{display:'flex',gap:8,marginTop:16}}>
+              <button className="btn btn-coral" style={{flex:1,padding:15,fontSize:16,gap:8}} onClick={()=>{SFX.click();onStart(next);}}>
+                <I.Play s={16}/> {t('startCountdown')}
+              </button>
+              {onDsq&&<button className="btn" style={{padding:'10px 14px',fontSize:13,gap:6,background:'rgba(255,59,80,.1)',border:'1px solid rgba(255,59,80,.35)',color:'#FF3B6B',flexShrink:0}} onClick={()=>{if(window.confirm(`${next.name} als DSQ markieren?`))onDsq(next);}}>
+                <I.XCircle s={14} c="#FF3B6B"/> DSQ
+              </button>}
+            </div>
           </div>
           {/* Queue drag-reorder — ALL positions including #1 */}
           {effectiveQ.length>1&&(
@@ -1447,6 +1453,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
                     <div style={{flex:1,fontSize:13,fontWeight:600}}>{a.name}</div>
                     {i===0&&<div style={{fontSize:9,padding:'2px 7px',borderRadius:6,background:'rgba(52,199,89,.15)',color:'var(--green)',fontWeight:800,border:'1px solid rgba(52,199,89,.3)',letterSpacing:'.05em'}}>NEXT</div>}
                     <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>#{a.num}</div>
+                    {onDsq&&<button style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontWeight:700,fontFamily:'Inter,sans-serif',flexShrink:0}} onClick={e=>{e.stopPropagation();if(window.confirm(`${a.name} als DSQ markieren?`))onDsq(a);}}>DSQ</button>}
                   </div>
                 )}/>
             </div>
@@ -1785,6 +1792,7 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
 const StopModal=({athlete,doneCP,cpObst,obstArr=[],time,reason,onConfirm,onCancel})=>{
   const {lang}=useLang();
   const [selCount,setSelCount]=useState(doneCP.length);
+  const [isDsq,setIsDsq]=useState(false);
   const isTimeout=reason==='timeout';
   // Official time = selected CP's recorded time, else fallback
   const getSelTime=()=>{
@@ -1858,8 +1866,14 @@ const StopModal=({athlete,doneCP,cpObst,obstArr=[],time,reason,onConfirm,onCance
         <div style={{fontSize:11,color:'var(--muted)',textAlign:'center',marginBottom:10}}>
           {lang==='de'?'Checkpoint korrigieren falls Jury-Fehler passiert ist.':'Adjust checkpoint if jury error occurred.'}
         </div>
+        <button
+          style={{width:'100%',padding:'10px 14px',fontSize:13,gap:8,marginBottom:10,display:'flex',alignItems:'center',justifyContent:'space-between',borderRadius:12,border:`1px solid ${isDsq?'rgba(255,59,80,.45)':'rgba(255,255,255,.1)'}`,background:isDsq?'rgba(255,59,80,.12)':'rgba(255,255,255,.04)',color:isDsq?'#FF3B6B':'var(--muted)',cursor:'pointer',fontWeight:700,fontFamily:'Inter,sans-serif'}}
+          onClick={()=>setIsDsq(p=>!p)}>
+          <span style={{display:'flex',alignItems:'center',gap:7}}><I.XCircle s={14} c={isDsq?'#FF3B6B':'var(--muted)'}/>{lang==='de'?'Als DSQ markieren':'Mark as DSQ'}</span>
+          {isDsq&&<span style={{fontSize:11,fontWeight:800,letterSpacing:'.05em'}}>✓ DSQ</span>}
+        </button>
         <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:8}}
-          onClick={()=>onConfirm({selCount,time:getSelTime(),fellAtObst})}>
+          onClick={()=>onConfirm({selCount,time:getSelTime(),fellAtObst,dsq:isDsq})}>
           <I.Check s={15}/> {lang==='de'?'Bestätigen & speichern':'Confirm & save'}
         </button>
         <button className="btn btn-ghost" style={{width:'100%',padding:12}} onClick={onCancel}>
@@ -1878,10 +1892,11 @@ const JuryDone=({athlete,result,cat,onNext,onRestart,onSwitchAth})=>{
   const ok=result.status==='complete';
   const isDnf=result.status==='dnf'||result.status==='stopped';
   const isTimeout=result.status==='timeout';
+  const isDsq=result.status==='dsq';
   useEffect(()=>{if(ok)SFX.complete();},[]);
-  const statusIconEl=ok?<I.Trophy s={28} c="var(--green)"/>:isTimeout?<I.Clock s={28} c="var(--gold)"/>:isDnf?<I.StopOct s={28} c="var(--red)"/>:<I.XCircle s={28} c="var(--cor)"/>;
-  const statusLabel=ok?(lang==='de'?'Abgeschlossen':'Completed'):isTimeout?(lang==='de'?'Zeitlimit':'Timeout'):isDnf?(lang==='de'?'Abgebrochen':'Stopped'):(lang==='de'?'Gefallen':'Fall');
-  const statusColor=ok?'var(--green)':isTimeout?'var(--gold)':isDnf?'rgba(255,200,80,.8)':'var(--cor)';
+  const statusIconEl=ok?<I.Trophy s={28} c="var(--green)"/>:isDsq?<I.XCircle s={28} c="#FF3B6B"/>:isTimeout?<I.Clock s={28} c="var(--gold)"/>:isDnf?<I.StopOct s={28} c="var(--red)"/>:<I.XCircle s={28} c="var(--cor)"/>;
+  const statusLabel=ok?(lang==='de'?'Abgeschlossen':'Completed'):isDsq?'DSQ':isTimeout?(lang==='de'?'Zeitlimit':'Timeout'):isDnf?(lang==='de'?'Abgebrochen':'Stopped'):(lang==='de'?'Gefallen':'Fall');
+  const statusColor=ok?'var(--green)':isDsq?'#FF3B6B':isTimeout?'var(--gold)':isDnf?'rgba(255,200,80,.8)':'var(--cor)';
   const canRestart=!ok; // Restart only makes sense for non-complete results
   return(
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'44px 20px 20px',gap:16}}>
@@ -2237,6 +2252,10 @@ const JuryApp=({compId,stNum,onBack})=>{
   const cpObst=obstArr.filter(o=>o.isCP);
 
   const handleStart=ath=>{setCurrentAth(ath);setLives(info.lives||3);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
+  const handleDsqAth=async(ath)=>{
+    const result={athleteId:ath.id,athleteName:ath.name,catId:ath.cat||catId,stNum,mode:info.mode||'cp',doneCP:[],totalCPs:cpObst.length,finalTime:0,lives:info.lives||3,falls:0,status:'dsq',timestamp:Date.now()};
+    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);SFX.click();
+  };
   // goTime = performance.now() at the exact moment the GO horn fired — used as timer origin
   const handleGo=(gt)=>{setGoTime(gt);setPhase('active');};
   // Fall: show modal overlay — JuryActive stays mounted, timer keeps running
@@ -2259,9 +2278,9 @@ const JuryApp=({compId,stNum,onBack})=>{
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,protested:fallModal.protested||false,status:'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
     const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
-  const handleStopConfirm=async({selCount,time,fellAtObst})=>{
+  const handleStopConfirm=async({selCount,time,fellAtObst,dsq})=>{
     const corrected=(stopModal.doneCP||[]).slice(0,selCount);
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:stopModal.reason||'dnf',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:dsq?'dsq':(stopModal.reason||'dnf'),fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
     const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleComplete=async data=>{
@@ -2296,7 +2315,7 @@ const JuryApp=({compId,stNum,onBack})=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
     if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} startPerf={goTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
-    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage}/>;
+    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage} onDsq={handleDsqAth}/>;
   })();
 
   return(
@@ -2488,13 +2507,20 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                         {run.status==='complete'
                           ?<>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(52,199,89,.15)',border:'2px solid rgba(52,199,89,.3)'}}><I.CheckCircle s={cols===1?36:28} c="var(--green)"/></div>
-                            <div style={{fontSize:cols===1?36:28,fontWeight:900,color:'var(--green)',letterSpacing:'-.5px'}}>ZIEL!</div>
+                            <div style={{fontSize:cols===1?36:28,fontWeight:900,color:'var(--green)',letterSpacing:'-.5px'}}>{lang==='de'?'Gebuzzert!':'Buzzer!'}</div>
                             {run.finalTime&&<div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?34:26,fontWeight:700,color:'#FF5E3A'}}>{fmtMs(run.finalTime)}</div>}
-                            <div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5}}><I.Target s={12} c="rgba(255,255,255,.45)"/> Buzzer</div>
+                            <div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5}}><I.Bolt s={12} c="rgba(255,255,255,.45)"/> Buzzer</div>
+                          </>
+                          :run.status==='dsq'
+                          ?<>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,0,80,.15)',border:'2px solid rgba(255,0,80,.35)'}}><I.XCircle s={cols===1?36:28} c="#FF3B6B"/></div>
+                            <div style={{fontSize:cols===1?32:26,fontWeight:900,color:'#FF3B6B',letterSpacing:'-.3px'}}>DSQ</div>
+                            <div style={{fontSize:12,color:'rgba(255,255,255,.35)',letterSpacing:'.06em'}}>{lang==='de'?'Disqualifiziert':'Disqualified'}</div>
                           </>
                           :<>
                             <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.3)'}}><I.StopOct s={cols===1?36:28} c="var(--red)"/></div>
                             <div style={{fontSize:cols===1?32:26,fontWeight:900,color:'var(--red)',letterSpacing:'-.3px'}}>FAIL</div>
+                            {run.finalTime>0&&<div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?30:24,fontWeight:700,color:'rgba(255,255,255,.65)',letterSpacing:'-1px'}}>{fmtMs(run.finalTime)}</div>}
                             {run.fellAt?.name&&<div style={{fontSize:cols===1?15:13,color:'rgba(255,255,255,.55)',textAlign:'center',padding:'0 8px',display:'flex',alignItems:'center',gap:5,justifyContent:'center'}}><I.XCircle s={14} c="rgba(255,255,255,.45)"/> {run.fellAt.name}</div>}
                             {run.doneCP?.length>0&&<div style={{fontSize:12,color:'rgba(255,255,255,.35)',fontFamily:'JetBrains Mono'}}>{run.doneCP.length} CPs</div>}
                           </>
