@@ -168,7 +168,7 @@ select option{background:#1A1A2C;}
 </style>
 </head>
 <body>
-<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0B0B14;color:#fff;font-family:sans-serif;flex-direction:column;gap:12px"><div style="font-size:42px">🥷</div><div style="font-size:14px;opacity:.5">Lädt…</div></div></div>
+<div id="root"><div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0B0B14;color:#fff;font-family:sans-serif;flex-direction:column;gap:12px"><svg width="42" height="42" viewBox="0 0 24 24" fill="#FF5E3A"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg><div style="font-size:14px;opacity:.5">Lädt…</div></div></div>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback,useContext,createContext}=React;
 
@@ -461,6 +461,11 @@ const I={
   CheckCircle:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   ArrowLeft:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.2" strokeLinecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
   Edit:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  Clock:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  StopOct:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  SkipFwd:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon fill={c} points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>,
+  Ninja:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M9 11c0 0-1 2-1 4"/><path d="M15 11c0 0 1 2 1 4"/></svg>,
+  Muscle:({s=16,c='currentColor'})=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v1.5"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 3.38-2.74 6-6.13 6H12c-1.5 0-3-1-3-2.5v-1c0-1 .5-2 1.5-2.5L12 17"/><path d="M10 14a4 4 0 0 0 4 4"/><path d="M2 12v-2a4 4 0 0 1 4-4h4l2 4H6"/></svg>,
 };
 
 // ── HOOKS ─────────────────────────────────────────────────
@@ -478,6 +483,8 @@ const useTimer=(running,startPerf)=>{
 // ── SHARED UI COMPONENTS ──────────────────────────────────
 const Spinner=()=><div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><div style={{width:26,height:26,border:'2.5px solid var(--border)',borderTopColor:'var(--cor)',borderRadius:'50%',animation:'spin .7s linear infinite'}}/></div>;
 const EmptyState=({icon,text})=><div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,padding:'44px 24px',color:'var(--muted)',textAlign:'center'}}><div style={{fontSize:30,opacity:.4}}>{icon}</div><div style={{fontSize:13}}>{text}</div></div>;
+const MedalBadge=({pos,s=28})=>{const c=pos===0?'#FFD60A':pos===1?'#C0C0C0':'#CD7F32';return<div style={{width:s,height:s,borderRadius:'50%',background:`radial-gradient(135deg,${c}33,${c}11)`,border:`2px solid ${c}88`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:Math.round(s*.44),color:c,flexShrink:0,fontFamily:'JetBrains Mono'}}>{pos+1}</div>;};
+const CompEmoji=({emoji,s=40})=>emoji?<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF6B00,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(s*.52),flexShrink:0}}>{emoji}</div>:<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.Bolt s={Math.round(s*.44)} c="#fff"/></div>;
 
 const TopBar=({title,sub,onBack,right,logo=true})=>(
   <div className="topbar">
@@ -641,7 +648,7 @@ const TimePicker=({value,onChange,allowDefault=false})=>{
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},emoji:'🥷'});
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},emoji:''});
   // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
   const [stageObs,setStageObs]=useState(()=>{
     const n=initialInfo?.numStations||2;
@@ -734,7 +741,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     if(results.length===0){setCsvError('Keine Athleten gefunden');return;}
     setStageAths(a=>{const n=[...a];n[si]=[...n[si],...results];return n;});
     SFX.complete();
-    alert(`✅ ${results.length} Athleten importiert`);
+    alert(`${results.length} Athleten importiert`);
   };
   const downloadCsvTemplate=()=>{
     const rows=[
@@ -855,11 +862,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           )}
           <div className="lbl">{t('numStations')}</div>
           <div style={{display:'flex',gap:6}}>{[1,2,3,4].map(n=><button key={n} className={`chip${info.numStations===n?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>sI('numStations',n)}>{n}</button>)}</div>
-          <div className="lbl">⏱ {lang==='de'?'Zeitlimit':'Time limit'}{numSt>1?` (${lang==='de'?'Standard für alle Stages':'Default for all stages'})`:` ${lang==='de'?'pro Lauf':'per run'}`}</div>
+          <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}><I.Clock s={13}/> {lang==='de'?'Zeitlimit':'Time limit'}{numSt>1?` (${lang==='de'?'Standard für alle Stages':'Default for all stages'})`:` ${lang==='de'?'pro Lauf':'per run'}`}</div>
           <TimePicker value={info.timeLimit||0} onChange={v=>sI('timeLimit',v||0)}/>
           {numSt>1&&(
             <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:12}}>
-              <div className="lbl">⏱ {lang==='de'?'Zeitlimit pro Stage (überschreibt Standard)':'Time limit per stage (overrides default)'}</div>
+              <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}><I.Clock s={13}/> {lang==='de'?'Zeitlimit pro Stage (überschreibt Standard)':'Time limit per stage (overrides default)'}</div>
               <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(numSt,2)},1fr)`,gap:12}}>
                 {Array.from({length:numSt},(_,i)=>{
                   const n=i+1;
@@ -1002,19 +1009,19 @@ const HomeView=({onOpen,lang,setLang})=>{
         </div>}/>
       {/* Hero area */}
       <div style={{padding:'32px 24px 22px',borderBottom:'1px solid var(--border)',background:'radial-gradient(ellipse at 50% -20%,rgba(255,94,58,.08) 0%,transparent 65%)'}}>
-        <div style={{fontSize:11,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:600,marginBottom:10}}>⚡ OG Games · Ninja Competition Tool</div>
+        <div style={{fontSize:11,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:600,marginBottom:10,display:'flex',alignItems:'center',gap:5}}><I.Bolt s={11} c="var(--cor)"/> OG Games · Ninja Competition Tool</div>
         <div style={{fontSize:30,fontWeight:900,letterSpacing:'-1px',lineHeight:1.1,marginBottom:5}}>{t('competitions')}</div>
         <div style={{fontSize:13,color:'var(--muted)'}}>Firebase Live-Sync · 4 Stages · DE / EN</div>
       </div>
       <div className="section">
         <button className="btn btn-coral" style={{width:'100%',padding:12,gap:6}} onClick={()=>{SFX.click();setCreating(true);}}><I.Plus s={15}/> {t('newComp')}</button>
         {comps===undefined&&<Spinner/>}
-        {comps!==undefined&&list.length===0&&<EmptyState icon="🥷" text={t('noComps')}/>}
+        {comps!==undefined&&list.length===0&&<EmptyState icon={<I.Trophy s={28} c="rgba(255,255,255,.3)"/>} text={t('noComps')}/>}
         {list.map((c,i)=>(
           <div key={c.id} className="sh-card fade-up"
             style={{padding:16,display:'flex',flexDirection:'row',alignItems:'center',gap:14,width:'100%',animationDelay:`${i*.06}s`,cursor:'pointer',transition:'background .18s,border-color .18s'}}
             onClick={()=>{SFX.click();onOpen(c.id);}}>
-            <div style={{width:44,height:44,borderRadius:13,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{c.info?.emoji||'🥷'}</div>
+            <CompEmoji emoji={c.info?.emoji} s={44}/>
             <div style={{flex:1,textAlign:'left'}}>
               <div style={{fontWeight:800,fontSize:15,letterSpacing:'-.2px'}}>{c.info?.name||'Wettkampf'}</div>
               <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` · ${c.info.location}`:''}</div>
@@ -1257,7 +1264,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
                   </div>
                   {localObs.map((o,idx)=>(
                     <div key={o.id} style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.03)',borderRadius:8,padding:'4px 6px'}}>
-                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',fontSize:14,lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv — klicken zum deaktivieren':'Kein CP — klicken zum aktivieren'}>{o.isCP?'🎯':'◯'}</button>
+                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0,display:'flex',alignItems:'center'}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv — klicken zum deaktivieren':'Kein CP — klicken zum aktivieren'}>{o.isCP?<I.Target s={14} c="var(--cor)"/>:<I.Target s={14} c="rgba(255,255,255,.2)"/>}</button>
                       <input value={o.name} onChange={e=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,name:e.target.value}:x))} style={{flex:1,padding:'4px 7px',fontSize:12,borderRadius:7,minWidth:0}}/>
                       <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===0?.25:1}} onClick={()=>moveObs(idx,-1)} disabled={idx===0}>↑</button>
                       <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===localObs.length-1?.25:1}} onClick={()=>moveObs(idx,1)} disabled={idx===localObs.length-1}>↓</button>
@@ -1375,7 +1382,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
 // ════════════════════════════════════════════════════════════
 // JURY — WAIT
 // ════════════════════════════════════════════════════════════
-const JuryWait=({cat,queue,obstacles,onStart,compId})=>{
+const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset})=>{
   const {t,catName,lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -1391,7 +1398,23 @@ const JuryWait=({cat,queue,obstacles,onStart,compId})=>{
   return(
     <div style={{display:'flex',flexDirection:'column',gap:0}}>
       {cat&&<div style={{padding:'14px 16px 0',display:'flex',justifyContent:'center'}}><div className="live-badge"><div className="live-dot"/>{catName(cat)}</div></div>}
-      {!next&&<EmptyState icon={<I.CheckCircle s={28} c="var(--green)"/>} text={t('allDone')}/>}
+      {!next&&(
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'36px 24px 24px'}}>
+          <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(52,199,89,.1)',border:'2px solid rgba(52,199,89,.25)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.CheckCircle s={26} c="var(--green)"/></div>
+          <div style={{fontSize:17,fontWeight:800,color:'var(--green)'}}>{t('allDone')}</div>
+          {totalAthletes>0&&<div style={{fontSize:13,color:'var(--muted)',textAlign:'center'}}>{doneCount} / {totalAthletes} {lang==='de'?'Athleten absolviert':'athletes completed'}</div>}
+          {doneCount>0&&totalAthletes>0&&doneCount<totalAthletes&&(
+            <div style={{background:'rgba(255,200,80,.08)',border:'1px solid rgba(255,200,80,.25)',borderRadius:12,padding:'12px 16px',width:'100%',maxWidth:320}}>
+              <div style={{fontSize:12,color:'rgba(255,200,80,.8)',fontWeight:700,marginBottom:6}}>{lang==='de'?'⚠ Nur teilweise absolviert':'⚠ Partially completed'}</div>
+              <div style={{fontSize:11,color:'rgba(255,255,255,.4)',marginBottom:10,lineHeight:1.4}}>{lang==='de'?`${totalAthletes-doneCount} Athleten fehlen noch. Evt. sind Läufe einer anderen Stage diesem Athlet zugeordnet.`:`${totalAthletes-doneCount} athletes missing. Some runs may be attributed to another stage.`}</div>
+              {onForceReset&&<button className="btn" style={{width:'100%',padding:'8px',fontSize:12,gap:6,background:'rgba(255,200,80,.1)',border:'1px solid rgba(255,200,80,.25)',color:'rgba(255,200,80,.8)'}} onClick={onForceReset}><I.RefreshCw s={13}/> {lang==='de'?'Stage zurücksetzen':'Reset stage'}</button>}
+            </div>
+          )}
+          {doneCount>0&&doneCount>=totalAthletes&&onForceReset&&(
+            <button className="btn" style={{padding:'8px 14px',fontSize:12,gap:6,opacity:.5}} onClick={onForceReset}><I.RefreshCw s={13}/> {lang==='de'?'Stage zurücksetzen':'Reset stage'}</button>
+          )}
+        </div>
+      )}
       {next&&(
         <div className="section" style={{gap:10}}>
           {/* Next athlete hero card */}
@@ -1455,7 +1478,7 @@ const JuryCountdown=({onGo})=>{
         {go||count===0?'GO!':(count)}
       </div>
       <div style={{fontSize:16,color:'rgba(255,255,255,.8)',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700}}>
-        {go?(lang==='de'?'⚡ LOS!':'⚡ GO!'):(lang==='de'?'Bereit machen…':'Get ready…')}
+        {go?<><I.Bolt s={18} c="#fff"/> {lang==='de'?'LOS!':'GO!'}</>:(lang==='de'?'Bereit machen…':'Get ready…')}
       </div>
       {!go&&(
         <div style={{display:'flex',gap:10,marginTop:6}}>
@@ -1574,7 +1597,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
           {nextCp&&!allDone&&<div style={{fontSize:12,color:'var(--muted)',marginTop:8}}>{nextCp.name} · CP {nextIdx+1}/{cpObst.length}</div>}
           {remaining!==null&&(
             <div style={{marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-              <span style={{fontSize:11,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase'}}>⏱ {lang==='de'?'Verbleibend':'Remaining'}</span>
+              <span style={{fontSize:11,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:4}}><I.Clock s={12}/> {lang==='de'?'Verbleibend':'Remaining'}</span>
               <span style={{fontFamily:'JetBrains Mono',fontWeight:700,fontSize:16,color:timeCritical?'var(--red)':'var(--gold)',animation:timeCritical?'pulse 1s infinite':undefined}}>{fmtMs(remaining).slice(0,-4)}</span>
             </div>
           )}
@@ -1618,7 +1641,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
       {!allDone&&(
         <div style={{padding:'6px 16px',flex:1,display:'flex',flexDirection:'column',gap:8}}>
           <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:185}} onClick={handleCP}>
-            <div style={{fontSize:42}}>🥷</div>
+            <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
             <div>CHECKPOINT</div>
             {nextCp&&<div style={{fontSize:15,opacity:.82,fontWeight:600,letterSpacing:'.01em'}}>{nextCp.name}</div>}
           </button>
@@ -1627,7 +1650,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,activeFalls,startPe
               <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
             </button>
             <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7,borderColor:'rgba(255,200,0,.2)',color:'rgba(255,200,80,.8)'}} onClick={handleStop}>
-              🛑 {lang==='de'?'Abbrechen':'Stop run'}
+              <I.StopOct s={14}/> {lang==='de'?'Abbrechen':'Stop run'}
             </button>
           </div>
           <button className="btn btn-ghost" style={{width:'100%',padding:10,fontSize:12,gap:6,
@@ -1682,7 +1705,7 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
   return(
     <div className="modal-overlay">
       <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
-        <div style={{textAlign:'center',marginBottom:4}}><div style={{fontSize:40}}>💥</div></div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:4}}><div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,59,48,.12)',border:'2px solid rgba(255,59,48,.3)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.XCircle s={28} c="var(--red)"/></div></div>
         <div style={{fontSize:20,fontWeight:900,textAlign:'center',marginBottom:4}}>{t('fallTitle')}</div>
         <div style={{fontSize:13,color:'var(--muted)',textAlign:'center',marginBottom:14}}>{athlete.name} · #{athlete.num}</div>
         <div className="sh-card" style={{padding:14,marginBottom:12}}>
@@ -1779,7 +1802,7 @@ const StopModal=({athlete,doneCP,cpObst,obstArr=[],time,reason,onConfirm,onCance
     <div className="modal-overlay">
       <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
         <div style={{textAlign:'center',marginBottom:12}}>
-          <div style={{fontSize:42,marginBottom:6}}>{isTimeout?'⏱':'🛑'}</div>
+          <div style={{display:'flex',justifyContent:'center',marginBottom:6}}><div style={{width:52,height:52,borderRadius:'50%',background:isTimeout?'rgba(255,200,0,.12)':'rgba(255,59,48,.12)',border:`2px solid ${isTimeout?'rgba(255,200,0,.3)':'rgba(255,59,48,.3)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}>{isTimeout?<I.Clock s={28} c="var(--gold)"/>:<I.StopOct s={28} c="var(--red)"/>}</div></div>
           <div style={{fontSize:20,fontWeight:900}}>{isTimeout?(lang==='de'?'Zeitlimit erreicht':'Time limit reached'):(lang==='de'?'Lauf abbrechen':'Stop run')}</div>
           <div style={{fontSize:13,color:'var(--muted)',marginTop:4}}>{athlete.name} · #{athlete.num}</div>
         </div>
@@ -1856,20 +1879,20 @@ const JuryDone=({athlete,result,cat,onNext,onRestart,onSwitchAth})=>{
   const isDnf=result.status==='dnf'||result.status==='stopped';
   const isTimeout=result.status==='timeout';
   useEffect(()=>{if(ok)SFX.complete();},[]);
-  const statusIcon=ok?'🏆':isTimeout?'⏱':'💪';
-  const statusLabel=ok?(lang==='de'?'✅ Abgeschlossen':'✅ Completed'):isTimeout?(lang==='de'?'⏱ Zeitlimit':'⏱ Timeout'):isDnf?(lang==='de'?'🛑 Abgebrochen':'🛑 Stopped'):'💥 Fall';
+  const statusIconEl=ok?<I.Trophy s={28} c="var(--green)"/>:isTimeout?<I.Clock s={28} c="var(--gold)"/>:isDnf?<I.StopOct s={28} c="var(--red)"/>:<I.XCircle s={28} c="var(--cor)"/>;
+  const statusLabel=ok?(lang==='de'?'Abgeschlossen':'Completed'):isTimeout?(lang==='de'?'Zeitlimit':'Timeout'):isDnf?(lang==='de'?'Abgebrochen':'Stopped'):(lang==='de'?'Gefallen':'Fall');
   const statusColor=ok?'var(--green)':isTimeout?'var(--gold)':isDnf?'rgba(255,200,80,.8)':'var(--cor)';
   const canRestart=!ok; // Restart only makes sense for non-complete results
   return(
     <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'44px 20px 20px',gap:16}}>
-      <div style={{fontSize:54}}>{statusIcon}</div>
+      <div style={{width:64,height:64,borderRadius:'50%',background:`${statusColor}18`,border:`2px solid ${statusColor}44`,display:'flex',alignItems:'center',justifyContent:'center'}}>{statusIconEl}</div>
       <div style={{fontSize:22,fontWeight:900,letterSpacing:'-.4px'}}>{t('runComplete')}</div>
       <div style={{fontSize:14,color:'var(--muted)'}}>{athlete.name}</div>
       <div className="sh-card" style={{width:'100%',padding:20,display:'flex',flexDirection:'column',gap:12}}>
         {cat&&(<div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="lbl">{t('category')}</div><div style={{fontSize:11,padding:'3px 10px',borderRadius:10,background:`${cat.color}1A`,color:cat.color,border:`1px solid ${cat.color}44`,fontWeight:600}}>{catName(cat)}</div></div>)}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="lbl">{t('official')}</div><div className="timer-grad" style={{fontSize:32}}>{fmtMs(result.finalTime)}</div></div>
         <div style={{display:'flex',justifyContent:'space-between'}}><div className="lbl">{t('allCPs')}</div><div style={{fontWeight:700,fontSize:15}}>{result.doneCP?.length||0} / {result.totalCPs||'?'} CPs</div></div>
-        <div style={{display:'flex',justifyContent:'space-between'}}><div className="lbl">Status</div><div style={{fontWeight:700,color:statusColor}}>{statusLabel}</div></div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><div className="lbl">Status</div><div style={{fontWeight:700,color:statusColor,display:'flex',alignItems:'center',gap:5}}>{React.cloneElement(statusIconEl,{s:13})}{statusLabel}</div></div>
         {result.protested&&(
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'9px 0 0',borderTop:'1px solid var(--border)',marginTop:4}}>
             <div className="lbl" style={{display:'flex',alignItems:'center',gap:6}}><I.Flag s={14} c="var(--gold)"/> {lang==='de'?'Reklamation':'Protest'}</div>
@@ -1882,7 +1905,7 @@ const JuryDone=({athlete,result,cat,onNext,onRestart,onSwitchAth})=>{
         <div style={{width:'100%',background:'rgba(255,200,80,.06)',border:'1px solid rgba(255,200,80,.2)',borderRadius:14,padding:'14px 16px',display:'flex',flexDirection:'column',gap:10}}>
           <div style={{fontSize:12,color:'rgba(255,200,80,.8)',fontWeight:700,letterSpacing:'.05em',textTransform:'uppercase'}}>{lang==='de'?'Lauf korrigieren':'Correct run'}</div>
           <div style={{display:'flex',gap:8}}>
-            {onRestart&&<button className="btn" style={{flex:1,padding:'10px',gap:6,background:'rgba(255,200,80,.12)',border:'1px solid rgba(255,200,80,.3)',color:'#FFD060',fontWeight:700,fontSize:13}} onClick={onRestart}>🔄 {lang==='de'?'Nochmal starten':'Restart run'}</button>}
+            {onRestart&&<button className="btn" style={{flex:1,padding:'10px',gap:6,background:'rgba(255,200,80,.12)',border:'1px solid rgba(255,200,80,.3)',color:'#FFD060',fontWeight:700,fontSize:13}} onClick={onRestart}><I.RefreshCw s={13}/> {lang==='de'?'Nochmal starten':'Restart run'}</button>}
             {onSwitchAth&&<button className="btn" style={{flex:1,padding:'10px',gap:6,fontSize:13}} onClick={onSwitchAth}><I.User s={13}/> {lang==='de'?'Athlet wechseln':'Switch athlete'}</button>}
           </div>
           <div style={{fontSize:11,color:'rgba(255,255,255,.35)',lineHeight:1.4}}>{lang==='de'?'Das Ergebnis wird gelöscht und der Lauf neu gestartet.':'The result will be deleted and the run restarted.'}</div>
@@ -1973,7 +1996,7 @@ const ResultsView=({compId,athletes})=>{
   const stageNums=selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
   const multiStage=stageNums.length>1;
   const ranked=selCat?(selStage!=null?computeRankedStage(runList,selCat,selStage):computeRanked(runList,selCat)):[];
-  const medals=['🥇','🥈','🥉'];
+  const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
   const exportAll=(format='csv')=>{
     if(format==='csv'){
       const rows=[['Platz','#','Name','Team','Land','Kategorie','CPs','Zeit','Ergebnis','Reklamation']];
@@ -2031,7 +2054,7 @@ const ResultsView=({compId,athletes})=>{
           <div className="section">
             {ranked[0]&&(()=>{const a=athMap[ranked[0].athleteId]||{name:ranked[0].athleteName||'?',num:'?'};return(
               <div className="winner-card">
-                <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,fontWeight:600}}>🥇 Platz 1{selStage!=null?` · Stage ${selStage}`:multiStage?` · ${lang==='de'?'Gesamt':'Overall'}`:''}</div>
+                <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,fontWeight:600,display:'flex',alignItems:'center',gap:5}}><I.Trophy s={11} c="var(--cor)"/> {lang==='de'?'Platz 1':'Top Ranked'}{selStage!=null?` · Stage ${selStage}`:multiStage?` · ${lang==='de'?'Gesamt':'Overall'}`:''}</div>
                 <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:10}}>
                   {a.photo?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,215,10,.4)',flexShrink:0}}/>:null}
                   <div>
@@ -2041,7 +2064,7 @@ const ResultsView=({compId,athletes})=>{
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginTop:6}}>
                   <div className="timer-grad" style={{fontSize:28}}>{ranked[0].status==='complete'?fmtMs(ranked[0].finalTime):'DNF'}</div>
-                  {ranked[0].status==='complete'&&<div className="buzzer-badge">⚡ Buzzer</div>}
+                  {ranked[0].status==='complete'&&<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>}
                 </div>
                 <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1,height:5,background:'rgba(255,255,255,.1)',borderRadius:3,overflow:'hidden'}}>
@@ -2057,7 +2080,7 @@ const ResultsView=({compId,athletes})=>{
             );})()}
             {ranked.slice(1).map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const initials=(a.name||'?')[0].toUpperCase();return(
               <div key={r.athleteId} className="sh-card fade-up" style={{padding:'11px 14px',display:'flex',alignItems:'center',gap:10,animationDelay:`${(i+1)*.04}s`}}>
-                <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i<2?15:12,fontWeight:800,color:'var(--muted)'}}>{i<2?medals[i+1]:i+2}</div>
+                <div style={{flexShrink:0}}>{i<2?<MedalBadge pos={i+1} s={26}/>:<div style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'var(--muted)'}}>{i+2}</div>}</div>
                 {a.photo
                   ?<img src={a.photo} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'1.5px solid rgba(255,255,255,.12)'}}/>
                   :<div style={{width:38,height:38,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,rgba(255,94,58,.22),rgba(255,94,58,.08))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'var(--cor)',border:'1.5px solid rgba(255,94,58,.18)'}}>{initials}</div>
@@ -2082,7 +2105,7 @@ const ResultsView=({compId,athletes})=>{
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <div className="timer-grad" style={{fontSize:14}}>{r.status==='complete'&&r.finalTime?fmtMs(r.finalTime):t('dnf')}</div>
                   {r.status==='complete'
-                    ?<div className="buzzer-badge">⚡ Buzzer</div>
+                    ?<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>
                     :r.fellAt?.name
                       ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
                       :<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>
@@ -2166,7 +2189,7 @@ const JuryApp=({compId,stNum,onBack})=>{
         <TopBar title={`Stage ${stNum}`} sub={compId} onBack={onBack}/>
         <div className="section" style={{flex:1}}>
           <div style={{padding:'24px 0 8px',textAlign:'center'}}>
-            <div style={{fontSize:36,marginBottom:8}}>🥷</div>
+            <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><I.Ninja s={28} c="rgba(255,255,255,.25)"/></div>
             <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Kategorie wählen</div>
             <div style={{fontSize:13,color:'var(--muted)'}}>Welche Kategorie startet auf Stage {stNum}?</div>
           </div>
@@ -2199,6 +2222,16 @@ const JuryApp=({compId,stNum,onBack})=>{
   const athList=athletesMap?Object.values(athletesMap):[];
   const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>r.catId===catId&&r.stNum===stNum).map(r=>r.athleteId):[]);
   const queue=athList.filter(a=>a.cat===catId&&!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
+  const totalCatAthletes=athList.filter(a=>a.cat===catId).length;
+  const handleForceResetStage=async()=>{
+    if(!window.confirm(lang==='de'?`Alle Läufe von Stage ${stNum} löschen und Stage neu starten?`:`Delete all runs from Stage ${stNum} and restart?`))return;
+    if(completedRuns){
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>r.catId===catId&&r.stNum===stNum);
+      if(toDelete.length){const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});await db.ref().update(updates);}
+    }
+    await fbRemove(`ogn/${compId}/activeRuns/${stNum}`);
+    SFX.complete();
+  };
 
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -2263,7 +2296,7 @@ const JuryApp=({compId,stNum,onBack})=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
     if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} activeFalls={activeFalls} startPerf={goTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
-    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId}/>;
+    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage}/>;
   })();
 
   return(
@@ -2301,7 +2334,7 @@ const JuryApp=({compId,stNum,onBack})=>{
 // ════════════════════════════════════════════════════════════
 // DISPLAY VIEW
 // ════════════════════════════════════════════════════════════
-const DisplayView=({compId,onBack,onOpenJury})=>{
+const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const {lang,catName,t}=useLang();
   const info=useFbVal(`ogn/${compId}/info`);
   const athletesMap=useFbVal(`ogn/${compId}/athletes`);
@@ -2335,10 +2368,13 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
   useEffect(()=>{if(catsWithData.length<=1)return;const id=setInterval(()=>{setCatIdx(i=>(i+1)%catsWithData.length);setScrollOff(0);},15000);return()=>clearInterval(id);},[catsWithData.length]);
   useEffect(()=>{const id=setInterval(()=>{setScrollOff(off=>{const cat=catsWithData[catIdx];if(!cat)return 0;const total=computeRanked(runList,cat.id).length-3;return total>0?(off+1)%total:0;});},3000);return()=>clearInterval(id);},[catIdx,catsWithData.length,runList.length]);
   useEffect(()=>{let raf;const tick=()=>{setNowMs(Date.now());raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);},[]);
-  const medals=['🥇','🥈','🥉'];const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
+  const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
   const curCat=catsWithData[catIdx]||null;
-  // Per-stage columns: find which stages have runs for current category
-  const dispStageNums=curCat?[...new Set(runList.filter(r=>r.catId===curCat.id&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
+  // Per-stage columns: use all stage slots when numStations > 1, fill in actual run data
+  const numDispStages=info?.numStations||1;
+  const dispStageNums=numDispStages>1
+    ?Array.from({length:numDispStages},(_,i)=>i+1)
+    :(curCat?[...new Set(runList.filter(r=>r.catId===curCat.id&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[]);
   const multiDispStage=dispStageNums.length>1;
   // For single-stage or overall, keep current scrolling behavior
   const ranked=curCat?computeRanked(runList,curCat.id):[];
@@ -2349,14 +2385,23 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
     <div className="display-root">
       {/* ── Header ── */}
       <div style={{padding:'18px 24px 14px',borderBottom:'1px solid rgba(255,255,255,.07)',display:'flex',alignItems:'center',gap:16,background:'radial-gradient(ellipse at 50% -40%,rgba(255,94,58,.07) 0%,transparent 60%)'}}>
-        {onBack&&(
-          <button onClick={onBack} style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:10,padding:'7px 10px',cursor:'pointer',color:'rgba(255,255,255,.55)',display:'flex',alignItems:'center',gap:5,fontSize:12,fontWeight:600,flexShrink:0,transition:'background .15s,color .15s'}}
-            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.12)';e.currentTarget.style.color='#fff';}}
-            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.06)';e.currentTarget.style.color='rgba(255,255,255,.55)';}}>
-            <I.ChevL s={16}/>{lang==='de'?'Wettkampf wählen':'Select competition'}
-          </button>
-        )}
-        <div style={{width:40,height:40,borderRadius:11,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{info.emoji||'🥷'}</div>
+        <div style={{display:'flex',gap:6,flexShrink:0}}>
+          {onBackToCoordinator&&(
+            <button onClick={onBackToCoordinator} style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:10,padding:'7px 10px',cursor:'pointer',color:'rgba(255,255,255,.55)',display:'flex',alignItems:'center',gap:5,fontSize:12,fontWeight:600,transition:'background .15s,color .15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.12)';e.currentTarget.style.color='#fff';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.06)';e.currentTarget.style.color='rgba(255,255,255,.55)';}}>
+              <I.ChevL s={16}/>{lang==='de'?'Koordination':'Coordinator'}
+            </button>
+          )}
+          {onBack&&(
+            <button onClick={onBack} style={{background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.08)',borderRadius:10,padding:'7px 10px',cursor:'pointer',color:'rgba(255,255,255,.4)',display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:600,transition:'background .15s,color .15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.1)';e.currentTarget.style.color='rgba(255,255,255,.7)';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.04)';e.currentTarget.style.color='rgba(255,255,255,.4)';}}>
+              <I.Settings s={13}/>{lang==='de'?'Anzeige':'Display'}
+            </button>
+          )}
+        </div>
+        <CompEmoji emoji={info.emoji} s={40}/>
         <div style={{flex:1}}><div style={{fontSize:11,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>OG Ninja Comp</div><div style={{fontSize:21,fontWeight:900,letterSpacing:'-.5px',marginTop:1}}>{info.name}</div></div>
         <div className="live-badge"><div className="live-dot"/>Live</div>
         {onOpenJury&&(
@@ -2415,7 +2460,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                 {/* Timeout overlay */}
                 {isTimedOut&&(
                   <div style={{position:'absolute',inset:0,background:'rgba(11,11,20,.93)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:9,borderRadius:20,gap:8}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,200,0,.12)',border:'2px solid rgba(255,200,0,.35)'}}><span style={{fontSize:cols===1?32:26}}>⏱</span></div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,200,0,.12)',border:'2px solid rgba(255,200,0,.35)'}}><I.Clock s={cols===1?36:28} c="var(--gold)"/></div>
                     <div style={{fontSize:cols===1?28:22,fontWeight:900,color:'var(--gold)',letterSpacing:'-.3px'}}>{lang==='de'?'ZEIT AB!':'TIME UP!'}</div>
                     <div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?22:18,fontWeight:700,color:'rgba(255,255,255,.7)'}}>{fmtMs(stageTimeLimit)}</div>
                     {lastCP&&<div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5,marginTop:2}}><span style={{color:'var(--green)'}}>✓</span>{lang==='de'?'Letzter CP:':'Last CP:'} {lastCP.name}</div>}
@@ -2425,7 +2470,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                 {/* Restarting overlay — shown when jury pressed "restart run" */}
                 {run.phase==='restarting'&&(
                   <div style={{position:'absolute',inset:0,background:'rgba(11,11,20,.93)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:11,borderRadius:20,gap:10}}>
-                    <div style={{fontSize:cols===1?44:36}}>🔄</div>
+                    <div style={{width:cols===1?60:50,height:cols===1?60:50,borderRadius:'50%',background:'rgba(255,200,80,.1)',border:'2px solid rgba(255,200,80,.3)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.RefreshCw s={cols===1?34:28} c="#FFD060"/></div>
                     <div style={{fontSize:cols===1?24:20,fontWeight:900,color:'#FFD060',letterSpacing:'-.3px',textAlign:'center',padding:'0 12px'}}>{lang==='de'?'Lauf wird neu gestartet':'Run restarting…'}</div>
                     <div style={{fontSize:13,color:'rgba(255,255,255,.45)',marginTop:4}}>{ath.name||run.athleteName}</div>
                   </div>
@@ -2448,7 +2493,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                             <div style={{fontSize:12,color:'rgba(255,255,255,.45)',display:'flex',alignItems:'center',gap:5}}><I.Target s={12} c="rgba(255,255,255,.45)"/> Buzzer</div>
                           </>
                           :<>
-                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.3)'}}><I.XCircle s={cols===1?36:28} c="var(--red)"/></div>
+                            <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:cols===1?64:52,height:cols===1?64:52,borderRadius:'50%',background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.3)'}}><I.StopOct s={cols===1?36:28} c="var(--red)"/></div>
                             <div style={{fontSize:cols===1?32:26,fontWeight:900,color:'var(--red)',letterSpacing:'-.3px'}}>FAIL</div>
                             {run.fellAt?.name&&<div style={{fontSize:cols===1?15:13,color:'rgba(255,255,255,.55)',textAlign:'center',padding:'0 8px',display:'flex',alignItems:'center',gap:5,justifyContent:'center'}}><I.XCircle s={14} c="rgba(255,255,255,.45)"/> {run.fellAt.name}</div>}
                             {run.doneCP?.length>0&&<div style={{fontSize:12,color:'rgba(255,255,255,.35)',fontFamily:'JetBrains Mono'}}>{run.doneCP.length} CPs</div>}
@@ -2459,7 +2504,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                       {/* Next athlete slides up after 5s */}
                       {showNext&&nextQueue.length>0&&(()=>{const nx=nextQueue[0];return(
                         <div className="slide-up-in" style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,padding:'20px 16px'}}>
-                          <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:2}}>{lang==='de'?'⏭ Nächster Start':'⏭ Up Next'}</div>
+                          <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.14em',textTransform:'uppercase',marginBottom:2,display:'flex',alignItems:'center',gap:5}}><I.SkipFwd s={11} c="rgba(255,255,255,.3)"/>{lang==='de'?'Nächster Start':'Up Next'}</div>
                           {nx.photo
                             ?<img src={nx.photo} style={{width:cols===1?72:60,height:cols===1?72:60,borderRadius:'50%',objectFit:'cover',border:`3px solid ${catColor}60`,boxShadow:`0 0 20px ${catColor}40`}}/>
                             :<div style={{width:cols===1?72:60,height:cols===1?72:60,borderRadius:'50%',background:`radial-gradient(135deg,${catColor}40,${catColor}15)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:cols===1?30:24,fontWeight:900,color:catColor,border:`2px solid ${catColor}40`}}>{(nx.name||'?')[0].toUpperCase()}</div>
@@ -2482,7 +2527,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
                     <div style={{display:'flex',alignItems:'center',gap:7}}>
                       <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>Stage {info.stageNames?.[run.stNum]||run.stNum}</div>
-                      {stageTimeLimit>0&&<div style={{fontSize:10,fontWeight:700,color:isTimedOut?'var(--gold)':'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',background:'rgba(255,255,255,.05)',borderRadius:6,padding:'1px 6px'}}>⏱ {fmtMs(stageTimeLimit).slice(0,-4)}</div>}
+                      {stageTimeLimit>0&&<div style={{fontSize:10,fontWeight:700,color:isTimedOut?'var(--gold)':'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',background:'rgba(255,255,255,.05)',borderRadius:6,padding:'1px 6px',display:'flex',alignItems:'center',gap:3}}><I.Clock s={9} c={isTimedOut?'var(--gold)':'rgba(255,255,255,.25)'}/> {fmtMs(stageTimeLimit).slice(0,-4)}</div>}
                     </div>
                     {cat&&<div style={{fontSize:11,padding:'3px 11px',borderRadius:20,background:`${catColor}20`,border:`1px solid ${catColor}40`,color:catColor,fontWeight:700}}>{catName(cat)}</div>}
                   </div>
@@ -2490,7 +2535,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                   <div style={{display:'flex',gap:14,alignItems:'center',marginBottom:16}}>
                     {ath.photo
                       ?<img src={ath.photo} style={{width:cols===1?68:56,height:cols===1?68:56,borderRadius:'50%',objectFit:'cover',border:`2.5px solid ${catColor}60`,flexShrink:0,boxShadow:`0 4px 16px rgba(0,0,0,.4)`}}/>
-                      :<div style={{width:cols===1?68:56,height:cols===1?68:56,borderRadius:'50%',background:`radial-gradient(135deg,${catColor}30,${catColor}10)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:cols===1?28:22,flexShrink:0,border:`2px solid ${catColor}30`}}>🥷</div>
+                      :<div style={{width:cols===1?68:56,height:cols===1?68:56,borderRadius:'50%',background:`radial-gradient(135deg,${catColor}30,${catColor}10)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,border:`2px solid ${catColor}30`}}><I.Ninja s={cols===1?32:26} c={`${catColor}90`}/></div>
                     }
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:cols===1?26:20,fontWeight:900,letterSpacing:'-.6px',lineHeight:1.15,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{ath.name||run.athleteName}</div>
@@ -2551,7 +2596,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
                 <div style={{display:'flex',flexDirection:'column',gap:7}}>
                   {q.map((a,i)=>(
                     <div key={a.id} className={i===0?'slide-up-in':''} style={{display:'flex',alignItems:'center',gap:10,animationDelay:i===0?'0s':'0.1s'}}>
-                      <div style={{fontSize:11,fontWeight:800,color:i===0?catColor:'rgba(255,255,255,.2)',width:16,flexShrink:0}}>{i===0?'▶':'·'}</div>
+                      <div style={{width:16,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>{i===0?<I.Play s={10} c={catColor}/>:<div style={{width:4,height:4,borderRadius:'50%',background:'rgba(255,255,255,.2)'}}/>}</div>
                       {a.photo
                         ?<img src={a.photo} style={{width:i===0?34:26,height:i===0?34:26,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1.5px solid ${i===0?catColor+'60':'rgba(255,255,255,.1)'}`,transition:'all .3s'}}/>
                         :<div style={{width:i===0?34:26,height:i===0?34:26,borderRadius:'50%',flexShrink:0,background:i===0?`linear-gradient(135deg,${catColor}30,${catColor}10)`:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:i===0?14:11,fontWeight:800,color:i===0?catColor:'rgba(255,255,255,.3)',transition:'all .3s'}}>{(a.name||'?')[0].toUpperCase()}</div>
@@ -2579,7 +2624,7 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
           ))}
         </div>
       )}
-      {!curCat&&activeArr.length===0&&<div style={{padding:'80px 24px',textAlign:'center'}}><div style={{fontSize:52,marginBottom:14}}>🥷</div><div style={{fontSize:18,color:'rgba(255,255,255,.35)'}}>{lang==='de'?'Noch keine Ergebnisse':'No results yet'}</div></div>}
+      {!curCat&&activeArr.length===0&&<div style={{padding:'80px 24px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:14}}><div style={{width:64,height:64,borderRadius:'50%',background:'rgba(255,94,58,.06)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Trophy s={30} c="rgba(255,255,255,.15)"/></div><div style={{fontSize:18,color:'rgba(255,255,255,.35)'}}>{lang==='de'?'Noch keine Ergebnisse':'No results yet'}</div></div>}
       {curCat&&(
         <div style={{padding:'18px 20px 40px'}}>
           <div style={{marginBottom:16}}><div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'5px 14px',borderRadius:20,background:`${curCat.color}20`,border:`1px solid ${curCat.color}30`}}><div style={{width:8,height:8,borderRadius:'50%',background:curCat.color}}/><span style={{fontSize:13,fontWeight:700,color:curCat.color}}>{catName(curCat)}</span></div></div>
@@ -2589,17 +2634,17 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
             <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(dispStageNums.length,3)},1fr)`,gap:12}}>
               {dispStageNums.map(stN=>{
                 const stRanked=computeRankedStage(runList,curCat.id,stN);
-                if(!stRanked.length)return null;
                 return(
                   <div key={stN} style={{background:'var(--card)',borderRadius:16,border:'1px solid var(--border)',overflow:'hidden'}}>
                     {/* Stage header */}
                     <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,.02)'}}>
                       <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:13,color:'#fff',flexShrink:0}}>{stN}</div>
-                      <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,.6)',letterSpacing:'.06em',textTransform:'uppercase'}}>Stage {stN}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,.6)',letterSpacing:'.06em',textTransform:'uppercase'}}>{info.stageNames?.[stN]||`Stage ${stN}`}</div>
                       <div style={{marginLeft:'auto',fontSize:10,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono'}}>{stRanked.length}</div>
                     </div>
                     {/* Rank rows */}
                     <div style={{padding:'6px 0'}}>
+                      {stRanked.length===0&&<div style={{padding:'20px 14px',textAlign:'center',color:'rgba(255,255,255,.2)',fontSize:12}}>{lang==='de'?'Noch keine Läufe':'No runs yet'}</div>}
                       {stRanked.slice(0,6).map((r,i)=>{
                         const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
                         return(
@@ -2626,13 +2671,13 @@ const DisplayView=({compId,onBack,onOpenJury})=>{
               <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:18}}>
                 {top3.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
                   <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',borderRadius:16,background:`linear-gradient(135deg,${curCat.color}18,${curCat.color}06)`,border:`1px solid ${curCat.color}28`,animation:`fadeUp .4s ${i*.1}s both`}}>
-                    {a.photo?<img src={a.photo} style={{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${curCat.color}40`}}/>:<div style={{fontSize:28,width:40,textAlign:'center'}}>{medals[i]}</div>}
+                    {a.photo?<img src={a.photo} style={{width:36,height:36,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${curCat.color}40`}}/>:<MedalBadge pos={i} s={40}/>}
                     <div style={{flex:1}}>
                       <div style={{fontSize:18,fontWeight:800,letterSpacing:'-.3px'}}>{a.name}</div>
                       <div style={{fontSize:11,color:'rgba(255,255,255,.4)',marginTop:2}}>#{a.num}{a.team&&<span style={{marginLeft:6,fontWeight:600,color:'rgba(255,144,64,.8)'}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>} · {r.doneCP?.length||0} CPs</div>
                     </div>
                     <div style={{textAlign:'right'}}>
-                      {a.photo&&<div style={{fontSize:22,marginBottom:2}}>{medals[i]}</div>}
+                      {a.photo&&<div style={{marginBottom:2}}><MedalBadge pos={i} s={24}/></div>}
                       <div style={{fontFamily:'JetBrains Mono',fontSize:20,fontWeight:700,color:medalColors[i]}}>{r.finalTime?fmtMs(r.finalTime):'—'}</div>
                     </div>
                   </div>
@@ -2670,7 +2715,7 @@ const DisplayNoComp=({onSelect})=>{
   const comps=useFbVal('ogn');const list=comps?Object.entries(comps).map(([id,v])=>({id,...v})):[];
   return(
     <div style={{background:'#000',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:24}}>
-      <div style={{fontSize:44}}>🥷</div><div style={{fontSize:20,fontWeight:900,color:'#fff'}}>OG Ninja Display</div>
+      <div style={{width:64,height:64,borderRadius:18,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Bolt s={34} c="#fff"/></div><div style={{fontSize:20,fontWeight:900,color:'#fff'}}>OG Ninja Display</div>
       <div style={{fontSize:13,color:'rgba(255,255,255,.4)',marginBottom:6}}>Wettkampf auswählen</div>
       {list.length===0&&<Spinner/>}
       {list.map(c=>(
@@ -2717,7 +2762,7 @@ const InstallPrompt=({lang})=>{
         {/* Header */}
         <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:14}}>
           <div style={{width:44,height:44,borderRadius:12,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',
-            display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🥷</div>
+            display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.Bolt s={24} c="#fff"/></div>
           <div style={{flex:1}}>
             <div style={{fontWeight:800,fontSize:15,color:'#fff',letterSpacing:'-.2px',marginBottom:2}}>
               {de?'Als App installieren':'Install as App'}
@@ -2757,7 +2802,7 @@ const InstallPrompt=({lang})=>{
             background:'linear-gradient(135deg,#FF5E3A,#FF9040)',border:'none',color:'#fff',
             boxShadow:'0 4px 16px rgba(255,94,58,.3)'}}
             onClick={()=>setShow(false)}>
-            {de?'Verstanden ✓':'Got it ✓'}
+            {de?'Verstanden':'Got it'}
           </button>
         </div>
       </div>
@@ -2784,7 +2829,7 @@ const App=()=>{
       {view==='home'&&<HomeView onOpen={openComp} lang={lang} setLang={setLang}/>}
       {view==='coordinator'&&compId&&<CoordinatorView compId={compId} onBack={()=>{setView('home');setCompId(null);}} onStage={n=>{setPrevView('coordinator');openStage(n);}} lang={lang} setLang={setLang}/>}
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} onBack={()=>setView(prevView)}/>}
-      {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}}/>}
+      {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
       {/* Install prompt — only shows on mobile, dismissable, "not again" saves to localStorage */}
       <InstallPrompt lang={lang}/>
