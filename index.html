@@ -694,7 +694,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const [csvError,setCsvError]=useState('');
   const sI=(k,v)=>setInfo(i=>({...i,[k]:v}));
   const setStageLim=(n,v)=>setInfo(i=>({...i,stageLimits:{...(i.stageLimits||{}),[n]:v}}));
-  const numSt=info.numStations||1;
+  const numSt=info.numStations||1;const catsWithAths=[...new Set((stageAths||[]).flat().map(a=>a.cat))];
   // Sync stageNum in newAth when obsStage changes
   const curAthStage=athStage;
 
@@ -921,7 +921,42 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
         </div>
       )}
 
-      {step===1&&(
+                {numSt>1&&catsWithAths.length>0&&(
+            <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
+              <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}>ð {lang==='de'?'Qualifikation (mehrstufig)':'Qualification (multi-stage)'}</div>
+              {catsWithAths.map(catId=>{
+                const cat=IGN_CATS.find(c=>c.id===catId);
+                const q=info.qualification?.[catId]||{};
+                const setQ=(key,val)=>setInfo(i=>({...i,qualification:{...(i.qualification||{}),[catId]:{...(i.qualification?.[catId]||{}),[key]:val}}}));
+                return(
+                  <div key={catId} style={{background:'rgba(255,255,255,.03)',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8,border:`1px solid ${cat?.color||'#888'}22`}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <input type="checkbox" id={`q_${catId}`} checked={!!q.enabled} onChange={e=>setQ('enabled',e.target.checked)} style={{width:15,height:15,accentColor:cat?.color||'var(--cor)'}}/>
+                      <label htmlFor={`q_${catId}`} style={{fontSize:13,fontWeight:700,color:cat?.color||'currentColor',cursor:'pointer'}}>{cat?.name[lang]||catId}</label>
+                    </div>
+                    {q.enabled&&(
+                      <div style={{display:'flex',flexDirection:'column',gap:6,paddingLeft:23}}>
+                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                          {[10,20,30,40,50,60].map(p=>(
+                            <button key={p} className={`chip${(q.percent||50)===p?' active':''}`} style={{fontSize:11,padding:'2px 8px'}} onClick={()=>setQ('percent',p)}>{p}%</button>
+                          ))}
+                        </div>
+                        <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                          <span style={{fontSize:11,color:'var(--muted)',flexShrink:0}}>{lang==='de'?'Mind.:':'Min.:'}</span>
+                          <input type="number" min={1} max={99} value={q.minimum||1} onChange={e=>setQ('minimum',parseInt(e.target.value)||1)} style={{width:50,textAlign:'center',fontSize:12}}/>
+                          <span style={{fontSize:11,color:'var(--muted)',flexShrink:0}}>{lang==='de'?'â Stage:':'â Stage:'}</span>
+                          <select value={q.targetStage||numSt} onChange={e=>setQ('targetStage',parseInt(e.target.value))} style={{fontSize:12,padding:'3px 6px'}}>
+                            {Array.from({length:numSt},(_,i)=>i+1).filter(n=>n>1).map(n=><option key={n} value={n}>Stage {n}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+{step===1&&(
         <div className="section fade-up" style={{flex:1}}>
           {numSt>1&&<StageTabs active={si} onChange={setObsStage}/>}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
