@@ -2432,13 +2432,13 @@ const JuryApp=({compId,stNum,onBack})=>{
   const [doneResult,setDoneResult]=useState(null);
   const [completedRunKey,setCompletedRunKey]=useState(null);
   const [lives,setLives]=useState(3);
-  const effectiveLives=info?.stageExtraLife?.[stNum]?.lives??info.stageLivesOverrides?.[stNum]??info.lives??3;
-  const effectiveTotalLives=info?.stageExtraLife?.[stNum]?.stageTotalLives??info.stageTotalLives??0;
+  const effectiveLives=info?.stageExtraLife?.[stNum]?.lives??info?.stageLivesOverrides?.[stNum]??info?.lives??3;
+  const effectiveTotalLives=info?.stageExtraLife?.[stNum]?.stageTotalLives??info?.stageTotalLives??0;
   const [totalLivesLeft,setTotalLivesLeft]=useState(effectiveTotalLives>0?effectiveTotalLives:null);
   const [goTime,setGoTime]=useState(null);
   const [fallFreezeTime,setFallFreezeTime]=useState(null);
   const [resetActive,setResetActive]=useState(false);
-  useEffect(()=>{if(info)setLives(info.lives||3);},[info?.lives]);
+  useEffect(()=>{if(info)setLives(info?.lives||3);},[info?.lives]);
 
   // After run completes: keep stage card on Display for 5s showing result, then clear
   useEffect(()=>{
