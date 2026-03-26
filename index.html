@@ -939,15 +939,15 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-start',marginTop:6}}>
               <div>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Lives</div>
-                <div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(n=>{const cur=info.stageExtraLife?.[si+1]?.lives??info.lives??3;return(<button key={n} onClick={()=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),lives:n}}}))} style={{background:cur===n?'var(--accent)':'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 10px',cursor:'pointer',color:cur===n?'#000':'var(--text)',fontSize:13,fontFamily:'JetBrains Mono'}}>{n}</button>);})}</div>
+                <div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(n=>{const cur=info?.stageExtraLife?.[si+1]?.lives??info.lives??3;return(<button key={n} onClick={()=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),lives:n}}}))} style={{background:cur===n?'var(--accent)':'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 10px',cursor:'pointer',color:cur===n?'#000':'var(--text)',fontSize:13,fontFamily:'JetBrains Mono'}}>{n}</button>);})}</div>
               </div>
               <div>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Pro Sektion':'Per section'}</div>
-                <input type="checkbox" checked={!!(info.stageExtraLife?.[si+1]?.livesPerSection)} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),livesPerSection:e.target.checked}}}))} style={{width:18,height:18,cursor:'pointer'}}/>
+                <input type="checkbox" checked={!!(info?.stageExtraLife?.[si+1]?.livesPerSection)} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),livesPerSection:e.target.checked}}}))} style={{width:18,height:18,cursor:'pointer'}}/>
               </div>
               <div>
                 <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Gesamt-Lives (0=∞)':'Total lives (0=∞)'}</div>
-                <input type="number" min={0} max={99} value={info.stageExtraLife?.[si+1]?.stageTotalLives??0} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),stageTotalLives:Number(e.target.value)}}}))} style={{width:56,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 8px',color:'var(--text)',fontSize:13,fontFamily:'JetBrains Mono'}}/>
+                <input type="number" min={0} max={99} value={info?.stageExtraLife?.[si+1]?.stageTotalLives??0} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),stageTotalLives:Number(e.target.value)}}}))} style={{width:56,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 8px',color:'var(--text)',fontSize:13,fontFamily:'JetBrains Mono'}}/>
               </div>
             </div>
           </div>)}
@@ -985,7 +985,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.key==='Enter')addObs();}} style={{flex:1}}/>
             <button className="btn btn-coral" style={{padding:'10px 16px',flexShrink:0}} onClick={addObs}><I.Plus s={16}/></button>
           </div>
-          {info.mode==='lives'&&info.stageExtraLife?.[si+1]?.livesPerSection&&(
+          {info.mode==='lives'&&info?.stageExtraLife?.[si+1]?.livesPerSection&&(
             <button className="btn btn-ghost" style={{width:'100%',padding:'8px',fontSize:12,gap:6,borderColor:'rgba(255,200,0,.3)',color:'rgba(255,200,0,.8)'}}
               onClick={()=>setStageObs(s=>{const n=[...s];n[si]=[...n[si],{id:uid(),type:'section',name:'Sektion',isCP:true,lives:info.lives||3,order:n[si].length}];return n;})}>
               ⬛ {lang==='de'?'Sektionsmarker hinzufügen':'Add section marker'}
@@ -2432,8 +2432,8 @@ const JuryApp=({compId,stNum,onBack})=>{
   const [doneResult,setDoneResult]=useState(null);
   const [completedRunKey,setCompletedRunKey]=useState(null);
   const [lives,setLives]=useState(3);
-  const effectiveLives=info.stageExtraLife?.[stNum]?.lives??info.stageLivesOverrides?.[stNum]??info.lives??3;
-  const effectiveTotalLives=info.stageExtraLife?.[stNum]?.stageTotalLives??info.stageTotalLives??0;
+  const effectiveLives=info?.stageExtraLife?.[stNum]?.lives??info.stageLivesOverrides?.[stNum]??info.lives??3;
+  const effectiveTotalLives=info?.stageExtraLife?.[stNum]?.stageTotalLives??info.stageTotalLives??0;
   const [totalLivesLeft,setTotalLivesLeft]=useState(effectiveTotalLives>0?effectiveTotalLives:null);
   const [goTime,setGoTime]=useState(null);
   const [fallFreezeTime,setFallFreezeTime]=useState(null);
