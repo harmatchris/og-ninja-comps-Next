@@ -136,7 +136,7 @@ select option{background:#1A1A2C;}
 .tab-item span{font-size:10px;font-weight:600;letter-spacing:.04em;}
 /* drag & drop */
 .drag-handle{cursor:grab;color:var(--dim);padding:4px 5px;border-radius:6px;
-  display:flex;align-items:center;transition:color .15s;}
+  display:flex;align-items:center;transition:color .15s;touch-action:none;}
 .drag-handle:hover{color:var(--muted);}
 .drag-over{border-color:rgba(255,94,58,.5)!important;background:rgba(255,94,58,.05)!important;}
 .dragging{opacity:.4;}
@@ -198,9 +198,12 @@ const AC_KEYS={names:'ogn-ac-names',teams:'ogn-ac-teams',countries:'ogn-ac-count
 const acLoad=k=>{try{return JSON.parse(localStorage.getItem(k)||'[]');}catch{return [];}};
 const acSave=(k,val)=>{if(!val||!val.trim())return;const arr=acLoad(k);const trimmed=val.trim();if(!arr.includes(trimmed)){arr.unshift(trimmed);localStorage.setItem(k,JSON.stringify(arr.slice(0,60)));}};
 const acSuggest=(k,q)=>{if(!q||q.length<2)return[];const arr=acLoad(k);const ql=q.toLowerCase();return arr.filter(v=>v.toLowerCase().includes(ql)&&v.toLowerCase()!==ql).slice(0,6);};
+const acProfileLoad=()=>{try{return JSON.parse(localStorage.getItem('ogn-ac-profiles')||'{}')}catch{return{}}};
+const acProfileSave=(name,data)=>{if(!name||!name.trim())return;const p=acProfileLoad();const k=name.trim();p[k]={...(p[k]||{}),...data};localStorage.setItem('ogn-ac-profiles',JSON.stringify(p));};
 
 // ── AUTOCOMPLETE INPUT COMPONENT ──────────────────────────
-const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoFocus,inputStyle})=>{
+const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoFocus,inputStyle,profileKey,onSelectFull})=>{
+  const profiles=profileKey?acProfileLoad():{};
   const isCountry=acKey===AC_KEYS.countries;
   const [open,setOpen]=React.useState(false);
   const [sugs,setSugs]=React.useState([]);
@@ -219,7 +222,7 @@ const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoF
   };
   const pick=(v,isCountryPick,code)=>{
     if(isCountryPick){onChange({target:{value:code}});}
-    else{onChange({target:{value:v}});}
+    else{onChange({target:{value:v}});if(onSelectFull)onSelectFull({value:v,profile:profiles[v]||null});}
     setOpen(false);
   };
   return(
@@ -240,13 +243,15 @@ const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoF
                 <span style={{fontSize:11,fontFamily:'JetBrains Mono',color:'var(--muted)',background:'rgba(255,255,255,.06)',borderRadius:5,padding:'1px 6px'}}>{code}</span>
               </div>
             ))
-            :sugs.map(s=>(
-              <div key={s} onMouseDown={()=>pick(s)} style={{padding:'9px 13px',fontSize:13,cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,.05)',display:'flex',alignItems:'center',gap:7,transition:'background .1s'}}
+            :sugs.map(s=>{const sp=profiles[s]||null;return(
+              <div key={s} onMouseDown={()=>pick(s)} style={{padding:'8px 13px',fontSize:13,cursor:'pointer',borderBottom:'1px solid rgba(255,255,255,.05)',display:'flex',alignItems:'center',gap:8,transition:'background .1s'}}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,94,58,.12)'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                {s}
+                {sp?.photo&&<img src={sp.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>}
+                {sp?.country&&<span style={{fontSize:16,lineHeight:1}}>{toFlag(sp.country)}</span>}
+                <span style={{flex:1}}>{s}</span>
               </div>
-            ))
+            );})
           }
         </div>
       )}
@@ -517,7 +522,7 @@ const QRCodeComp=({url,size=150})=>{
 };
 
 // ── DRAG & DROP REORDERABLE LIST ──────────────────────────
-const DragList=({items,onReorder,renderItem,keyFn})=>{
+const DragList=({items,onReorder,renderItem,keyFn,onExternalDrop})=>{
   const dragIdx=useRef(null);
   const [insertAt,setInsertAt]=useState(null);
   const containerRef=useRef(null);
@@ -527,17 +532,19 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
     return rows.length;
   };
   // Desktop drag
-  const onCOver=e=>{e.preventDefault();e.dataTransfer.dropEffect='move';setInsertAt(getInsertIdx(e.clientY));};
+  const onCOver=e=>{e.preventDefault();e.dataTransfer.dropEffect=e.dataTransfer.types.includes('dnd-obs-ext')?'copy':'move';setInsertAt(getInsertIdx(e.clientY));};
   const onCDrop=e=>{
     e.preventDefault();
+    const extData=e.dataTransfer.getData('dnd-obs-ext');
+    if(extData&&onExternalDrop){onExternalDrop(extData,insertAt!==null?insertAt:items.length);setInsertAt(null);return;}
     const from=dragIdx.current;let to=insertAt;
     if(from===null||to===null){dragIdx.current=null;setInsertAt(null);return;}
     if(to>from)to--;
     if(to!==from){const a=[...items];const[m]=a.splice(from,1);a.splice(to,0,m);onReorder(a);SFX.click();}
     dragIdx.current=null;setInsertAt(null);
   };
-  // Touch drag (mobile)
-  const onItemTouchStart=(idx,e)=>{dragIdx.current=idx;setInsertAt(idx);};
+  // Touch drag (mobile) — only initiates from .drag-handle
+  const onItemTouchStart=(idx,e)=>{if(!e.target.closest('.drag-handle'))return;dragIdx.current=idx;setInsertAt(idx);};
   const onItemTouchMove=(e)=>{
     if(dragIdx.current===null)return;
     try{e.preventDefault();}catch(x){}
@@ -566,7 +573,7 @@ const DragList=({items,onReorder,renderItem,keyFn})=>{
             onTouchMove={onItemTouchMove}
             onTouchEnd={onItemTouchEnd}
             className="sh-card"
-            style={{opacity:dragIdx.current===i?.35:1,transition:'opacity .15s',touchAction:'none'}}>
+            style={{opacity:dragIdx.current===i?.35:1,transition:'opacity .15s'}}>
             {renderItem(item,i)}
           </div>
           <Line i={i+1}/>
@@ -724,6 +731,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     acSave(AC_KEYS.names,newAth.name);
     if(newAth.team)acSave(AC_KEYS.teams,newAth.team);
     if(newAth.country)acSave(AC_KEYS.countries,newAth.country);
+    acProfileSave(newAth.name,{country:newAth.country||'',photo:newAth.photo||null});
     setNewAth(a=>({...a,name:'',num:String(stageAths[si].length+2)}));
     SFX.click();
   };
@@ -956,7 +964,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
           </div>
           <div style={{maxHeight:310,overflowY:'auto'}}>
-            <DragList items={curObs} onReorder={reorderObs} keyFn={o=>o.id}
+            <DragList items={curObs} onReorder={reorderObs} keyFn={o=>o.id} onExternalDrop={(data,pos)=>{const si=Math.min(obsStage,numSt-1);setStageObs(s=>{const n=[...s];const newItem={id:uid(),name:data.trim(),isCP:true,order:pos};const arr=[...n[si]];arr.splice(pos,0,newItem);n[si]=arr.map((o,i)=>({...o,order:i}));return n;});setNewObs('');SFX.click();}}
               renderItem={(o,i)=>o.type==='section'?(
                 <div style={{padding:'7px 12px',display:'flex',alignItems:'center',gap:8,background:'rgba(255,200,0,.06)',borderTop:'1px dashed rgba(255,200,0,.3)',borderBottom:'1px dashed rgba(255,200,0,.3)'}}>
                   <div className="drag-handle"><I.Drag s={16}/></div>
@@ -981,8 +989,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             💡 {lang==='de'?'Die vorausgefüllten Hindernisse sind nur Vorschläge — jeder Wettkampf speichert seine eigene Liste.':'Pre-filled obstacles are suggestions only — each competition saves its own list.'}
             {numSt>1&&<span> {lang==='de'?'Jede Stage hat eigene Hindernisse.':'Each stage has its own obstacles.'}</span>}
           </div>
-          <div style={{display:'flex',gap:8}}>
-            <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.key==='Enter')addObs();}} style={{flex:1}}/>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}
+            draggable={!!newObs.trim()}
+            onDragStart={e=>{if(!e.target.closest('.drag-handle')||!newObs.trim()){e.preventDefault();return;}e.dataTransfer.setData('dnd-obs-ext',newObs.trim());e.dataTransfer.effectAllowed='copy';}}>
+            <div className="drag-handle" title={lang==='de'?'Ziehen zum Einfügen an Position':'Drag to insert at position'} style={{opacity:newObs.trim()?1:0.3,cursor:newObs.trim()?'grab':'default'}}><I.Drag s={16}/></div>
+            <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.target.closest('.drag-handle'))return;if(e.key==='Enter')addObs();}} style={{flex:1}}/>
             <button className="btn btn-coral" style={{padding:'10px 16px',flexShrink:0}} onClick={addObs}><I.Plus s={16}/></button>
           </div>
           {info.mode==='lives'&&info?.stageExtraLife?.[si+1]?.livesPerSection&&(<>
@@ -1035,7 +1046,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:14,display:'flex',flexDirection:'column',gap:8}}>
             <div style={{display:'flex',gap:8}}>
               <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
-              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}}/>
+              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
             </div>
             <select value={newAth.cat} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
               {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
@@ -1375,16 +1386,22 @@ const handleDeleteAth=async(a)=>{
                     <div className="lbl">{lang==='de'?'Hindernisse bearbeiten':'Edit obstacles'}</div>
                     <div style={{fontSize:11,color:'var(--muted)'}}>{localObs.length} · {localObs.filter(o=>o.isCP).length} CPs</div>
                   </div>
-                  {localObs.map((o,idx)=>(
-                    <div key={o.id} style={{display:'flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.03)',borderRadius:8,padding:'4px 6px'}}>
-                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0,display:'flex',alignItems:'center'}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv — klicken zum deaktivieren':'Kein CP — klicken zum aktivieren'}>{o.isCP?<I.Target s={14} c="var(--cor)"/>:<I.Target s={14} c="rgba(255,255,255,.2)"/>}</button>
-                      <input value={o.name} onChange={e=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,name:e.target.value}:x))} style={{flex:1,padding:'4px 7px',fontSize:12,borderRadius:7,minWidth:0}}/>
-                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===0?.25:1}} onClick={()=>moveObs(idx,-1)} disabled={idx===0}>↑</button>
-                      <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 4px',color:'var(--muted)',fontSize:13,opacity:idx===localObs.length-1?.25:1}} onClick={()=>moveObs(idx,1)} disabled={idx===localObs.length-1}>↓</button>
-                      <button style={{background:'rgba(255,59,48,.1)',border:'none',borderRadius:6,padding:'3px 7px',color:'var(--red)',cursor:'pointer',fontSize:11,flexShrink:0}} onClick={()=>setLocalObs(obs=>obs.filter((_,i)=>i!==idx))}><I.X s={11} c="var(--red)"/></button>
-                    </div>
-                  ))}
-                  <div style={{display:'flex',gap:6,borderTop:'1px solid var(--border)',paddingTop:8,marginTop:1}}>
+                  <div style={{maxHeight:280,overflowY:'auto'}}>
+                    <DragList items={localObs} onReorder={arr=>setLocalObs(arr)} keyFn={o=>o.id}
+                      onExternalDrop={(data,pos)=>{const name=data.trim();if(!name)return;setLocalObs(obs=>{const a=[...obs];a.splice(pos,0,{id:uid(),name,isCP:true,order:pos});return a.map((x,i)=>({...x,order:i}));});setNewObsName('');SFX.click();}}
+                      renderItem={(o,idx)=>(
+                        <div style={{padding:'4px 6px',display:'flex',alignItems:'center',gap:5}}>
+                          <div className="drag-handle"><I.Drag s={14}/></div>
+                          <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0,display:'flex',alignItems:'center'}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv':'Kein CP'}>{o.isCP?<I.Target s={14} c="var(--cor)"/>:<I.Target s={14} c="rgba(255,255,255,.2)"/>}</button>
+                          <input value={o.name} onChange={e=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,name:e.target.value}:x))} style={{flex:1,padding:'4px 7px',fontSize:12,borderRadius:7,minWidth:0}}/>
+                          <button style={{background:'rgba(255,59,48,.1)',border:'none',borderRadius:6,padding:'3px 7px',color:'var(--red)',cursor:'pointer',fontSize:11,flexShrink:0}} onClick={()=>setLocalObs(obs=>obs.filter((_,i)=>i!==idx))}><I.X s={11} c="var(--red)"/></button>
+                        </div>
+                      )}/>
+                  </div>
+                  <div style={{display:'flex',gap:6,borderTop:'1px solid var(--border)',paddingTop:8,marginTop:1,alignItems:'center'}}
+                    draggable={!!newObsName.trim()}
+                    onDragStart={e=>{if(!e.target.closest('.drag-handle')||!newObsName.trim()){e.preventDefault();return;}e.dataTransfer.setData('dnd-obs-ext',newObsName.trim());e.dataTransfer.effectAllowed='copy';}}>
+                    <div className="drag-handle" title={lang==='de'?'Ziehen zum Einfügen':'Drag to insert'} style={{opacity:newObsName.trim()?1:0.3,cursor:newObsName.trim()?'grab':'default'}}><I.Drag s={14}/></div>
                     <input value={newObsName} onChange={e=>setNewObsName(e.target.value)} placeholder={lang==='de'?'Neues Hindernis…':'New obstacle…'} style={{flex:1,padding:'6px 10px',fontSize:12,borderRadius:8}} onKeyDown={e=>{if(e.key==='Enter')addLocalObs();}}/>
                     <button className="btn btn-ghost" style={{padding:'6px 11px',fontSize:12,gap:4,flexShrink:0}} onClick={addLocalObs}><I.Plus s={12}/>{lang==='de'?'Hinzu':'Add'}</button>
                   </div>
