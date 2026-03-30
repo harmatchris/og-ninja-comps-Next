@@ -2809,7 +2809,7 @@ const JuryApp=({compId,stNum,onBack})=>{
   const handleStopConfirm=async({selCount,time,fellAtObst,dsq})=>{
     const corrected=(stopModal.doneCP||[]).slice(0,selCount);
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:dsq?'dsq':(stopModal.reason||'dnf'),fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
-    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(result);setPhase('done');SFX.complete();
+    const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(null);setCurrentAth(null);setFallModal(null);setActiveFalls([]);setLives(info.lives||3);setGoTime(null);setPhase('wait');SFX.complete();
   };
   const handleComplete=async data=>{
     const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,protested:data.protested||false,status:'complete',timestamp:Date.now()};
