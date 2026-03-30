@@ -426,7 +426,8 @@ const useLang=()=>{const lang=useContext(LangCtx);const t=useCallback(k=>T[lang]
 let _ac=null;
 const ac=()=>{if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;};
 const tone=(freq,dur,vol=.1,type='sine',delay=0)=>{try{const ctx=ac(),o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();f.type='lowpass';f.frequency.value=5000;o.connect(f);f.connect(g);g.connect(ctx.destination);o.type=type;o.frequency.value=freq;const t=ctx.currentTime+delay;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.start(t);o.stop(t+dur+.01);}catch(e){}};
-const SFX={hover:()=>tone(1800,.02,.025),click:()=>{tone(440,.04,.08,'triangle');tone(330,.07,.04,'triangle',.02);},checkpoint:()=>{tone(523,.1,.16);tone(659,.1,.12,'sine',.1);tone(784,.2,.18,'sine',.2);},fall:()=>{tone(280,.12,.14,'sawtooth');tone(160,.22,.09,'sawtooth',.1);},countdown:cb=>{
+const vib=(ms)=>{try{navigator.vibrate(ms)}catch(e){}};
+  const SFX={hover:()=>tone(1800,.02,.025),click:()=>{vib(15);tone(440,.04,.08,'triangle');tone(330,.07,.04,'triangle',.02);},checkpoint:()=>{vib(30);tone(523,.1,.16);tone(659,.1,.12,'sine',.1);tone(784,.2,.18,'sine',.2);},fall:()=>{vib([80,40,80]);tone(280,.12,.14,'sawtooth');tone(160,.22,.09,'sawtooth',.1);},countdown:cb=>{
   // Ski-race start: 3 prep beeps at 1-second intervals, then loud GO horn at 3s
   tone(880,.09,.22,'sine',0);
   tone(880,.09,.22,'sine',1.0);
@@ -436,7 +437,7 @@ const SFX={hover:()=>tone(1800,.02,.025),click:()=>{tone(440,.04,.08,'triangle')
   tone(880,.18,.22,'sine',3.0);
   // Timer starts exactly when GO fires
   setTimeout(()=>cb(performance.now()),3000);
-},complete:()=>{tone(523,.08,.18);tone(659,.08,.16,'sine',.1);tone(784,.1,.18,'sine',.2);tone(1047,.35,.2,'sine',.32);}};
+},complete:()=>{vib(200);tone(523,.08,.18);tone(659,.08,.16,'sine',.1);tone(784,.1,.18,'sine',.2);tone(1047,.35,.2,'sine',.32);}};
 
 // ── ICONS ─────────────────────────────────────────────────
 const I={
@@ -490,6 +491,53 @@ const useTimer=(running,startPerf)=>{
   useEffect(()=>{if(!running){cancelAnimationFrame(raf.current);return;}const tick=()=>{setEl(performance.now()-startPerf);raf.current=requestAnimationFrame(tick);};raf.current=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf.current);},[running,startPerf]);
   return el;
 };
+
+  // ── BLE BUZZER ──────────────────────────────────────
+  const BLE={
+    devices:{},
+    async connect(stageNum){
+      if(!navigator.bluetooth){alert('Bluetooth nicht verfügbar');return null;}
+      try{
+        const device=await navigator.bluetooth.requestDevice({
+          acceptAllDevices:true,
+          optionalServices:['generic_access','battery_service','0000ffe0-0000-1000-8000-00805f9b34fb']
+        });
+        const server=await device.gatt.connect();
+        let char=null;
+        for(const svcUuid of['0000ffe0-0000-1000-8000-00805f9b34fb','battery_service']){
+          try{const svc=await server.getPrimaryService(svcUuid);
+            const chars=await svc.getCharacteristics();
+            for(const c of chars){if(c.properties.notify){char=c;break;}}
+            if(char)break;
+          }catch(e){}
+        }
+        if(!char){
+          const svcs=await server.getPrimaryServices();
+          for(const svc of svcs){try{const chars=await svc.getCharacteristics();
+            for(const c of chars){if(c.properties.notify){char=c;break;}}
+            if(char)break;}catch(e){}}
+        }
+        if(char){
+          await char.startNotifications();
+          char.addEventListener('characteristicvaluechanged',()=>{
+            const cb=BLE.devices[stageNum]?.callback;
+            if(cb)cb();
+          });
+        }
+        BLE.devices[stageNum]={device,server,char,callback:null,name:device.name||'Buzzer'};
+        device.addEventListener('gattserverdisconnected',()=>{delete BLE.devices[stageNum];});
+        return device.name||'Buzzer';
+      }catch(e){if(e.name!=='NotFoundError')console.error('BLE err:',e);return null;}
+    },
+    disconnect(stageNum){
+      const d=BLE.devices[stageNum];
+      if(d?.server?.connected)d.server.disconnect();
+      delete BLE.devices[stageNum];
+    },
+    onPress(stageNum,cb){if(BLE.devices[stageNum])BLE.devices[stageNum].callback=cb;},
+    isConnected(stageNum){return!!BLE.devices[stageNum]?.server?.connected;}
+  };
+
 
 // ── SHARED UI COMPONENTS ──────────────────────────────────
 const Spinner=()=><div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><div style={{width:26,height:26,border:'2.5px solid var(--border)',borderTopColor:'var(--cor)',borderRadius:'50%',animation:'spin .7s linear infinite'}}/></div>;
@@ -1052,7 +1100,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:14,display:'flex',flexDirection:'column',gap:8}}>
             <div style={{display:'flex',gap:8}}>
               <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
-              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
+              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.team)setNewAth(a=>({...a,team:profile.team}));if(profile?.gender)setNewAth(a=>({...a,gender:profile.gender}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
             </div>
             <select value={newAth.cat} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
               {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
@@ -1104,7 +1152,7 @@ const HomeView=({onOpen,lang,setLang})=>{
       <div style={{padding:'32px 24px 22px',borderBottom:'1px solid var(--border)',background:'radial-gradient(ellipse at 50% -20%,rgba(255,94,58,.08) 0%,transparent 65%)'}}>
         <div style={{fontSize:11,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',fontWeight:600,marginBottom:10,display:'flex',alignItems:'center',gap:5}}><I.Bolt s={11} c="var(--cor)"/> OG Games · Ninja Competition Tool</div>
         <div style={{fontSize:30,fontWeight:900,letterSpacing:'-1px',lineHeight:1.1,marginBottom:5}}>{t('competitions')}</div>
-        <div style={{fontSize:13,color:'var(--muted)'}}>Firebase Live-Sync · 4 Stages · DE / EN</div>
+        <div style={{fontSize:13,color:'var(--muted)'}}>{lang==='de'?'Echtzeit-Sync · Bis 4 Stages · DE / EN':'Real-time Sync · Up to 4 Stages · DE / EN'}</div>
       </div>
       <div className="section">
         <button className="btn btn-coral" style={{width:'100%',padding:12,gap:6}} onClick={()=>{SFX.click();setCreating(true);}}><I.Plus s={15}/> {t('newComp')}</button>
@@ -1212,6 +1260,8 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const numSugg=quickAth.num||String((athList.length+1));
     const newA={id,name:quickAth.name.trim(),num:numSugg,cat:quickAth.cat,gender:quickAth.gender,country:quickAth.country||'',team:quickAth.team||'',photo:quickAth.photo||null};
     await fbSet(`ogn/${compId}/athletes/${id}`,newA);
+    acProfileSave(newA.name,{team:newA.team,country:newA.country,gender:newA.gender,photo:newA.photo});
+    acSave(AC_KEYS.names,newA.name);if(newA.team)acSave(AC_KEYS.teams,newA.team);if(newA.country)acSave(AC_KEYS.countries,newA.country);
     // Also write to all stage athlete lists so they show up in JuryApp
     const numSt2=info.numStations||1;
     const updates={};
@@ -1225,6 +1275,8 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     if(!editAthDraft||!editAthDraft.name.trim())return;
     const a={...editAthDraft,name:editAthDraft.name.trim()};
     await fbSet(`ogn/${compId}/athletes/${a.id}`,a);
+    acProfileSave(a.name,{team:a.team||'',country:a.country||'',gender:a.gender,photo:a.photo||null});
+    acSave(AC_KEYS.names,a.name);if(a.team)acSave(AC_KEYS.teams,a.team);if(a.country)acSave(AC_KEYS.countries,a.country);
     const numSt2=info.numStations||1;
     const updates={};
     for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=a;}
@@ -1690,9 +1742,27 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
 
   const nextIdx=doneCP.length,nextCp=cpObst[nextIdx],allDone=doneCP.length>=cpObst.length;
 
+  const longPressRef=useRef(null);
+  const undoCP=()=>{
+    if(doneCP.length===0)return;
+    const nd=doneCP.slice(0,-1);
+    doneCPRef.current=nd;setDoneCP(nd);
+    if(navigator.vibrate)navigator.vibrate([100,50,100]);
+    SFX.fall();
+  };
+  useEffect(()=>{
+    if(!BLE.isConnected(stNum))return;
+    const buzzerStop=()=>{
+      const t=Math.round(performance.now()-startPerf);
+      SFX.complete();vib(200);
+      onComplete({doneCP:doneCPRef.current,finalTime:t,lives,protested:false});
+    };
+    BLE.onPress(stNum,buzzerStop);
+    return()=>BLE.onPress(stNum,null);
+  },[stNum,startPerf,lives]);
   const handleCP=()=>{
     if(allDone)return;
-    SFX.checkpoint();setFlash(true);setTimeout(()=>setFlash(false),320);
+    SFX.checkpoint();if(navigator.vibrate)navigator.vibrate(50);setFlash(true);setTimeout(()=>setFlash(false),320);
     const t=Math.round(performance.now()-startPerf);
     const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:t}];
     doneCPRef.current=nd;setDoneCP(nd);
@@ -1719,6 +1789,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
 
   return(
     <div style={{display:'flex',flexDirection:'column',minHeight:'calc(100vh - 56px)',paddingBottom:16}}>
+      {BLE.isConnected(stNum)&&<div style={{padding:'4px 16px',display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#4CAF50'}}><span style={{width:8,height:8,borderRadius:'50%',background:'#4CAF50',display:'inline-block'}}></span> Buzzer: {BLE.devices[stNum]?.name}</div>}
       {/* Athlete card with gradient glow + timer */}
       <div className="sh-card" style={{margin:'12px 16px',padding:'18px 20px',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 110%,rgba(255,94,58,.09) 0%,transparent 58%)',pointerEvents:'none'}}/>
@@ -1804,7 +1875,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
           {(()=>{const isEndPlat=nextCp&&/endplattform/i.test(nextCp.name||'')&&info.mode==='segliv';const isStartPlat=nextCp&&/startplattform/i.test(nextCp.name||'')&&info.mode==='segliv';return(
           <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:185,
             ...(isEndPlat?{borderColor:'rgba(255,200,0,.35)',background:'rgba(255,200,0,.06)'}:
-               isStartPlat?{borderColor:'rgba(150,150,255,.3)',background:'rgba(100,100,255,.05)'}:{})}} onClick={handleCP}>
+               isStartPlat?{borderColor:'rgba(150,150,255,.3)',background:'rgba(100,100,255,.05)'}:{})}} onClick={handleCP} onTouchStart={()=>{longPressRef.current=setTimeout(undoCP,800);}} onTouchEnd={()=>clearTimeout(longPressRef.current)} onContextMenu={e=>e.preventDefault()}>
             <div style={{width:52,height:52,borderRadius:'50%',background:isEndPlat?'rgba(255,200,0,.1)':'rgba(255,94,58,.08)',border:`1px solid ${isEndPlat?'rgba(255,200,0,.3)':'rgba(255,94,58,.15)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
             <div>{isEndPlat?(lang==='de'?'SEGMENT ENDE':'SEGMENT END'):isStartPlat?(lang==='de'?'SEGMENT START':'SEGMENT START'):'CHECKPOINT'}</div>
             {nextCp&&<div style={{fontSize:15,opacity:.82,fontWeight:600,letterSpacing:'.01em'}}>{nextCp.name}</div>}
@@ -2456,6 +2527,8 @@ return(<React.Fragment key={r.athleteId}>
 const JuryApp=({compId,stNum,onBack})=>{
   const {t,lang,catName}=useLang();
   const [tab,setTab]=useState('jury');
+  const [buzzerName,setBuzzerName]=useState(BLE.isConnected(stNum)?BLE.devices[stNum]?.name:'');
+  const toggleBuzzer=async()=>{if(buzzerName){BLE.disconnect(stNum);setBuzzerName('');}else{const name=await BLE.connect(stNum);if(name)setBuzzerName(name);}};
   const info=useFbVal(`ogn/${compId}/info`);
   const globalObstacles=useFbVal(`ogn/${compId}/obstacles`);
   const stageObstaclesRaw=useFbVal(`ogn/${compId}/stages/${stNum}/obstacles`);
@@ -2660,6 +2733,12 @@ const JuryApp=({compId,stNum,onBack})=>{
           ))}
         </nav>
       )}
+      {navigator.bluetooth&&<div style={{padding:'6px 16px',display:'flex',justifyContent:'flex-end'}}>
+        <button onClick={toggleBuzzer} style={{background:buzzerName?'rgba(76,175,80,.15)':'rgba(255,255,255,.06)',border:buzzerName?'1px solid rgba(76,175,80,.3)':'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'5px 12px',fontSize:11,color:buzzerName?'#4CAF50':'rgba(255,255,255,.5)',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+          <span style={{width:7,height:7,borderRadius:'50%',background:buzzerName?'#4CAF50':'rgba(255,255,255,.3)',display:'inline-block'}}></span>
+          {buzzerName?buzzerName:'Buzzer verbinden'}
+        </button>
+      </div>}
       {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone}/>}
       {fallModal&&phase==='active'&&(
         <FallModal athlete={currentAth} doneCP={fallModal.doneCP} cpObst={cpObst} obstArr={obstArr} currentTime={fallModal.currentTime}
