@@ -813,6 +813,35 @@ const computeRankedStage=(runList,catId,stNum)=>{
   const byA=_bestRun(cr);
   return[...Object.values(byA).sort(_rankSort),..._dsqOnly(cr,byA)];
 };
+// Multi-stage overall: sum CPs + times across all stages per athlete
+const computeRankedMultiStage=(runList,catId,stageNums)=>{
+  const snSet=new Set(stageNums.map(String));
+  // Best non-DSQ run per athlete per stage
+  const byAS={};
+  runList.filter(r=>r.catId===catId&&r.status!=='dsq'&&snSet.has(String(r.stNum))).forEach(r=>{
+    const key=`${r.athleteId}__${String(r.stNum)}`;const ex=byAS[key];
+    const rc=r.doneCP?.length||0,ec=ex?.doneCP?.length||0;
+    if(!ex||rc>ec||(rc===ec&&(r.finalTime||Infinity)<(ex.finalTime||Infinity)))byAS[key]=r;
+  });
+  // Aggregate per athlete
+  const byA={};
+  Object.values(byAS).forEach(r=>{
+    const aid=r.athleteId;const sn=String(r.stNum);
+    if(!byA[aid])byA[aid]={athleteId:aid,athleteName:r.athleteName,totalCPs:0,totalTime:0,stageBreakdown:{},status:'complete'};
+    byA[aid].stageBreakdown[sn]=r;
+    byA[aid].totalCPs+=(r.doneCP?.length||0);
+    byA[aid].totalTime+=(r.finalTime||0);
+    if(r.status!=='complete')byA[aid].status='partial';
+  });
+  // DSQ-only athletes
+  const inMain=new Set(Object.keys(byA));
+  const dsqMap={};
+  runList.filter(r=>r.catId===catId&&r.status==='dsq'&&!inMain.has(r.athleteId)).forEach(r=>{
+    dsqMap[r.athleteId]={athleteId:r.athleteId,athleteName:r.athleteName,totalCPs:0,totalTime:0,stageBreakdown:{},status:'dsq'};
+  });
+  const sorted=Object.values(byA).sort((a,b)=>b.totalCPs-a.totalCPs||a.totalTime-b.totalTime);
+  return[...sorted,...Object.values(dsqMap)];
+};
 
 // ════════════════════════════════════════════════════════════
 // ── PHOTO RESIZE UTILITY (module-level, used by SetupWizard + CoordinatorView) ──
@@ -2482,7 +2511,12 @@ const ResultsView=({compId,athletes})=>{
   // Stage numbers that have runs for the selected category
   const stageNums=selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
   const multiStage=stageNums.length>1;
-  const ranked=selCat?(selStage!=null?computeRankedStage(runList,selCat,selStage):computeRanked(runList,selCat)):[];
+  const isMultiOverall=multiStage&&selStage===null;
+  const ranked=selCat?(selStage!=null?computeRankedStage(runList,selCat,selStage):isMultiOverall?computeRankedMultiStage(runList,selCat,stageNums):computeRanked(runList,selCat)):[];
+  const rCPs=r=>isMultiOverall?r.totalCPs:(r.doneCP?.length||0);
+  const rTime=r=>isMultiOverall?r.totalTime:(r.finalTime||0);
+  const rMaxCPs=r=>{if(isMultiOverall){const tot=stageNums.reduce((s,sn)=>{const bd=r.stageBreakdown?.[String(sn)];return s+(bd?.totalCPs||0);},0);return tot||r.totalCPs||1;}return Math.max(r.totalCPs||0,r.doneCP?.length||0)||1;};
+  const StageBreakdown=({r,compact=false})=>{if(!isMultiOverall||!r.stageBreakdown)return null;const totCPs=rCPs(r),totT=rTime(r);return(<div style={{marginTop:compact?3:6,display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>{stageNums.map(sn=>{const bd=r.stageBreakdown[String(sn)];const cps=bd?.doneCP?.length||0;const maxC=bd?.totalCPs||'?';const tm=bd?.finalTime||0;return(<span key={sn} style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 5px',borderRadius:6,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.5)'}}><span style={{color:'rgba(255,144,64,.9)',fontWeight:700,fontSize:8}}>S{sn}</span><span>{cps}/{maxC}</span><span style={{opacity:.35}}>·</span><span>{tm>0?fmtMs(tm):'—'}</span></span>);})}  {stageNums.length>1&&<span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 6px',borderRadius:6,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,144,64,.25)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,144,64,.9)',fontWeight:700}}>Σ {totCPs}{totT>0?` · ${fmtMs(totT)}`:''}</span>}</div>);};
   const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
   const comp=useFbVal(`ogn/${compId}/info`);
   const qualRule=comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null);
@@ -2549,22 +2583,23 @@ const ResultsView=({compId,athletes})=>{
                   {a.photo?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,215,10,.4)',flexShrink:0}}/>:null}
                   <div>
                     <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px'}}>{a.name}{ranked[0].protested&&<span style={{marginLeft:8}}><I.Flag s={13} c="var(--gold)"/></span>}</div>
-                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>#{a.num}{ranked[0].stNum&&<span style={{marginLeft:6,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 6px',fontSize:10}}>S{ranked[0].stNum}</span>}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>#{a.num}{!isMultiOverall&&ranked[0].stNum&&<span style={{marginLeft:6,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 6px',fontSize:10}}>S{ranked[0].stNum}</span>}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>}</div>
                   </div>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginTop:6}}>
-                  <div className="timer-grad" style={{fontSize:28,color:ranked[0].status==='dsq'?'#FF3B6B':ranked[0].status!=='complete'&&ranked[0].finalTime>0?'rgba(255,255,255,.65)':undefined}}>{ranked[0].status==='dsq'?'DSQ':ranked[0].finalTime>0?fmtMs(ranked[0].finalTime):'—'}</div>
+                  <div className="timer-grad" style={{fontSize:28,color:ranked[0].status==='dsq'?'#FF3B6B':ranked[0].status!=='complete'&&rTime(ranked[0])>0?'rgba(255,255,255,.65)':undefined}}>{ranked[0].status==='dsq'?'DSQ':rTime(ranked[0])>0?fmtMs(rTime(ranked[0])):'—'}</div>
                   {ranked[0].status==='complete'&&<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>}
                   {ranked[0].corrected&&<div style={{fontSize:9,padding:'2px 6px',borderRadius:5,background:'rgba(255,200,80,.12)',color:'var(--gold)',border:'1px solid rgba(255,200,80,.25)',fontWeight:700,letterSpacing:'.04em'}}>KORRIGIERT</div>}
                   <LifeDots run={ranked[0]} size={9}/>
                 </div>
                 <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
                   <div style={{flex:1,height:5,background:'rgba(255,255,255,.1)',borderRadius:3,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:`${(()=>{const done=ranked[0].doneCP?.length||0;const tot=Math.max(ranked[0].totalCPs||0,done)||1;return(done/tot)*100;})()}%`,background:ranked[0].status==='complete'?'var(--green)':'var(--cor)',borderRadius:3}}/>
+                    <div style={{height:'100%',width:`${(()=>{const done=rCPs(ranked[0]);const tot=rMaxCPs(ranked[0]);return(done/tot)*100;})()}%`,background:ranked[0].status==='complete'?'var(--green)':'var(--cor)',borderRadius:3}}/>
                   </div>
-                  <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{ranked[0].doneCP?.length||0}{ranked[0].totalCPs?`/${ranked[0].totalCPs}`:''} CPs</span>
+                  <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{rCPs(ranked[0])}{isMultiOverall?`/${rMaxCPs(ranked[0])}`:(ranked[0].totalCPs?`/${ranked[0].totalCPs}`:'')} CPs</span>
                 </div>
-                {ranked[0].status!=='complete'&&ranked[0].status!=='dsq'&&(ranked[0].fellAt?.name
+                <StageBreakdown r={ranked[0]}/>
+                {!isMultiOverall&&ranked[0].status!=='complete'&&ranked[0].status!=='dsq'&&(ranked[0].fellAt?.name
                   ?<div style={{fontSize:12,color:'var(--red)',marginTop:4,fontWeight:600,display:'flex',alignItems:'center',gap:5}}><I.XCircle s={13} c="var(--red)"/> Failed @ {ranked[0].fellAt.name}</div>
                   :null
                 )}
@@ -2585,29 +2620,30 @@ return(<React.Fragment key={r.athleteId}>
                   </div>
                   <div style={{display:'flex',gap:5,alignItems:'center',marginTop:2,flexWrap:'wrap'}}>
                     <span style={{fontSize:10,fontFamily:'JetBrains Mono',color:'var(--muted)'}}>#{a.num}</span>
-                    {r.stNum&&<span style={{fontSize:9,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 5px',letterSpacing:'.03em'}}>S{r.stNum}</span>}
+                    {!isMultiOverall&&r.stNum&&<span style={{fontSize:9,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 5px',letterSpacing:'.03em'}}>S{r.stNum}</span>}
                     {a.team&&<span style={{fontSize:10,color:'var(--cor2)',fontWeight:700,background:'rgba(255,144,64,.13)',borderRadius:5,padding:'1px 5px'}}>{a.team}</span>}
                     {a.country&&<span style={{fontSize:10,color:'var(--muted)'}}>{toFlag(a.country)} {a.country}</span>}
                   </div>
                   <div style={{marginTop:5,display:'flex',alignItems:'center',gap:5}}>
                     <div style={{flex:1,height:3,background:'rgba(255,255,255,.08)',borderRadius:2,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${(()=>{const done=r.doneCP?.length||0;const tot=Math.max(r.totalCPs||0,done)||1;return(done/tot)*100;})()}%`,background:r.status==='complete'?'var(--green)':'var(--cor)',borderRadius:2}}/>
+                      <div style={{height:'100%',width:`${(()=>{const done=rCPs(r);const tot=rMaxCPs(r);return(done/tot)*100;})()}%`,background:r.status==='complete'?'var(--green)':'var(--cor)',borderRadius:2}}/>
                     </div>
-                    <span style={{fontSize:9,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{r.doneCP?.length||0}{r.totalCPs?`/${r.totalCPs}`:''}</span>
+                    <span style={{fontSize:9,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{rCPs(r)}{isMultiOverall?`/${rMaxCPs(r)}`:(r.totalCPs?`/${r.totalCPs}`:'')}</span>
                   </div>
+                  <StageBreakdown r={r} compact={true}/>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <div className="timer-grad" style={{fontSize:14,color:r.status==='dsq'?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.55)':undefined}}>{r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):t('dnf')}</div>
+                    <div className="timer-grad" style={{fontSize:14,color:r.status==='dsq'?'#FF3B6B':r.status!=='complete'&&rTime(r)>0?'rgba(255,255,255,.55)':undefined}}>{r.status==='dsq'?'DSQ':rTime(r)>0?fmtMs(rTime(r)):t('dnf')}</div>
                     <EditBtn r={r}/>
                   </div>
                   {r.status==='complete'
                     ?<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>
                     :r.status==='dsq'
                       ?<div style={{fontSize:10,color:'#FF3B6B',fontWeight:600}}>{lang==='de'?'Disqualifiziert':'Disqualified'}</div>
-                    :r.fellAt?.name
+                    :!isMultiOverall&&r.fellAt?.name
                       ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
-                      :<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>
+                      :!isMultiOverall?<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>:null
                   }
                   <LifeDots run={r} size={7}/>
                 </div>
@@ -3365,7 +3401,31 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                   <span style={{fontSize:11,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',marginLeft:'auto'}}>{catRanked.length}</span>
                 </div>
                 {catMulti?(
-                  <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(catStageNums.length,3)},1fr)`}}>
+                  <div style={{display:'grid',gridTemplateColumns:`minmax(200px,1.5fr) repeat(${Math.min(catStageNums.length,3)},minmax(140px,1fr))`}}>
+                    {/* Gesamt / Overall column */}
+                    {(()=>{const msRanked=computeRankedMultiStage(runList,cat.id,catStageNums);return(
+                      <div style={{borderRight:'1px solid rgba(255,255,255,.06)'}}>
+                        <div style={{padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.04)',fontSize:10,fontWeight:700,color:'rgba(255,144,64,.7)',letterSpacing:'.06em',display:'flex',alignItems:'center',gap:5}}><I.Trophy s={9} c="rgba(255,144,64,.7)"/> Gesamt</div>
+                        <AutoScrollList itemCount={msRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 250px)">
+                          {msRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
+                            <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 10px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.5:1}}>
+                              <div style={{fontSize:10,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.22)',width:14,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
+                              {a.photo?<img src={a.photo} style={{width:20,height:20,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                                <div style={{display:'flex',flexWrap:'wrap',gap:2,marginTop:2}}>
+                                  {catStageNums.map(sn=>{const bd=r.stageBreakdown?.[String(sn)];if(!bd)return null;return(<span key={sn} style={{fontSize:8,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.4)',padding:'0 3px',background:'rgba(255,255,255,.04)',borderRadius:4}}><span style={{color:'rgba(255,144,64,.8)',fontWeight:700}}>S{sn}</span> {bd.doneCP?.length||0}/{bd.totalCPs||'?'} {bd.finalTime>0?fmtMs(bd.finalTime):'?'}</span>);})}
+                                </div>
+                              </div>
+                              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:1,flexShrink:0}}>
+                                <div style={{fontFamily:'JetBrains Mono',fontSize:10,fontWeight:700,color:r.status==='dsq'?'#FF3B6B':i<3?medalColors[Math.min(i,2)]:'rgba(255,255,255,.5)'}}>{r.status==='dsq'?'DSQ':r.totalTime>0?fmtMs(r.totalTime):'—'}</div>
+                                <div style={{fontSize:8,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono'}}>{r.totalCPs} CPs</div>
+                              </div>
+                            </div>
+                          );})}
+                        </AutoScrollList>
+                      </div>
+                    );})()}
                     {catStageNums.map((stN,si)=>{
                       const stRanked=computeRankedStage(runList,cat.id,stN);
                       return(
