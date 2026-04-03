@@ -714,7 +714,7 @@ const LifeDots=({run,size=7})=>{
     </div>
   );
 };
-const CompEmoji=({emoji,s=40})=>emoji?<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF6B00,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(s*.52),flexShrink:0}}>{emoji}</div>:<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.Bolt s={Math.round(s*.44)} c="#fff"/></div>;
+const CompEmoji=({emoji,logo,s=40})=>logo?<img src={logo} style={{width:s,height:s,borderRadius:Math.round(s*.28),objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>:emoji?<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF6B00,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:Math.round(s*.52),flexShrink:0}}>{emoji}</div>:<div style={{width:s,height:s,borderRadius:Math.round(s*.28),background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.Bolt s={Math.round(s*.44)} c="#fff"/></div>;
 
 const TopBar=({title,sub,onBack,right,logo=true})=>(
   <div className="topbar">
@@ -823,6 +823,16 @@ const resizePhotoUtil=(file,cb)=>{
     cb(canvas.toDataURL('image/jpeg',0.82));
   };img.src=url;
 };
+const resizeLogoUtil=(file,cb)=>{
+  const img=new Image();const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const s=300;const canvas=document.createElement('canvas');canvas.width=s;canvas.height=s;
+    const ctx=canvas.getContext('2d');const min=Math.min(img.width,img.height);
+    const sx=(img.width-min)/2,sy=(img.height-min)/2;
+    ctx.drawImage(img,sx,sy,min,min,0,0,s,s);URL.revokeObjectURL(url);
+    cb(canvas.toDataURL('image/jpeg',0.88));
+  };img.src=url;
+};
 // ── SCROLL TIME PICKER ──────────────────────────────────────
 const TimePicker=({value,onChange,allowDefault=false})=>{
   const {lang}=useLang();
@@ -885,7 +895,7 @@ const TimePicker=({value,onChange,allowDefault=false})=>{
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',qualification:{}});
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{}});
   // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
   const [stageObs,setStageObs]=useState(()=>{
     const n=initialInfo?.numStations||2;
@@ -1077,6 +1087,18 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       {step===0&&(
         <div className="section fade-up" style={{flex:1}}>
           <div className="lbl">{lang==='de'?'Emoji':'Emoji'}</div>
+          {/* Competition logo upload */}
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+            <label style={{cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:72,height:72,borderRadius:16,border:`2px dashed ${info.logo?'rgba(255,94,58,.5)':'var(--border)'}`,background:info.logo?'transparent':'rgba(255,255,255,.03)',overflow:'hidden',flexShrink:0,transition:'border-color .15s',position:'relative'}}>
+              {info.logo?<img src={info.logo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><I.Camera s={22} c="var(--muted)"/><span style={{fontSize:9,color:'var(--muted)',marginTop:3,textAlign:'center',letterSpacing:'.04em'}}>LOGO</span></>}
+              <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizeLogoUtil(e.target.files[0],b64=>sI('logo',b64));e.target.value='';}}/>
+            </label>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--text)',marginBottom:4}}>{lang==='de'?'Wettkampf-Logo (optional)':'Competition Logo (optional)'}</div>
+              <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.5}}>{lang==='de'?'Wird überall angezeigt — Display, Warteliste, etc.':'Shown everywhere — display, queue, etc.'}</div>
+              {info.logo&&<button style={{marginTop:6,fontSize:11,color:'var(--red)',background:'rgba(255,59,48,.12)',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer'}} onClick={()=>sI('logo',null)}>{lang==='de'?'Entfernen':'Remove'}</button>}
+            </div>
+          </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:4}}>
             {['🥷','🏆','🥇','🎯','💪','🔥','⚡','🌟','🏅','🤸','🧗','🦸','🐉','⚔️','🐯','🦁','🦅','💥','🌊','🎖️'].map(e=>(
               <button key={e} onClick={()=>sI('emoji',e)} style={{width:38,height:38,fontSize:20,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'var(--border)'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.03)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>{e}</button>
@@ -1322,7 +1344,7 @@ const HomeView=({onOpen,lang,setLang})=>{
           <div key={c.id} className="sh-card fade-up"
             style={{padding:16,display:'flex',flexDirection:'row',alignItems:'center',gap:14,width:'100%',animationDelay:`${i*.06}s`,cursor:'pointer',transition:'background .18s,border-color .18s'}}
             onClick={()=>{SFX.click();onOpen(c.id);}}>
-            <CompEmoji emoji={c.info?.emoji} s={44}/>
+            <CompEmoji emoji={c.info?.emoji} logo={c.info?.logo} s={44}/>
             <div style={{flex:1,textAlign:'left'}}>
               <div style={{fontWeight:800,fontSize:15,letterSpacing:'-.2px'}}>{c.info?.name||'Wettkampf'}</div>
               <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` · ${c.info.location}`:''}</div>
@@ -1484,7 +1506,7 @@ const handleDeleteAth=async(a)=>{
   const copyUrl=(url,k)=>{navigator.clipboard?.writeText(url);setCopied(k);setTimeout(()=>setCopied(null),2200);SFX.click();};
   return(
     <div style={{minHeight:'100vh',paddingBottom:40}}>
-      <TopBar title={info.name||'Wettkampf'} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
+      <TopBar title={<div style={{display:'flex',alignItems:'center',gap:8}}>{info.logo&&<img src={info.logo} style={{width:28,height:28,borderRadius:7,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>}<span>{info.name||'Wettkampf'}</span></div>} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
         right={<div style={{display:'flex',gap:6}}>
           <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setEditing(true)}><I.Settings s={15}/></button>
           <button className="btn btn-ghost" style={{padding:'5px 10px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>
@@ -1501,27 +1523,26 @@ const handleDeleteAth=async(a)=>{
         </div>
 
 
-        {/* ── 3-way toggle: Jury / Ranking / Athleten-Queue ── */}
+        {/* ── 3-way toggle: Jury / Ranking (display) / Next up (queue) ── */}
         <div style={{display:'flex',gap:6,marginTop:4}}>
-          {[
-            {k:'coordinator',ic:<I.Bolt s={15}/>,lb:lang==='de'?'Jury':'Jury'},
-            {k:'results',ic:<I.Trophy s={15}/>,lb:'Ranking'},
-            {k:'queue',ic:<I.User s={15}/>,lb:lang==='de'?'Athleten':'Athletes'},
-          ].map(({k,ic,lb})=>(
-            <button key={k} className="btn" style={{flex:1,padding:'9px 10px',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.04em',background:coordView===k?'rgba(255,94,58,.15)':'transparent',border:`1px solid ${coordView===k?'rgba(255,94,58,.4)':'var(--border)'}`,color:coordView===k?'var(--coral)':'var(--muted)',borderRadius:20,justifyContent:'center'}} onClick={()=>{setCoordView(k);SFX.hover();}}>
-              {ic}{lb}
-            </button>
-          ))}
+          <button className="btn" style={{flex:1,padding:'9px 10px',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.04em',background:coordView==='coordinator'?'rgba(255,94,58,.15)':'transparent',border:`1px solid ${coordView==='coordinator'?'rgba(255,94,58,.4)':'var(--border)'}`,color:coordView==='coordinator'?'var(--coral)':'var(--muted)',borderRadius:20,justifyContent:'center'}} onClick={()=>{setCoordView('coordinator');SFX.hover();}}>
+            <I.Bolt s={15}/>{lang==='de'?'Jury':'Jury'}
+          </button>
+          <button className="btn" style={{flex:1,padding:'9px 10px',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.04em',background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',borderRadius:20,justifyContent:'center'}} onClick={()=>{window.open(`${base}?mode=display&comp=${compId}`,'_blank');SFX.hover();}}>
+            <I.Trophy s={15}/>Ranking ↗
+          </button>
+          <button className="btn" style={{flex:1,padding:'9px 10px',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.04em',background:coordView==='queue'?'rgba(255,94,58,.15)':'transparent',border:`1px solid ${coordView==='queue'?'rgba(255,94,58,.4)':'var(--border)'}`,color:coordView==='queue'?'var(--coral)':'var(--muted)',borderRadius:20,justifyContent:'center'}} onClick={()=>{setCoordView('queue');SFX.hover();}}>
+            <I.User s={15}/>Next up...
+          </button>
         </div>
         <div style={{display:'flex',gap:6,marginTop:6}}>
-          <button className="btn btn-ghost" style={{flex:1,padding:'8px 12px',gap:6,fontSize:11}} onClick={()=>window.open(`${base}?mode=display&comp=${compId}`,'_blank')}>
-            <I.Monitor s={13}/> {t('openDisplay')} ↗
+          <button className="btn btn-ghost" style={{flex:1,padding:'8px 12px',gap:6,fontSize:11}} onClick={()=>window.open(`${base}?mode=queue&comp=${compId}`,'_blank')}>
+            <I.Monitor s={13}/> Queue TV ↗
           </button>
           <button className="btn btn-ghost" style={{padding:'8px 12px',gap:6,fontSize:11,color:'rgba(255,150,80,.8)',borderColor:'rgba(255,120,50,.2)'}} title={lang==='de'?'Wettkampf neu starten':'Restart competition'} onClick={handleRestart}>
             <I.RefreshCw s={13} c="rgba(255,150,80,.8)"/> Restart
           </button>
         </div>
-        {coordView==='results'&&<div style={{marginTop:8}}><ResultsView compId={compId} athletes={athletes}/></div>}
         {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
         {coordView==='coordinator'&&<>
         <div className="sep"/>
@@ -2638,17 +2659,17 @@ return(<React.Fragment key={r.athleteId}>
 // ════════════════════════════════════════════════════════════
 // ATHLETE QUEUE VIEW – public display: wer kommt als nächstes?
 // ════════════════════════════════════════════════════════════
-const AthleteQueueView=({compId,info,completedRuns,athletesMap})=>{
+const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const {lang,catName}=useLang();
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allActiveRuns=useFbVal(`ogn/${compId}/activeRuns`);
-  useEffect(()=>{/* timer für ETA-Neuberechnung alle 15s */const iv=setInterval(()=>{},15000);return()=>clearInterval(iv);},[]);
+  const [,setTick]=useState(0);
+  useEffect(()=>{const iv=setInterval(()=>setTick(t=>t+1),15000);return()=>clearInterval(iv);},[]);
 
   const numStages=info?.numStations||1;
   const athList=athletesMap?Object.values(athletesMap):[];
   const runList=completedRuns?Object.values(completedRuns):[];
 
-  // Durchschnittliche Laufzeit in ms für eine Stage (für ETA-Berechnung)
   const getAvgMs=(sn)=>{
     const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
     if(lim>0)return lim*1000;
@@ -2659,21 +2680,33 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap})=>{
   };
 
   const stages=Array.from({length:numStages},(_,i)=>i+1);
-  const anyActive=stages.some(sn=>allStations?.[sn]?.cat);
+  const activeStages=stages.filter(sn=>allStations?.[sn]?.cat);
 
   if(!allStations&&!info)return<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}><Spinner/></div>;
-  if(!anyActive)return(
+  if(activeStages.length===0)return(
     <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:32,textAlign:'center'}}>
-      <I.User s={40} c="rgba(255,255,255,.15)"/>
-      <div style={{fontSize:14,color:'var(--muted)',lineHeight:1.55}}>{lang==='de'?'Noch keine Stage aktiv.\nJury-Ansicht öffnen und Kategorie wählen.':'No stage active yet.\nOpen jury view and select a category.'}</div>
+      <I.User s={tvMode?80:40} c="rgba(255,255,255,.15)"/>
+      <div style={{fontSize:tvMode?22:14,color:'var(--muted)',lineHeight:1.55}}>{lang==='de'?'Noch keine Stage aktiv.\nJury-Ansicht öffnen und Kategorie wählen.':'No stage active yet.\nOpen jury view and select a category.'}</div>
     </div>
   );
 
+  // TV: grid cols based on active stage count
+  const cols=tvMode?(activeStages.length>=3?activeStages.length>=4?4:3:activeStages.length):1;
+  const photoSz=tvMode?72:36;
+  const nameSz=tvMode?20:13;
+  const subSz=tvMode?14:10;
+  const etaSz=tvMode?17:12;
+  const padH=tvMode?'16px 20px':'9px 14px';
+  const maxRows=tvMode?20:15;
+
   return(
-    <div style={{flex:1,overflowY:'auto',padding:'10px 12px 80px'}}>
-      {stages.map(sn=>{
+    <div style={{flex:1,overflowY:'auto',padding:tvMode?'20px 24px 40px':'10px 12px 80px',
+      display:tvMode?'grid':'block',
+      gridTemplateColumns:tvMode?`repeat(${cols},1fr)`:'none',
+      gap:tvMode?20:0,
+      alignItems:'start'}}>
+      {activeStages.map(sn=>{
         const catId=allStations?.[sn]?.cat;
-        if(!catId)return null;
         const cat=IGN_CATS.find(c=>c.id===catId);
         const doneIds=new Set(runList.filter(r=>r.catId===catId&&r.stNum===sn).map(r=>r.athleteId));
         const activeRun=allActiveRuns?.[sn];
@@ -2684,72 +2717,72 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap})=>{
         const done=doneIds.size;
 
         if(queue.length===0)return(
-          <div key={sn} style={{background:'rgba(48,209,88,.06)',border:'1px solid rgba(48,209,88,.25)',borderRadius:14,padding:'14px 16px',marginBottom:12}}>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:3}}>
-              <div style={{fontWeight:800,fontSize:13}}>Stage {sn}</div>
-              {cat&&<div style={{fontSize:11,color:'var(--muted)'}}>{catName(cat)}</div>}
+          <div key={sn} style={{background:'rgba(48,209,88,.06)',border:'1px solid rgba(48,209,88,.25)',borderRadius:tvMode?18:14,padding:tvMode?'20px 24px':'14px 16px',marginBottom:tvMode?0:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <div style={{fontWeight:800,fontSize:tvMode?18:13}}>Stage {sn}</div>
+              {cat&&<div style={{fontSize:tvMode?14:11,color:'var(--muted)'}}>{catName(cat)}</div>}
             </div>
-            <div style={{fontSize:12,color:'#30D158',fontWeight:700}}>{lang==='de'?`Alle ${total} Läufe abgeschlossen ✓`:`All ${total} runs complete ✓`}</div>
+            <div style={{fontSize:tvMode?16:12,color:'#30D158',fontWeight:700}}>{lang==='de'?`Alle ${total} Läufe abgeschlossen ✓`:`All ${total} runs complete ✓`}</div>
           </div>
         );
 
         const avgMs=getAvgMs(sn);
-        const BUFFER_MS=22000; // ~22s Übergabe + Countdown
+        const BUFFER_MS=22000;
         const slotMs=avgMs+BUFFER_MS;
         const recentCnt=runList.filter(r=>r.stNum===sn&&(r.finalTime||0)>0).length;
         const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
-        const basisLabel=lim>0?`${lim}s Limit`:(recentCnt>=2?`Ø ${Math.round(avgMs/60000)} min`:(lang==='de'?`~${Math.round(avgMs/60000)} min (Schätzung)`:`~${Math.round(avgMs/60000)} min (est.)`));
+        const basisLabel=lim>0?`${lim}s Limit`:(recentCnt>=2?`Ø ${Math.round(avgMs/60000)} min`:`~${Math.round(avgMs/60000)} min`);
 
         return(
-          <div key={sn} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,marginBottom:12,overflow:'hidden'}}>
+          <div key={sn} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:tvMode?18:14,marginBottom:tvMode?0:12,overflow:'hidden'}}>
             {/* Stage-Header */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 14px',background:'rgba(255,255,255,.03)',borderBottom:'1px solid var(--border)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:30,height:30,borderRadius:8,background:'rgba(255,94,58,.12)',border:'1px solid rgba(255,94,58,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,fontWeight:900,color:'var(--coral)'}}>{sn}</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:tvMode?'14px 20px':'10px 14px',background:'rgba(255,255,255,.03)',borderBottom:'1px solid var(--border)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:tvMode?14:10}}>
+                <div style={{width:tvMode?44:30,height:tvMode?44:30,borderRadius:tvMode?12:8,background:'rgba(255,94,58,.12)',border:'1px solid rgba(255,94,58,.25)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?22:15,fontWeight:900,color:'var(--coral)',flexShrink:0}}>{sn}</div>
                 <div>
-                  <div style={{fontWeight:800,fontSize:13}}>Stage {sn}</div>
-                  {cat&&<div style={{fontSize:11,color:'var(--muted)',marginTop:1}}>{catName(cat)}</div>}
+                  <div style={{fontWeight:800,fontSize:tvMode?18:13}}>Stage {sn}{info?.stageNames?.[sn]?` — ${info.stageNames[sn]}`:''}</div>
+                  {cat&&<div style={{fontSize:tvMode?13:11,color:'var(--muted)',marginTop:1}}>{catName(cat)}</div>}
                 </div>
               </div>
               <div style={{textAlign:'right'}}>
-                <div style={{fontSize:10,color:'var(--muted)',fontWeight:700,letterSpacing:'.06em'}}>{done}/{total} {lang==='de'?'FERTIG':'DONE'}</div>
-                <div style={{fontSize:9,color:'var(--dim)',marginTop:2}}>{basisLabel}</div>
+                <div style={{fontSize:tvMode?13:10,color:'var(--muted)',fontWeight:700,letterSpacing:'.06em'}}>{done}/{total} {lang==='de'?'FERTIG':'DONE'}</div>
+                <div style={{fontSize:tvMode?11:9,color:'var(--dim)',marginTop:2}}>{basisLabel}</div>
               </div>
             </div>
-            {/* Athleten-Queue mit ETA */}
+            {/* Athleten-Queue */}
             <div>
-              {queue.slice(0,15).map((ath,i)=>{
+              {queue.slice(0,maxRows).map((ath,i)=>{
                 const isNowRunning=ath.id===runningId;
-                // slotsAhead=i: queue[0]=0 Slots warten, queue[1]=1 Slot, usw.
-                // Wenn jemand läuft: queue[0]=läuft, queue[1]=1 Slot entfernt
-                // Wenn niemand läuft: queue[0]=Als nächstes (0 Slots), queue[1]=1 Slot entfernt
                 const slotsAhead=i;
                 let etaLabel,etaColor;
-                if(isNowRunning){
-                  etaLabel=lang==='de'?'▶ Läuft gerade':'▶ Running now';etaColor='#30D158';
-                }else if(slotsAhead===0){
-                  etaLabel=lang==='de'?'Als nächstes →':'Up next →';etaColor='var(--coral)';
-                }else{
-                  const mins=Math.max(1,Math.round((slotsAhead*slotMs)/60000));
-                  etaLabel=`~${mins} min`;
-                  etaColor=mins<=3?'var(--gold)':'var(--muted)';
-                }
+                if(isNowRunning){etaLabel=lang==='de'?'▶ Läuft':'▶ Running';etaColor='#30D158';}
+                else if(slotsAhead===0){etaLabel=lang==='de'?'Als nächstes →':'Up next →';etaColor='var(--coral)';}
+                else{const mins=Math.max(1,Math.round((slotsAhead*slotMs)/60000));etaLabel=`~${mins} min`;etaColor=mins<=3?'var(--gold)':'var(--muted)';}
                 const isNext=!runningId&&i===0;
-                const isLast=i===Math.min(queue.length,15)-1;
+                const isLast=i===Math.min(queue.length,maxRows)-1;
                 return(
-                  <div key={ath.id} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 14px',background:isNowRunning?'rgba(48,209,88,.07)':isNext?'rgba(255,94,58,.05)':'transparent',borderBottom:isLast?'none':'1px solid rgba(255,255,255,.04)',transition:'background .3s'}}>
-                    <div style={{width:22,textAlign:'center',fontSize:12,fontWeight:800,color:isNowRunning?'#30D158':isNext?'var(--coral)':'var(--dim)',flexShrink:0}}>{isNowRunning?'▶':(i+1)}</div>
+                  <div key={ath.id} style={{display:'flex',alignItems:'center',gap:tvMode?14:10,padding:padH,background:isNowRunning?'rgba(48,209,88,.07)':isNext?'rgba(255,94,58,.06)':'transparent',borderBottom:isLast?'none':'1px solid rgba(255,255,255,.04)',transition:'background .3s'}}>
+                    {/* Position number */}
+                    <div style={{width:tvMode?28:22,textAlign:'center',fontSize:tvMode?16:12,fontWeight:900,color:isNowRunning?'#30D158':isNext?'var(--coral)':'var(--dim)',flexShrink:0}}>{isNowRunning?'▶':(i+1)}</div>
+                    {/* Profile photo */}
+                    {ath.photo
+                      ?<img src={ath.photo} style={{width:photoSz,height:photoSz,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`${tvMode?3:2}px solid ${isNowRunning?'rgba(48,209,88,.5)':isNext?'rgba(255,94,58,.4)':'rgba(255,255,255,.1)'}`}}/>
+                      :<div style={{width:photoSz,height:photoSz,borderRadius:'50%',background:isNowRunning?'rgba(48,209,88,.1)':isNext?'rgba(255,94,58,.1)':'rgba(255,255,255,.05)',border:`${tvMode?3:2}px solid ${isNowRunning?'rgba(48,209,88,.3)':isNext?'rgba(255,94,58,.3)':'rgba(255,255,255,.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <I.User s={tvMode?32:16} c={isNowRunning?'rgba(48,209,88,.6)':isNext?'rgba(255,94,58,.6)':'rgba(255,255,255,.3)'}/>
+                        </div>}
+                    {/* Name + info */}
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:isNowRunning?'#30D158':isNext?'#fff':'var(--text)'}}>{ath.name}</div>
-                      <div style={{fontSize:10,color:'var(--dim)',marginTop:1}}>#{ath.num}{ath.team?` · ${ath.team}`:''}</div>
+                      <div style={{fontSize:nameSz,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:isNowRunning?'#30D158':isNext?'#fff':'var(--text)'}}>{ath.name}</div>
+                      <div style={{fontSize:subSz,color:'var(--dim)',marginTop:2}}>#{ath.num}{ath.team?` · ${ath.team}`:''}</div>
                     </div>
+                    {/* ETA */}
                     <div style={{textAlign:'right',flexShrink:0}}>
-                      <div style={{fontSize:12,fontWeight:700,color:etaColor}}>{etaLabel}</div>
+                      <div style={{fontSize:etaSz,fontWeight:700,color:etaColor}}>{etaLabel}</div>
                     </div>
                   </div>
                 );
               })}
-              {queue.length>15&&<div style={{textAlign:'center',fontSize:11,color:'var(--dim)',padding:'8px 0'}}>+{queue.length-15} weitere</div>}
+              {queue.length>maxRows&&<div style={{textAlign:'center',fontSize:tvMode?14:11,color:'var(--dim)',padding:tvMode?'12px 0':'8px 0'}}>+{queue.length-maxRows} {lang==='de'?'weitere':'more'}</div>}
             </div>
           </div>
         );
@@ -2965,7 +2998,7 @@ const JuryApp=({compId,stNum,onBack})=>{
           {[
             {k:'jury', ic:<I.Bolt s={15}/>, lb:lang==='de'?'Jury':'Jury'},
             {k:'results', ic:<I.Trophy s={15}/>, lb:lang==='de'?'Ranking':'Ranking'},
-            {k:'queue', ic:<I.User s={15}/>, lb:lang==='de'?'Athleten':'Athletes'},
+            {k:'queue', ic:<I.User s={15}/>, lb:'Next up...'},
           ].map(({k,ic,lb})=>(
             <button key={k} className="btn" style={{flex:1,maxWidth:115,padding:'7px 10px',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.04em',background:topView===k?'rgba(255,94,58,.15)':'transparent',border:`1px solid ${topView===k?'rgba(255,94,58,.4)':'var(--border)'}`,color:topView===k?'var(--coral)':'var(--muted)',borderRadius:20,justifyContent:'center'}} onClick={()=>{setTopView(k);SFX.hover();}}>
               {ic}{lb}
@@ -3081,7 +3114,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             </button>
           )}
         </div>
-        <CompEmoji emoji={info.emoji} s={40}/>
+        <CompEmoji emoji={info.emoji} logo={info.logo} s={40}/>
         <div style={{flex:1}}><div style={{fontSize:11,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>OG Ninja Comp</div><div style={{fontSize:21,fontWeight:900,letterSpacing:'-.5px',marginTop:1}}>{info.name}</div></div>
         <div className="live-badge"><div className="live-dot"/>Live</div>
         {onOpenJury&&(
@@ -3506,6 +3539,35 @@ const InstallPrompt=({lang})=>{
 };
 
 // ════════════════════════════════════════════════════════════
+// QUEUE DISPLAY VIEW (TV full-screen)
+// ══════════════════════════════════════════════════════════
+const QueueDisplayView=({compId,onBack})=>{
+  const {lang}=useLang();
+  const info=useFbVal(`ogn/${compId}/info`);
+  const athletesMap=useFbVal(`ogn/${compId}/athletes`);
+  const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+  if(!info)return<div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}><Spinner/></div>;
+  return(
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)',overflow:'hidden'}}>
+      {/* Header bar */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 28px',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)',flexShrink:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:16}}>
+          {info.logo&&<img src={info.logo} style={{width:48,height:48,borderRadius:12,objectFit:'cover',border:'1px solid rgba(255,255,255,.1)'}}/>}
+          <div>
+            <div style={{fontSize:22,fontWeight:900,color:'#fff',letterSpacing:'-.01em'}}>{info.name||'Competition'}</div>
+            <div style={{fontSize:13,color:'var(--muted)',marginTop:2,letterSpacing:'.04em',textTransform:'uppercase'}}>Next Up</div>
+          </div>
+        </div>
+        {onBack&&<button className="btn btn-ghost" style={{padding:'8px 16px',fontSize:13}} onClick={onBack}><I.X s={14}/></button>}
+      </div>
+      {/* Queue grid */}
+      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+        <AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} tvMode={true}/>
+      </div>
+    </div>
+  );
+};
+
 // APP ROUTER
 // ══════════════════════════════════════════════════════════
 const StageRecoveryBanner=({compId,onJoin,lang})=>{
@@ -3531,7 +3593,7 @@ const App=()=>{
   const [lang,setLang]=useState(()=>storage.get('lang','de'));
   const [compId,setCompId]=useState(compP||null);
   const [stNum,setStNum]=useState(stP?parseInt(stP,10):1);
-  const [view,setView]=useState(()=>{if(modeP==='display')return 'display';if(stP&&compP)return 'jury';if(compP)return 'coordinator';return 'home';});
+  const [view,setView]=useState(()=>{if(modeP==='display')return 'display';if(modeP==='queue')return 'queue';if(stP&&compP)return 'jury';if(compP)return 'coordinator';return 'home';});
   const [prevView,setPrevView]=useState('coordinator');
   useEffect(()=>storage.set('lang',lang),[lang]);
   const openComp=id=>{setCompId(id);setView('coordinator');};
@@ -3544,6 +3606,8 @@ const App=()=>{
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} onBack={()=>setView(prevView)}/>}
       {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
+      {view==='queue'&&compId&&<QueueDisplayView compId={compId} onBack={null}/>}
+      {view==='queue'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('queue');}}/>}
       {/* Install prompt — only shows on mobile, dismissable, "not again" saves to localStorage */}
       <InstallPrompt lang={lang}/>
     </LangCtx.Provider>
