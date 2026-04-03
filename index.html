@@ -2047,7 +2047,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
           display:'flex',justifyContent:'space-between',alignItems:'center',
           animation:'fadeUp .22s ease'}}>
           <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>
-            ✓ {lastSplit.name} · CP {lastSplit.idx}/{lastSplit.total}
+            ✓ {obsShortName(lastSplit.name)} · CP {lastSplit.idx}/{lastSplit.total}
           </div>
           <div className="timer-grad" style={{fontSize:20}}>{fmtMs(lastSplit.time)}</div>
         </div>
@@ -2064,7 +2064,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
                isStartPlat?{borderColor:'rgba(150,150,255,.3)',background:'rgba(100,100,255,.05)'}:{})}} onClick={handleCP} onTouchStart={()=>{longPressRef.current=setTimeout(undoCP,800);}} onTouchEnd={()=>clearTimeout(longPressRef.current)} onContextMenu={e=>e.preventDefault()}>
             <div style={{width:52,height:52,borderRadius:'50%',background:isEndPlat?'rgba(255,200,0,.1)':'rgba(255,94,58,.08)',border:`1px solid ${isEndPlat?'rgba(255,200,0,.3)':'rgba(255,94,58,.15)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
             <div>{isEndPlat?(lang==='de'?'SEGMENT ENDE':'SEGMENT END'):isStartPlat?(lang==='de'?'SEGMENT START':'SEGMENT START'):'CHECKPOINT'}</div>
-            {nextCp&&<div style={{fontSize:15,opacity:.82,fontWeight:600,letterSpacing:'.01em'}}>{nextCp.name}</div>}
+            {nextCp&&<div style={{fontSize:15,opacity:.82,fontWeight:600,letterSpacing:'.01em',display:'flex',alignItems:'center',justifyContent:'center',gap:4}}><ObsLabel obs={nextCp} size={13}/></div>}
             {isEndPlat&&<div style={{fontSize:11,color:'rgba(255,200,0,.7)',letterSpacing:'.1em',textTransform:'uppercase',marginTop:2}}>{lang==='de'?'⬛ Leben werden aufgefüllt':'⬛ Lives will refill'}</div>}
             <div style={{fontSize:9,opacity:.28,fontWeight:400,letterSpacing:'.04em',marginTop:3,lineHeight:1,textTransform:'none'}}>{lang==='de'?'halten = rückgängig':'hold = undo'}</div>
           </button>);})()}
@@ -2196,9 +2196,9 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
                 :<div style={{display:'flex',gap:5,overflowX:'auto',paddingBottom:2}}>
                   {candidateObst.map(o=>(
                     <button key={o.id} className={`chip${fellAtObstId===o.id?' active':''}`}
-                      style={{flexShrink:0,fontSize:12,padding:'5px 11px',justifyContent:'center'}}
+                      style={{flexShrink:0,fontSize:12,padding:'5px 11px',justifyContent:'center',display:'inline-flex',alignItems:'center',gap:3}}
                       onClick={()=>setFellAtObstId(o.id)}>
-                      {o.name}
+                      <ObsLabel obs={o} size={10}/>
                     </button>
                   ))}
                 </div>
@@ -2444,7 +2444,7 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
             <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
               <button className={`chip${fellAtId===null?' active':''}`} style={{fontSize:11,padding:'4px 10px'}} onClick={()=>setFellAtId(null)}>—</button>
               {candidateObst.map(o=>(
-                <button key={o.id} className={`chip${fellAtId===o.id?' active':''}`} style={{fontSize:11,padding:'4px 10px'}} onClick={()=>setFellAtId(o.id)}>{o.name}</button>
+                <button key={o.id} className={`chip${fellAtId===o.id?' active':''}`} style={{fontSize:11,padding:'4px 10px',display:'inline-flex',alignItems:'center',gap:3}} onClick={()=>setFellAtId(o.id)}><ObsLabel obs={o} size={9}/></button>
               ))}
             </div>
           </div>
@@ -3690,36 +3690,67 @@ const ProgressChart=({data,catName,lang,tvMode})=>{
 const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
-  const obstacles=useFbVal(`ogn/${compId}/obstacles`);
+  // Load global obstacles AND per-stage obstacles (via the stages subtree)
+  const globalObstacles=useFbVal(`ogn/${compId}/obstacles`);
+  const allStations=useFbVal(`ogn/${compId}/stations`);
+  const allStagesData=useFbVal(`ogn/${compId}/stages`);
   const runList=completedRuns?Object.values(completedRuns):[];
   const athList=athletesMap?Object.values(athletesMap):[];
 
-  const obstArr=(obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):DEF_OBS).filter(o=>o.isCP!==false);
-  const activeCats=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
+  const numStages=info?.numStations||1;
 
-  // Survival curve
-  const survivalData=activeCats.map(cat=>{
-    const cr=runList.filter(r=>r.catId===cat.id&&r.status!=='dsq');
-    const total=cr.length;if(!total)return null;
-    const points=[{x:-1,y:100,label:'Start'},...obstArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
-    return{cat,points,total};
-  }).filter(Boolean);
+  // Determine which stages are active (have a category assigned or have at least one run)
+  const activeStageNums=Array.from({length:numStages},(_,i)=>i+1).filter(sn=>{
+    const hasCat=allStations?.[sn]?.cat;
+    const hasRuns=runList.some(r=>String(r.stNum)===String(sn));
+    return hasCat||hasRuns;
+  });
 
-  // Difficulty
-  const difficultyData=obstArr.map((obs,i)=>{
-    const reached=runList.filter(r=>r.status!=='dsq'&&((r.doneCP?.length||0)>=i||r.status==='complete')).length;
-    const falls=runList.filter(r=>r.fellAt?.id===obs.id).length;
-    return{obs,falls,reached,rate:reached>0?(falls/reached)*100:0};
-  }).filter(d=>d.reached>0).sort((a,b)=>b.rate-a.rate);
+  // Get the correct obstacle array for a specific stage
+  // Priority: per-stage obstacles → global obstacles → built-in defaults
+  const getStageObsArr=sn=>{
+    const raw=allStagesData?.[sn]?.obstacles||globalObstacles;
+    if(!raw)return DEF_OBS;
+    return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);
+  };
 
-  // Progress per category
-  const progressData=activeCats.map(cat=>{
-    const total=athList.filter(a=>a.cat===cat.id).length;
-    const cr=runList.filter(r=>r.catId===cat.id&&r.status!=='dsq');
-    const buzzers=cr.filter(r=>r.status==='complete').length;
-    const dnf=cr.filter(r=>['fall','dnf','timeout'].includes(r.status)).length;
-    const done=cr.length;
-    return{cat,total,done,buzzers,dnf,pending:Math.max(0,total-done)};
+  // Build full dataset for each active stage independently
+  const stageDataArr=activeStageNums.map(sn=>{
+    const catId=allStations?.[sn]?.cat||null;
+    const obsArr=getStageObsArr(sn);
+    // Only runs from THIS stage
+    const stageRuns=runList.filter(r=>String(r.stNum)===String(sn));
+    // Categories present in this stage
+    const activeCats=catId
+      ?[IGN_CATS.find(c=>c.id===catId)].filter(Boolean)
+      :[...new Set(stageRuns.map(r=>r.catId))].map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
+
+    // ── Survival curve (per category for this stage) ──
+    const survivalData=activeCats.map(cat=>{
+      const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
+      const total=cr.length;if(!total)return null;
+      const points=[{x:-1,y:100,label:'Start'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
+      return{cat,points,total};
+    }).filter(Boolean);
+
+    // ── Difficulty (fall rate per obstacle, this stage only) ──
+    const difficultyData=obsArr.map((obs,i)=>{
+      const reached=stageRuns.filter(r=>r.status!=='dsq'&&((r.doneCP?.length||0)>=i||r.status==='complete')).length;
+      const falls=stageRuns.filter(r=>r.fellAt?.id===obs.id).length;
+      return{obs,falls,reached,rate:reached>0?(falls/reached)*100:0};
+    }).filter(d=>d.reached>0).sort((a,b)=>b.rate-a.rate);
+
+    // ── Progress per category (this stage only) ──
+    const progressData=activeCats.map(cat=>{
+      const total=athList.filter(a=>a.cat===cat.id).length;
+      const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
+      const buzzers=cr.filter(r=>r.status==='complete').length;
+      const dnf=cr.filter(r=>['fall','dnf','timeout'].includes(r.status)).length;
+      const done=cr.length;
+      return{cat,total,done,buzzers,dnf,pending:Math.max(0,total-done)};
+    });
+
+    return{sn,catId,obsArr,survivalData,difficultyData,progressData};
   });
 
   const tabs=[
@@ -3727,18 +3758,50 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
     {k:'difficulty',ic:<I.BarChart s={12}/>,lb:lang==='de'?'Statistik':'Stats'},
   ];
 
+  if(stageDataArr.length===0)return(
+    <div style={{padding:'40px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>
+      {lang==='de'?'Noch keine aktiven Stages':'No active stages yet'}
+    </div>
+  );
+
+  const multiStage=stageDataArr.length>1;
+
   return(
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
-      <div style={{display:'flex',gap:5,marginBottom:12,flexWrap:'wrap'}}>
+      {/* Chart type selector (applies to all stage sections) */}
+      <div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
         {tabs.map(({k,ic,lb})=>(
           <button key={k} style={{display:'flex',alignItems:'center',gap:5,padding:tvMode?'9px 14px':'7px 11px',borderRadius:20,border:`1px solid ${chartTab===k?'rgba(255,94,58,.4)':'var(--border)'}`,background:chartTab===k?'rgba(255,94,58,.14)':'transparent',color:chartTab===k?'var(--coral)':'var(--muted)',fontWeight:700,fontSize:tvMode?13:11,cursor:'pointer',transition:'all .15s'}} onClick={()=>setChartTab(k)}>{ic}{lb}</button>
         ))}
       </div>
-      {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode}/>}
-      {chartTab==='difficulty'&&<>
-        <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
-        <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
-      </>}
+
+      {/* One section per active stage */}
+      <div style={{display:'flex',flexDirection:'column',gap:tvMode?32:20}}>
+        {stageDataArr.map(({sn,catId,survivalData,difficultyData,progressData})=>{
+          const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
+          const stageName=info?.stageNames?.[sn]||`Stage ${sn}`;
+          return(
+            <div key={sn}>
+              {/* Stage header — only shown when multiple stages are active */}
+              {multiStage&&(
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:tvMode?14:10,paddingBottom:tvMode?8:6,borderBottom:'1px solid rgba(255,255,255,.08)'}}>
+                  <div style={{width:tvMode?34:26,height:tvMode?34:26,borderRadius:tvMode?10:7,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:tvMode?17:13,color:'#fff',flexShrink:0}}>{sn}</div>
+                  <div style={{fontSize:tvMode?17:14,fontWeight:800,color:'#fff'}}>{stageName}</div>
+                  {cat&&<div style={{fontSize:tvMode?13:10,color:cat.color,fontWeight:700,background:`${cat.color}1A`,borderRadius:12,padding:'2px 10px',border:`1px solid ${cat.color}35`,flexShrink:0}}>{catName(cat)}</div>}
+                  <div style={{fontSize:tvMode?11:9,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',marginLeft:'auto'}}>
+                    {survivalData[0]?.total||0} {lang==='de'?'Läufe':'runs'}
+                  </div>
+                </div>
+              )}
+              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode}/>}
+              {chartTab==='difficulty'&&<>
+                <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
+                <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
+              </>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
