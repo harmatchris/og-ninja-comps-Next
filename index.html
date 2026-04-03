@@ -650,6 +650,7 @@ const useTimer=(running,startPerf)=>{
   useEffect(()=>{if(!running){cancelAnimationFrame(raf.current);return;}const tick=()=>{setEl(performance.now()-startPerf);raf.current=requestAnimationFrame(tick);};raf.current=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf.current);},[running,startPerf]);
   return el;
 };
+const useWinW=()=>{const [w,setW]=useState(window.innerWidth);useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener('resize',h);return()=>window.removeEventListener('resize',h);},[]);return w;};
 
   // ── BLE BUZZER ──────────────────────────────────────
   const BLE={
@@ -1765,6 +1766,25 @@ const handleDeleteAth=async(a)=>{
   );
 };
 
+// ── Obstacle label helpers ──────────────────────────────────
+// Returns short text for platform obstacles (used in SVG/text contexts)
+const obsShortName=name=>{
+  const n=(name||'').toLowerCase();
+  if(/startplattform/.test(n))return '▶ Start';
+  if(/landeplattform/.test(n))return '⬛ Land';
+  if(/endplattform/.test(n))return '⬛ End';
+  return name;
+};
+// React component — renders icon version for CP pills
+const ObsLabel=({obs,size=10})=>{
+  const n=(obs.name||'').toLowerCase();
+  const isStart=/startplattform/.test(n);
+  const isLand=/landeplattform|endplattform/.test(n);
+  if(isStart)return<span style={{display:'inline-flex',alignItems:'center',gap:3}}><I.Play s={size} c="rgba(160,160,255,.9)"/><span>Start</span></span>;
+  if(isLand)return<span style={{display:'inline-flex',alignItems:'center',gap:3}}><I.Flag s={size} c="rgba(52,199,89,.9)"/><span>Land</span></span>;
+  return<span>{obs.name}</span>;
+};
+
 // ════════════════════════════════════════════════════════════
 // JURY — WAIT
 // ════════════════════════════════════════════════════════════
@@ -1811,7 +1831,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div style={{fontSize:13,color:'var(--muted)',fontFamily:'JetBrains Mono',marginBottom:14}}>#{next.num}{next.team&&<span style={{marginLeft:8,color:'var(--cor2)',fontWeight:600,fontFamily:'Inter,sans-serif',fontSize:12}}>{next.team}</span>}</div>
             {/* CP obstacle name pills */}
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-              {cpObst.map(o=><div key={o.id} className="cp-pill future">{o.name}</div>)}
+              {cpObst.map(o=><div key={o.id} className="cp-pill future"><ObsLabel obs={o} size={9}/></div>)}
             </div>
             <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} Hindernisse</div>
             <div style={{display:'flex',gap:8,marginTop:16}}>
@@ -2010,7 +2030,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
         <div style={{textAlign:'center'}}>
           <div className="lbl" style={{marginBottom:10}}>{lang==='de'?'Laufzeit':'Run time'}</div>
           <div className="timer-grad" style={{fontSize:54}}>{fmtMs(el)}</div>
-          {nextCp&&!allDone&&<div style={{fontSize:12,color:'var(--muted)',marginTop:8}}>{nextCp.name} · CP {nextIdx+1}/{cpObst.length}</div>}
+          {nextCp&&!allDone&&<div style={{fontSize:12,color:'var(--muted)',marginTop:8}}><ObsLabel obs={nextCp} size={11}/> · CP {nextIdx+1}/{cpObst.length}{totalLivesLeft!=null&&<span style={{marginLeft:8,color:'rgba(255,200,0,.8)',fontFamily:'JetBrains Mono'}}>❤️{totalLivesLeft}</span>}</div>}
           {remaining!==null&&(
             <div style={{marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
               <span style={{fontSize:11,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:4}}><I.Clock s={12}/> {lang==='de'?'Verbleibend':'Remaining'}</span>
@@ -2033,39 +2053,7 @@ const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,acti
         </div>
       )}
 
-      {restActive&&(<div style={{position:'absolute',top:8,right:8,left:8,background:'rgba(0,0,0,0.88)',borderRadius:12,padding:'12px 16px',zIndex:20,display:'flex',flexDirection:'column',alignItems:'center',gap:4,border:'2px solid var(--accent)'}}><div style={{fontSize:11,color:'var(--dim)',letterSpacing:1,textTransform:'uppercase'}}>{lang==='de'?'Restzeit auf Plattform':'Rest time on platform'}</div><div style={{fontSize:56,fontWeight:900,color:restSecs<=5?'#ff4444':'var(--accent)',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{restSecs}</div><div style={{fontSize:12,color:'var(--dim)'}}>s</div><button onClick={()=>{clearInterval(restIntervalRef.current);setRestActive(false);}} style={{marginTop:6,background:'none',border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,padding:'4px 16px',color:'var(--dim)',cursor:'pointer',fontSize:12}}>{lang==='de'?'Überspringen':'Skip'}</button></div>)}{/* CP pills track with fall indicators */}
-      <div style={{padding:'4px 16px 8px'}}>
-        <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
-          {cpObst.map((o,i)=>{
-            const done=doneCP.some(d=>d.obsId===o.id);
-            const cur=!done&&i===nextIdx;
-            const nxt=!done&&!cur&&i===nextIdx+1;
-            const fallsHere=(activeFalls||[]).filter(f=>f.obsIdx===i).length;
-            const isSegEnd=info.mode==='segliv'&&/endplattform/i.test(o.name||'');
-            const isSegStart=info.mode==='segliv'&&/startplattform/i.test(o.name||'');
-            return(
-              <React.Fragment key={o.id}>
-                {isSegStart&&i>0&&<div style={{width:'100%',height:0,flexBasis:'100%'}}/>}
-                <div style={{position:'relative',display:'inline-flex',flexDirection:'column',alignItems:'center',gap:2}}>
-                  <div className={`cp-pill ${done?'done':cur?'cur':nxt?'next':'future'}${isSegEnd?' seg-end':''}`}
-                    style={isSegEnd?{borderColor:done?'rgba(52,199,89,.5)':'rgba(255,200,0,.45)',boxShadow:cur?'0 0 0 2px rgba(255,200,0,.3)':undefined}:
-                           isSegStart?{borderColor:'rgba(255,255,255,.18)',opacity:.8}:undefined}>
-                    {isSegStart&&<span style={{fontSize:8,marginRight:2,opacity:.6}}>▶</span>}
-                    {done&&!isSegStart&&<span style={{fontSize:10,marginRight:3}}>✓</span>}
-                    {o.name}
-                    {isSegEnd&&<span style={{fontSize:8,marginLeft:3,opacity:.75}}>⬛</span>}
-                  </div>
-                  {isSegEnd&&info.mode==='segliv'&&<div style={{fontSize:8,color:done?'var(--green)':'rgba(255,200,0,.6)',letterSpacing:'.06em',textTransform:'uppercase',marginTop:-1}}>
-                    {done?(lang==='de'?'Leben aufgefüllt':'Lives refilled'):(lang==='de'?'Leben ↑ hier':'Lives ↑ here')}
-                  </div>}
-                  {fallsHere>0&&<span style={{position:'absolute',top:-7,right:-5,background:'var(--red)',color:'#fff',fontSize:9,fontWeight:800,borderRadius:8,padding:'1px 5px',lineHeight:1.5,minWidth:16,textAlign:'center'}}>{'💔'.repeat(Math.min(fallsHere,3))}{fallsHere>3?`×${fallsHere}`:''}</span>}
-                </div>
-              </React.Fragment>
-            );
-          })}
-        </div>
-              {totalLivesLeft!=null&&(<div style={{fontSize:10,color:'rgba(255,200,0,.8)',marginTop:4,fontFamily:'JetBrains Mono'}}>{lang==='de'?'Gesamt:':'Total:'} {totalLivesLeft}❤️</div>)}
-      </div>
+      {restActive&&(<div style={{position:'absolute',top:8,right:8,left:8,background:'rgba(0,0,0,0.88)',borderRadius:12,padding:'12px 16px',zIndex:20,display:'flex',flexDirection:'column',alignItems:'center',gap:4,border:'2px solid var(--accent)'}}><div style={{fontSize:11,color:'var(--dim)',letterSpacing:1,textTransform:'uppercase'}}>{lang==='de'?'Restzeit auf Plattform':'Rest time on platform'}</div><div style={{fontSize:56,fontWeight:900,color:restSecs<=5?'#ff4444':'var(--accent)',fontVariantNumeric:'tabular-nums',lineHeight:1}}>{restSecs}</div><div style={{fontSize:12,color:'var(--dim)'}}>s</div><button onClick={()=>{clearInterval(restIntervalRef.current);setRestActive(false);}} style={{marginTop:6,background:'none',border:'1px solid rgba(255,255,255,0.2)',borderRadius:20,padding:'4px 16px',color:'var(--dim)',cursor:'pointer',fontSize:12}}>{lang==='de'?'Überspringen':'Skip'}</button></div>)}
 
       {/* THE BIG CHECKPOINT BUTTON */}
       {!allDone&&(
@@ -2662,11 +2650,11 @@ return(<React.Fragment key={r.athleteId}>
 // ATHLETE QUEUE VIEW – public display: wer kommt als nächstes?
 // ════════════════════════════════════════════════════════════
 // Per-stage auto-scrolling list
-const AutoScrollList=({children,itemCount,tvMode})=>{
+const AutoScrollList=({children,itemCount,tvMode,topPause=3500,minItems=5,maxH=null})=>{
   const ref=useRef(null);
   useEffect(()=>{
-    if(!ref.current||itemCount<=5)return;
-    let pos=0,pauseUntil=Date.now()+2500,animId;
+    if(!ref.current||itemCount<=minItems)return;
+    let pos=0,pauseUntil=Date.now()+topPause,animId;
     const speed=tvMode?0.5:0.35;
     const tick=()=>{
       const el=ref.current;
@@ -2676,14 +2664,14 @@ const AutoScrollList=({children,itemCount,tvMode})=>{
       const maxS=el.scrollHeight-el.clientHeight;
       if(maxS<=0){animId=requestAnimationFrame(tick);return;}
       pos+=speed;
-      if(pos>=maxS+60){pos=0;el.scrollTop=0;pauseUntil=Date.now()+3500;}
+      if(pos>=maxS+60){pos=0;el.scrollTop=0;pauseUntil=Date.now()+topPause;}
       else{el.scrollTop=pos;}
       animId=requestAnimationFrame(tick);
     };
     animId=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(animId);
-  },[itemCount,tvMode]);
-  const h=tvMode?'70vh':'44vh';
+  },[itemCount,tvMode,topPause,minItems]);
+  const h=maxH||(tvMode?'70vh':'44vh');
   return<div ref={ref} style={{overflowY:'hidden',maxHeight:h}}>{children}</div>;
 };
 
@@ -2701,7 +2689,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const getAvgMs=(sn)=>{
     const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
     if(lim>0)return lim*1000;
-    const recent=runList.filter(r=>r.stNum===sn&&(r.finalTime||0)>0)
+    const recent=runList.filter(r=>String(r.stNum)===String(sn)&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000)
       .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,6);
     if(recent.length===0)return 90000;
     return Math.round(recent.reduce((s,r)=>s+(r.finalTime||0),0)/recent.length);
@@ -2751,7 +2739,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
 
         const avgMs=getAvgMs(sn);
         const slotMs=avgMs+22000;
-        const recentCnt=runList.filter(r=>r.stNum===sn&&(r.finalTime||0)>0).length;
+        const recentCnt=runList.filter(r=>String(r.stNum)===String(sn)&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
         const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
         const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`Ø${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
 
@@ -3077,8 +3065,9 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const athletesMap=useFbVal(`ogn/${compId}/athletes`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
-  const [catIdx,setCatIdx]=useState(0);const [scrollOff,setScrollOff]=useState(0);const [nowMs,setNowMs]=useState(Date.now());
+  const [catIdx,setCatIdx]=useState(0);const [nowMs,setNowMs]=useState(Date.now());
   const [showJuryPicker,setShowJuryPicker]=useState(false);
+  const winW=useWinW();const isWide=winW>=1024;
   const doneStartRef=useRef({});
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
@@ -3102,8 +3091,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
     activeArr.forEach(r=>{if(r.catId===catId&&r.phase!=='done')doneIds.add(r.athleteId);});
     return Object.values(athletesMap).filter(a=>a.cat===catId&&!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
   };
-  useEffect(()=>{if(catsWithData.length<=1)return;const id=setInterval(()=>{setCatIdx(i=>(i+1)%catsWithData.length);setScrollOff(0);},15000);return()=>clearInterval(id);},[catsWithData.length]);
-  useEffect(()=>{const id=setInterval(()=>{setScrollOff(off=>{const cat=catsWithData[catIdx];if(!cat)return 0;const total=computeRanked(runList,cat.id).length-3;return total>0?(off+1)%total:0;});},3000);return()=>clearInterval(id);},[catIdx,catsWithData.length,runList.length]);
+  useEffect(()=>{if(catsWithData.length<=1||isWide)return;const id=setInterval(()=>{setCatIdx(i=>(i+1)%catsWithData.length);},15000);return()=>clearInterval(id);},[catsWithData.length,isWide]);
   useEffect(()=>{let raf;const tick=()=>{setNowMs(Date.now());raf=requestAnimationFrame(tick);};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);},[]);
   const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
   const curCat=catsWithData[catIdx]||null;
@@ -3113,9 +3101,8 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
     ?Array.from({length:numDispStages},(_,i)=>i+1)
     :(curCat?[...new Set(runList.filter(r=>r.catId===curCat.id&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[]);
   const multiDispStage=dispStageNums.length>1;
-  // For single-stage or overall, keep current scrolling behavior
+  // For single-stage or overall, use AutoScrollList for smooth scroll
   const ranked=curCat?computeRanked(runList,curCat.id):[];
-  const top3=ranked.slice(0,3);const visRest=ranked.slice(3).slice(scrollOff,scrollOff+6);
   if(!info)return<div style={{background:'#000',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}><Spinner/></div>;
   const cols=activeArr.length>=2?2:1;
   return(
@@ -3361,100 +3348,126 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
       })()}
 
       {/* ── Rankings ── */}
-      {catsWithData.length>1&&(
-        <div style={{padding:'10px 20px 0',display:'flex',gap:7,overflowX:'auto'}}>
-          {catsWithData.map((c,i)=>(
-            <button key={c.id} style={{padding:'5px 14px',borderRadius:20,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',flexShrink:0,background:i===catIdx?c.color:'rgba(255,255,255,.06)',color:i===catIdx?'#fff':'rgba(255,255,255,.4)',transition:'all .4s'}} onClick={()=>{setCatIdx(i);setScrollOff(0);}}>{catName(c)}</button>
-          ))}
+
+      {/* Wide screen: ALL categories side by side with auto-scroll */}
+      {isWide&&catsWithData.length>0&&(
+        <div style={{padding:'12px 20px 40px',display:'grid',gridTemplateColumns:`repeat(${Math.min(catsWithData.length,4)},minmax(260px,1fr))`,gap:14}}>
+          {catsWithData.map(cat=>{
+            const catRanked=computeRanked(runList,cat.id);
+            const numSt=info?.numStations||1;
+            const catStageNums=numSt>1?Array.from({length:numSt},(_,i)=>i+1):[...new Set(runList.filter(r=>r.catId===cat.id&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b);
+            const catMulti=catStageNums.length>1;
+            return(
+              <div key={cat.id} style={{background:'var(--card)',borderRadius:18,border:`1px solid ${cat.color}28`,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div style={{padding:'12px 16px',background:`${cat.color}10`,borderBottom:`1px solid ${cat.color}1E`,display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+                  <div style={{width:10,height:10,borderRadius:'50%',background:cat.color,flexShrink:0}}/>
+                  <span style={{fontSize:14,fontWeight:800,color:cat.color}}>{catName(cat)}</span>
+                  <span style={{fontSize:11,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',marginLeft:'auto'}}>{catRanked.length}</span>
+                </div>
+                {catMulti?(
+                  <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(catStageNums.length,3)},1fr)`}}>
+                    {catStageNums.map((stN,si)=>{
+                      const stRanked=computeRankedStage(runList,cat.id,stN);
+                      return(
+                        <div key={stN} style={{borderRight:si<catStageNums.length-1?'1px solid rgba(255,255,255,.05)':'none'}}>
+                          <div style={{padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.04)',fontSize:10,fontWeight:700,color:'rgba(255,255,255,.35)',letterSpacing:'.06em'}}>{info.stageNames?.[stN]||`S${stN}`}</div>
+                          <AutoScrollList itemCount={stRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 250px)">
+                            {stRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
+                              <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.5:1}}>
+                                <div style={{fontSize:10,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.25)',width:16,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
+                                {a.photo?<img src={a.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
+                                <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div></div>
+                                <div style={{fontFamily:'JetBrains Mono',fontSize:10,fontWeight:700,color:r.status==='dsq'?'#FF3B6B':r.status==='complete'?medalColors[Math.min(i,2)]:'rgba(255,255,255,.4)',flexShrink:0}}>{r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
+                              </div>
+                            );})}
+                          </AutoScrollList>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ):(
+                  <AutoScrollList itemCount={catRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 200px)">
+                    {catRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
+                      <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:10,padding:i<3?'10px 16px':'7px 14px',borderBottom:'1px solid rgba(255,255,255,.03)',background:i===0?`${cat.color}09`:i<3?`${cat.color}04`:'transparent',opacity:isDsqR?.6:1}}>
+                        {isDsqR?<div style={{fontSize:9,fontWeight:900,color:'#FF3B6B',width:22,textAlign:'center',flexShrink:0}}>DSQ</div>:i<3?<MedalBadge pos={i} s={i===0?28:22}/>:<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,.04)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'rgba(255,255,255,.28)',flexShrink:0}}>{i+1}</div>}
+                        {a.photo?<img src={a.photo} style={{width:i<3?32:26,height:i<3?32:26,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1.5px solid ${i===0?cat.color+'60':i<3?cat.color+'30':'rgba(255,255,255,.08)'}`}}/>:null}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:i===0?16:i<3?14:12,fontWeight:i<3?800:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                          <div style={{fontSize:10,color:'rgba(255,255,255,.32)',marginTop:1}}>#{a.num}{a.team&&<span style={{marginLeft:5,color:`${cat.color}99`,fontWeight:600}}>{a.team}</span>} · {r.doneCP?.length||0} CPs{r.status==='complete'&&<span style={{color:'var(--green)',marginLeft:3}}>✓</span>}</div>
+                        </div>
+                        <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,flexShrink:0}}>
+                          <div style={{fontFamily:'JetBrains Mono',fontSize:i===0?16:13,fontWeight:700,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.45)':medalColors[Math.min(i,2)]}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
+                          <LifeDots run={r} size={5}/>
+                        </div>
+                      </div>
+                    );})}
+                  </AutoScrollList>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
-      {!curCat&&activeArr.length===0&&<div style={{padding:'80px 24px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:14}}><div style={{width:64,height:64,borderRadius:'50%',background:'rgba(255,94,58,.06)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Trophy s={30} c="rgba(255,255,255,.15)"/></div><div style={{fontSize:18,color:'rgba(255,255,255,.35)'}}>{lang==='de'?'Noch keine Ergebnisse':'No results yet'}</div></div>}
-      {curCat&&(
-        <div style={{padding:'18px 20px 40px'}}>
-          <div style={{marginBottom:16}}><div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'5px 14px',borderRadius:20,background:`${curCat.color}20`,border:`1px solid ${curCat.color}30`}}><div style={{width:8,height:8,borderRadius:'50%',background:curCat.color}}/><span style={{fontSize:13,fontWeight:700,color:curCat.color}}>{catName(curCat)}</span></div></div>
 
-          {/* ── Multi-stage: columns per stage ── */}
-          {multiDispStage?(
-            <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(dispStageNums.length,3)},1fr)`,gap:12}}>
-              {dispStageNums.map(stN=>{
-                const stRanked=computeRankedStage(runList,curCat.id,stN);
-                return(
-                  <div key={stN} style={{background:'var(--card)',borderRadius:16,border:'1px solid var(--border)',overflow:'hidden'}}>
-                    {/* Stage header */}
-                    <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:'rgba(255,255,255,.02)'}}>
-                      <div style={{width:28,height:28,borderRadius:8,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:13,color:'#fff',flexShrink:0}}>{stN}</div>
-                      <div style={{fontSize:12,fontWeight:700,color:'rgba(255,255,255,.6)',letterSpacing:'.06em',textTransform:'uppercase'}}>{info.stageNames?.[stN]||`Stage ${stN}`}</div>
-                      <div style={{marginLeft:'auto',fontSize:10,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono'}}>{stRanked.length}</div>
-                    </div>
-                    {/* Rank rows */}
-                    <div style={{padding:'6px 0'}}>
-                      {stRanked.length===0&&<div style={{padding:'20px 14px',textAlign:'center',color:'rgba(255,255,255,.2)',fontSize:12}}>{lang==='de'?'Noch keine Läufe':'No runs yet'}</div>}
-                      {stRanked.slice(0,6).map((r,i)=>{
-                        const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
-                        return(
-                          <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:i===0?'6px 12px':'4px 12px',borderBottom:i<Math.min(stRanked.length,6)-1?'1px solid rgba(255,255,255,.03)':'none',opacity:r.status==='dsq'?.55:1}}>
-                            {r.status==='dsq'
-                              ?<div style={{fontSize:9,fontWeight:900,color:'#FF3B6B',width:18,textAlign:'center',flexShrink:0,letterSpacing:'.02em'}}>DSQ</div>
-                              :<div style={{fontSize:11,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.3)',width:18,textAlign:'center',flexShrink:0}}>{i+1}</div>
-                            }
-                            {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.country&&<span style={{marginRight:4}}>{toFlag(a.country)}</span>}{a.name}</div>
-                              <div style={{fontSize:10,color:'rgba(255,255,255,.35)'}}>{r.doneCP?.length||0} CPs{r.status==='complete'?<span style={{color:'var(--green)',marginLeft:4}}>✓</span>:r.status!=='dsq'&&r.fellAt?.name?<span style={{marginLeft:4,color:'rgba(255,100,80,.8)',fontWeight:600}}>{r.fellAt.name.substring(0,14)}</span>:null}</div>
-                            </div>
-                            <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,flexShrink:0}}>
-                              <div style={{fontFamily:'JetBrains Mono',fontSize:11,fontWeight:700,color:r.status==='dsq'?'#FF3B6B':r.status==='complete'?(i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.7)'):'rgba(255,255,255,.45)'}}>{r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
-                              <LifeDots run={r} size={5}/>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {stRanked.length>6&&<div style={{padding:'6px 12px',fontSize:10,color:'rgba(255,255,255,.25)',textAlign:'center'}}>+{stRanked.length-6} {lang==='de'?'weitere':'more'}</div>}
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Narrow screen: category pills + single cycling category with auto-scroll */}
+      {!isWide&&(
+        <>
+          {catsWithData.length>1&&(
+            <div style={{padding:'10px 20px 0',display:'flex',gap:7,overflowX:'auto'}}>
+              {catsWithData.map((c,i)=>(
+                <button key={c.id} style={{padding:'5px 14px',borderRadius:20,fontSize:12,fontWeight:700,border:'none',cursor:'pointer',flexShrink:0,background:i===catIdx?c.color:'rgba(255,255,255,.06)',color:i===catIdx?'#fff':'rgba(255,255,255,.4)',transition:'all .4s'}} onClick={()=>setCatIdx(i)}>{catName(c)}</button>
+              ))}
             </div>
-          ):(
-            /* ── Single stage: original full-ranking view ── */
-            <>
-              <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
-                {top3.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';const isTop2=i<2;return(
-                  <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:isTop2?14:10,padding:isTop2?'12px 16px':'8px 14px',borderRadius:isTop2?16:12,background:isDsqR?'rgba(255,59,80,.06)':`linear-gradient(135deg,${curCat.color}${isTop2?'18':'10'},${curCat.color}06)`,border:`1px solid ${isDsqR?'rgba(255,59,80,.2)':curCat.color+(isTop2?'28':'18')}`,animation:`fadeUp .4s ${i*.1}s both`,opacity:isDsqR?.6:1}}>
-                    {a.photo?<img src={a.photo} style={{width:isTop2?34:26,height:isTop2?34:26,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1px solid ${isDsqR?'rgba(255,59,80,.3)':curCat.color+'40'}`}}/>:isDsqR?<div style={{width:isTop2?38:28,height:isTop2?38:28,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#FF3B6B',flexShrink:0}}>DSQ</div>:<MedalBadge pos={i} s={isTop2?38:28}/>}
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:isTop2?18:14,fontWeight:800,letterSpacing:'-.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-                      <div style={{fontSize:10,color:'rgba(255,255,255,.4)',marginTop:1}}>#{a.num}{a.team&&<span style={{marginLeft:6,fontWeight:600,color:'rgba(255,144,64,.8)'}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>} · {r.doneCP?.length||0} CPs</div>
-                      {r.status!=='complete'&&r.status!=='dsq'&&r.fellAt?.name&&<div style={{fontSize:10,color:'rgba(255,100,80,.85)',fontWeight:600,marginTop:1,display:'flex',alignItems:'center',gap:4}}><I.XCircle s={9} c="rgba(255,100,80,.85)"/>{r.fellAt.name}</div>}
-                    </div>
-                    <div style={{textAlign:'right',flexShrink:0,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
-                      {a.photo&&!isDsqR&&isTop2&&<MedalBadge pos={i} s={22}/>}
-                      <div style={{fontFamily:'JetBrains Mono',fontSize:isTop2?18:13,fontWeight:700,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.5)':medalColors[i]}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
-                      <LifeDots run={r} size={6}/>
-                    </div>
-                  </div>
-                );})}
-              </div>
-              {visRest.length>0&&(
-                <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                  <div style={{fontSize:10,color:'rgba(255,255,255,.2)',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:4}}>Positionen {scrollOff+4}–{Math.min(scrollOff+9,ranked.length)}</div>
-                  {visRest.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
-                    <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 12px',borderRadius:7,background:isDsqR?'rgba(255,59,80,.04)':'rgba(255,255,255,.03)',animation:'fadeUp .3s both',opacity:isDsqR?.6:1}}>
-                      <div style={{fontSize:12,color:isDsqR?'#FF3B6B':'rgba(255,255,255,.3)',width:22,fontWeight:700,textAlign:'center',flexShrink:0}}>{isDsqR?'—':scrollOff+4+i}</div>
-                      {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-                        {!isDsqR&&r.status!=='complete'&&r.fellAt?.name&&<div style={{fontSize:9,color:'rgba(255,100,80,.8)',fontWeight:600,display:'flex',alignItems:'center',gap:2}}><I.XCircle s={8} c="rgba(255,100,80,.8)"/>{r.fellAt.name}</div>}
+          )}
+          {!curCat&&activeArr.length===0&&<div style={{padding:'80px 24px',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:14}}><div style={{width:64,height:64,borderRadius:'50%',background:'rgba(255,94,58,.06)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Trophy s={30} c="rgba(255,255,255,.15)"/></div><div style={{fontSize:18,color:'rgba(255,255,255,.35)'}}>{lang==='de'?'Noch keine Ergebnisse':'No results yet'}</div></div>}
+          {curCat&&(
+            <div style={{padding:'18px 20px 40px'}}>
+              <div style={{marginBottom:12}}><div style={{display:'inline-flex',alignItems:'center',gap:8,padding:'5px 14px',borderRadius:20,background:`${curCat.color}20`,border:`1px solid ${curCat.color}30`}}><div style={{width:8,height:8,borderRadius:'50%',background:curCat.color}}/><span style={{fontSize:13,fontWeight:700,color:curCat.color}}>{catName(curCat)}</span></div></div>
+              {multiDispStage?(
+                <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(dispStageNums.length,2)},1fr)`,gap:10}}>
+                  {dispStageNums.map(stN=>{
+                    const stRanked=computeRankedStage(runList,curCat.id,stN);
+                    return(
+                      <div key={stN} style={{background:'var(--card)',borderRadius:14,border:'1px solid var(--border)',overflow:'hidden'}}>
+                        <div style={{padding:'8px 12px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:7,background:'rgba(255,255,255,.02)'}}>
+                          <div style={{width:24,height:24,borderRadius:7,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:12,color:'#fff',flexShrink:0}}>{stN}</div>
+                          <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,.6)'}}>{info.stageNames?.[stN]||`Stage ${stN}`}</div>
+                        </div>
+                        <AutoScrollList itemCount={stRanked.length} tvMode={false} topPause={5000} minItems={4} maxH="55vh">
+                          {stRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
+                            <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.55:1}}>
+                              <div style={{fontSize:11,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.3)',width:18,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
+                              {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:null}
+                              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div></div>
+                              <div style={{fontFamily:'JetBrains Mono',fontSize:11,fontWeight:700,color:r.status==='dsq'?'#FF3B6B':r.status==='complete'?(i<3?medalColors[i]:'rgba(255,255,255,.7)'):'rgba(255,255,255,.45)'}}>{r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
+                            </div>
+                          );})}
+                        </AutoScrollList>
                       </div>
-                      <div style={{fontFamily:'JetBrains Mono',fontSize:12,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.38)':'rgba(255,255,255,.55)',flexShrink:0}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):t('dnf')}</div>
-                      <LifeDots run={r} size={5}/>
+                    );
+                  })}
+                </div>
+              ):(
+                <AutoScrollList itemCount={ranked.length} tvMode={false} topPause={5000} minItems={4} maxH="72vh">
+                  {ranked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';const isTop2=i<2;return(
+                    <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:isTop2?12:8,padding:isTop2?'10px 14px':'6px 12px',borderRadius:isTop2?14:8,background:isDsqR?'rgba(255,59,80,.06)':i===0?`linear-gradient(135deg,${curCat.color}18,${curCat.color}06)`:i<3?`${curCat.color}08`:'rgba(255,255,255,.02)',border:i<3?`1px solid ${isDsqR?'rgba(255,59,80,.2)':curCat.color+(i===0?'30':'18')}`:'1px solid transparent',marginBottom:isTop2?6:2,opacity:isDsqR?.6:1}}>
+                      {isDsqR?<div style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:900,color:'#FF3B6B',flexShrink:0}}>DSQ</div>:i<3?<MedalBadge pos={i} s={isTop2?36:26}/>:<div style={{width:24,height:24,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'rgba(255,255,255,.3)',flexShrink:0}}>{i+1}</div>}
+                      {a.photo?<img src={a.photo} style={{width:isTop2?32:24,height:isTop2?32:24,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1.5px solid ${isDsqR?'rgba(255,59,80,.3)':curCat.color+'40'}`}}/>:null}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:isTop2?17:13,fontWeight:800,letterSpacing:'-.2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+                        <div style={{fontSize:10,color:'rgba(255,255,255,.38)',marginTop:1}}>#{a.num}{a.team&&<span style={{marginLeft:5,fontWeight:600,color:'rgba(255,144,64,.7)'}}>{a.team}</span>} · {r.doneCP?.length||0} CPs</div>
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <div style={{fontFamily:'JetBrains Mono',fontSize:isTop2?16:12,fontWeight:700,color:isDsqR?'#FF3B6B':r.status!=='complete'&&r.finalTime>0?'rgba(255,255,255,.45)':medalColors[Math.min(i,2)]}}>{isDsqR?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}</div>
+                        <LifeDots run={r} size={5}/>
+                      </div>
                     </div>
                   );})}
-                </div>
+                </AutoScrollList>
               )}
-            </>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
@@ -3629,7 +3642,7 @@ const DifficultyChart=({data,lang,tvMode})=>{
           const col=rate>=50?'#FF3B6B':rate>=25?'#FF9500':rate>=10?'#FFD60A':'#30D158';
           return(
             <div key={obs.id} style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:tvMode?180:130,fontSize:tvMode?12:10,color:'rgba(255,255,255,.65)',textAlign:'right',flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{obs.name}</div>
+              <div style={{width:tvMode?180:130,fontSize:tvMode?12:10,color:'rgba(255,255,255,.65)',textAlign:'right',flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{obsShortName(obs.name)}</div>
               <div style={{flex:1,height:barH,background:'rgba(255,255,255,.06)',borderRadius:barH/2,overflow:'hidden',position:'relative'}}>
                 <div style={{height:'100%',width:`${(rate/maxR)*100}%`,background:`linear-gradient(90deg,${col}80,${col})`,borderRadius:barH/2,display:'flex',alignItems:'center',justifyContent:'flex-end',paddingRight:8,transition:'width .5s ease'}}>
                   {rate>=6&&<span style={{fontSize:tvMode?12:9,fontWeight:800,color:'#fff',whiteSpace:'nowrap'}}>{rate.toFixed(0)}%</span>}
@@ -3688,7 +3701,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const survivalData=activeCats.map(cat=>{
     const cr=runList.filter(r=>r.catId===cat.id&&r.status!=='dsq');
     const total=cr.length;if(!total)return null;
-    const points=[{x:-1,y:100,label:'Start'},...obstArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obs.name}))];
+    const points=[{x:-1,y:100,label:'Start'},...obstArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
     return{cat,points,total};
   }).filter(Boolean);
 
@@ -3710,21 +3723,22 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   });
 
   const tabs=[
-    {k:'survival',lb:lang==='de'?'📈 Überlebensrate':'📈 Survival'},
-    {k:'difficulty',lb:lang==='de'?'🏔 Schwierigkeit':'🏔 Difficulty'},
-    {k:'progress',lb:lang==='de'?'🏁 Fortschritt':'🏁 Progress'},
+    {k:'survival',ic:<I.TrendUp s={12}/>,lb:lang==='de'?'Überlebensrate':'Survival'},
+    {k:'difficulty',ic:<I.BarChart s={12}/>,lb:lang==='de'?'Statistik':'Stats'},
   ];
 
   return(
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
       <div style={{display:'flex',gap:5,marginBottom:12,flexWrap:'wrap'}}>
-        {tabs.map(({k,lb})=>(
-          <button key={k} style={{padding:tvMode?'9px 14px':'7px 11px',borderRadius:20,border:`1px solid ${chartTab===k?'rgba(255,94,58,.4)':'var(--border)'}`,background:chartTab===k?'rgba(255,94,58,.14)':'transparent',color:chartTab===k?'var(--coral)':'var(--muted)',fontWeight:700,fontSize:tvMode?13:11,cursor:'pointer',transition:'all .15s'}} onClick={()=>setChartTab(k)}>{lb}</button>
+        {tabs.map(({k,ic,lb})=>(
+          <button key={k} style={{display:'flex',alignItems:'center',gap:5,padding:tvMode?'9px 14px':'7px 11px',borderRadius:20,border:`1px solid ${chartTab===k?'rgba(255,94,58,.4)':'var(--border)'}`,background:chartTab===k?'rgba(255,94,58,.14)':'transparent',color:chartTab===k?'var(--coral)':'var(--muted)',fontWeight:700,fontSize:tvMode?13:11,cursor:'pointer',transition:'all .15s'}} onClick={()=>setChartTab(k)}>{ic}{lb}</button>
         ))}
       </div>
       {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode}/>}
-      {chartTab==='difficulty'&&<DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>}
-      {chartTab==='progress'&&<ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/>}
+      {chartTab==='difficulty'&&<>
+        <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
+        <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
+      </>}
     </div>
   );
 };
