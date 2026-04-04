@@ -31,6 +31,8 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overflow-x:hidden;}
 #root{min-height:100%;display:flex;flex-direction:column;}
+/* mobile tab label: hide text below 360px so icons-only fit without overflow */
+@media(max-width:359px){.tab-label{display:none;}}
 button,input,select,textarea{font-family:inherit;color:inherit;}
 input,textarea,select{
   background:rgba(255,255,255,.04);border:1px solid var(--border);
@@ -1611,13 +1613,13 @@ const handleDeleteAth=async(a)=>{
             {k:'queue',       ic:<I.User s={13}/>, lb:'Next up'},
             {k:'stats',       ic:<I.TrendUp s={13}/>, lb:'Stats'},
           ].map(({k,ic,lb})=>(
-            <button key={k} style={{flex:1,padding:'8px 4px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.03em',
+            <button key={k} style={{flex:1,padding:'8px 4px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
               background:coordView===k?'var(--coral)':'transparent',
               color:coordView===k?'#fff':'rgba(255,255,255,.4)',
               transition:'background .18s, color .18s',
               boxShadow:coordView===k?'0 2px 10px rgba(255,94,58,.35)':'none'}}
               onClick={()=>{setCoordView(k);SFX.hover();}}>
-              {ic}{lb}
+              {ic}<span className="tab-label">{lb}</span>
             </button>
           ))}
         </div>
@@ -2596,7 +2598,7 @@ const ResultsView=({compId,athletes})=>{
     }
   };
   return(
-    <div style={{paddingBottom:82}}>
+    <div style={{paddingBottom:82,overflowX:'hidden',maxWidth:'100%'}}>
       <div style={{overflowX:'auto',padding:'12px 16px',display:'flex',gap:6,borderBottom:'1px solid var(--border)'}}>
         {catsWithRuns.map(c=>(
           <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
@@ -2629,15 +2631,15 @@ const ResultsView=({compId,athletes})=>{
                 <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,fontWeight:600,display:'flex',alignItems:'center',gap:5,justifyContent:'space-between'}}><span style={{display:'flex',alignItems:'center',gap:5}}><I.Trophy s={11} c="var(--cor)"/> {lang==='de'?'Platz 1':'Top Ranked'}{selStage!=null?` · Stage ${selStage}`:multiStage?` · ${lang==='de'?'Gesamt':'Overall'}`:''}</span><EditBtn r={ranked[0]}/></div>
                 <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:10}}>
                   {a.photo?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,215,10,.4)',flexShrink:0}}/>:null}
-                  <div>
-                    <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px'}}>{a.name}{ranked[0].protested&&<span style={{marginLeft:8}}><I.Flag s={13} c="var(--gold)"/></span>}</div>
-                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>#{a.num}{!isMultiOverall&&ranked[0].stNum&&<span style={{marginLeft:6,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 6px',fontSize:10}}>S{ranked[0].stNum}</span>}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:24,fontWeight:800,letterSpacing:'-.5px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}{ranked[0].protested&&<span style={{marginLeft:8}}><I.Flag s={13} c="var(--gold)"/></span>}</div>
+                    <div style={{fontSize:11,color:'var(--muted)',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>#{a.num}{!isMultiOverall&&ranked[0].stNum&&<span style={{marginLeft:6,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 6px',fontSize:10}}>S{ranked[0].stNum}</span>}{a.team&&<span style={{marginLeft:6,color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}{a.country&&<span style={{marginLeft:6}}>{toFlag(a.country)} {a.country}</span>}</div>
                   </div>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:12,marginTop:6}}>
-                  <div className="timer-grad" style={{fontSize:28,color:ranked[0].status==='dsq'?'#FF3B6B':ranked[0].status!=='complete'&&rTime(ranked[0])>0?'rgba(255,255,255,.65)':undefined}}>{ranked[0].status==='dsq'?'DSQ':rTime(ranked[0])>0?fmtMs(rTime(ranked[0])):'—'}</div>
-                  {ranked[0].status==='complete'&&<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>}
-                  {ranked[0].corrected&&<div style={{fontSize:9,padding:'2px 6px',borderRadius:5,background:'rgba(255,200,80,.12)',color:'var(--gold)',border:'1px solid rgba(255,200,80,.25)',fontWeight:700,letterSpacing:'.04em'}}>KORRIGIERT</div>}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginTop:6,flexWrap:'wrap'}}>
+                  <div className="timer-grad" style={{fontSize:26,color:ranked[0].status==='dsq'?'#FF3B6B':ranked[0].status!=='complete'&&rTime(ranked[0])>0?'rgba(255,255,255,.65)':undefined,flexShrink:0}}>{ranked[0].status==='dsq'?'DSQ':rTime(ranked[0])>0?fmtMs(rTime(ranked[0])):'—'}</div>
+                  {ranked[0].status==='complete'&&<div className="buzzer-badge" style={{flexShrink:0}}><I.Bolt s={11} c="#FFD700"/> Buzzer</div>}
+                  {ranked[0].corrected&&<div style={{fontSize:9,padding:'2px 6px',borderRadius:5,background:'rgba(255,200,80,.12)',color:'var(--gold)',border:'1px solid rgba(255,200,80,.25)',fontWeight:700,letterSpacing:'.04em',flexShrink:0}}>KORRIGIERT</div>}
                   <LifeDots run={ranked[0]} size={9}/>
                 </div>
                 <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
@@ -3089,13 +3091,13 @@ const JuryApp=({compId,stNum,onBack})=>{
               {k:'queue',  ic:<I.User s={13}/>,    lb:'Next up'},
               {k:'stats',  ic:<I.TrendUp s={13}/>, lb:'Stats'},
             ].map(({k,ic,lb})=>(
-              <button key={k} style={{flex:1,padding:'7px 3px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4,fontSize:11,fontWeight:700,letterSpacing:'.03em',
+              <button key={k} style={{flex:1,padding:'7px 3px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
                 background:topView===k?'var(--coral)':'transparent',
                 color:topView===k?'#fff':'rgba(255,255,255,.4)',
                 transition:'background .18s,color .18s',
                 boxShadow:topView===k?'0 2px 8px rgba(255,94,58,.3)':'none'}}
                 onClick={()=>{setTopView(k);SFX.hover();}}>
-                {ic}{lb}
+                {ic}<span className="tab-label">{lb}</span>
               </button>
             ))}
           </div>
