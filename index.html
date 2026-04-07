@@ -929,7 +929,7 @@ const TimePicker=({value,onChange,allowDefault=false})=>{
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{},chRankingEnabled:false,chRankingFinale:false});
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{},chRankingEnabled:false,chRankingFinale:false,skillPhase:{enabled:false,type:'oldschool',skills:[],timerHrs:0,seedingMode:'inverted'}});
   // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
   const [stageObs,setStageObs]=useState(()=>{
     const n=initialInfo?.numStations||2;
@@ -1216,7 +1216,33 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 </div>
               </div>
             )}
-          </div>        </div>
+          </div>
+          {/* Skill Phase Toggle */}
+          <div style={{marginTop:14,background:`rgba(52,199,89,${info.skillPhase?.enabled?.07:.04})`,border:`1px solid ${info.skillPhase?.enabled?'rgba(52,199,89,.4)':'rgba(52,199,89,.2)'}`,borderRadius:12,padding:'12px 14px',transition:'all .2s'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:18}}>🏃</span>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{lang==='de'?'Skill Phase':'Skill Phase'}</div>
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Qualifikation vor dem Stage-Wettkampf':'Qualification before stage competition'}</div>
+                </div>
+              </div>
+              <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                <div style={{position:'relative',width:40,height:22,flexShrink:0}}>
+                  <input type="checkbox" checked={info.skillPhase?.enabled||false} onChange={e=>sI('skillPhase',{...(info.skillPhase||{enabled:false,type:'oldschool',skills:[],timerHrs:0,seedingMode:'inverted'}),enabled:e.target.checked})} style={{opacity:0,width:0,height:0,position:'absolute'}}/>
+                  <div style={{position:'absolute',inset:0,borderRadius:11,background:info.skillPhase?.enabled?'var(--green)':'rgba(255,255,255,.15)',transition:'background .2s'}}/>
+                  <div style={{position:'absolute',top:3,left:info.skillPhase?.enabled?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s',boxShadow:'0 1px 4px rgba(0,0,0,.3)'}}/>
+                </div>
+              </label>
+            </div>
+            {info.skillPhase?.enabled&&(
+              <div style={{marginTop:10,fontSize:11,color:'rgba(52,199,89,.8)',display:'flex',alignItems:'center',gap:5}}>
+                <span>✓</span>
+                <span>{lang==='de'?'Skill-Konfiguration im nächsten Schritt':'Skill configuration in next step'}</span>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
                 {numSt>1&&catsWithAths.length>0&&(
@@ -1321,6 +1347,63 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
         </div>
       )}
 
+      {step===3&&info.skillPhase?.enabled&&(
+        <div className="section fade-up" style={{flex:1}}>
+          <div className="lbl">🏃 {lang==='de'?'Skill Phase Konfiguration':'Skill Phase Configuration'}</div>
+
+          {/* Type */}
+          <div className="lbl" style={{marginBottom:6}}>{lang==='de'?'Modus':'Mode'}</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {[
+              {id:'oldschool',icon:'👥',label:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)',sub:lang==='de'?'Jury trägt Versuche ein':'Jury records attempts'},
+              {id:'boulderstyle',icon:'📱',label:'Boulderstyle',sub:lang==='de'?'Athleten tragen selbst ein':'Athletes self-report via link'}
+            ].map(m=>(
+              <button key={m.id} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),type:m.id})}
+                style={{flex:1,minWidth:140,padding:'12px',borderRadius:12,border:`1.5px solid ${(info.skillPhase?.type||'oldschool')===m.id?'var(--green)':'var(--border)'}`,background:(info.skillPhase?.type||'oldschool')===m.id?'rgba(52,199,89,.1)':'rgba(255,255,255,.03)',cursor:'pointer',textAlign:'left',transition:'all .15s'}}>
+                <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
+                <div style={{fontSize:13,fontWeight:700,color:(info.skillPhase?.type||'oldschool')===m.id?'var(--green)':'var(--text)'}}>{m.label}</div>
+                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{m.sub}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Skills list */}
+          <div className="lbl" style={{marginTop:12,marginBottom:6}}>{lang==='de'?'Skills / Hindernisse':'Skills / Obstacles'}</div>
+          {(info.skillPhase?.skills||[]).map((sk,i)=>(
+            <div key={sk.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,marginBottom:4,border:'1px solid var(--border)'}}>
+              <span style={{fontSize:16}}>{['🏋️','⚡','🧗','🤸','💪','🎯','🔥','🌊'][i%8]}</span>
+              <input value={sk.name} onChange={e=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).map((s,j)=>j===i?{...s,name:e.target.value}:s)})} style={{flex:1,padding:'4px 8px',fontSize:13}} placeholder={`Skill ${i+1}`}/>
+              <button style={{background:'none',border:'none',cursor:'pointer',padding:4,color:'var(--red)',display:'flex'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).filter((_,j)=>j!==i)})}><I.Trash s={14} c="var(--red)"/></button>
+            </div>
+          ))}
+          <button className="btn btn-ghost" style={{width:'100%',padding:'8px',fontSize:12,gap:6,marginTop:4}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:[...(info.skillPhase?.skills||[]),{id:uid(),name:''}]})}>
+            <I.Plus s={13}/> {lang==='de'?'Skill hinzufügen':'Add skill'}
+          </button>
+          {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:11,color:'var(--muted)',textAlign:'center',marginTop:4,padding:'8px'}}>{lang==='de'?'Mindestens 1 Skill hinzufügen':'Add at least 1 skill'}</div>}
+
+          {/* Timer */}
+          <div className="lbl" style={{marginTop:12,marginBottom:6}}><I.Clock s={13}/> {lang==='de'?'Skill Phase Timer (0 = kein Limit)':'Skill Phase Timer (0 = no limit)'}</div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
+            {[0,1,2,3,4,5,6].map(h=>(
+              <button key={h} className={`chip${(info.skillPhase?.timerHrs||0)===h?' active':''}`} style={{fontSize:11,padding:'3px 9px',flex:1,justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerHrs:h})}>
+                {h===0?'∞':`${h}h`}
+              </button>
+            ))}
+          </div>
+
+          {/* Seeding */}
+          <div className="lbl" style={{marginTop:12,marginBottom:6}}>🎯 {lang==='de'?'Seeding für Stage':'Seeding for stage'}</div>
+          <div style={{display:'flex',gap:8}}>
+            {[{id:'inverted',label:lang==='de'?'Invertiert (Schwächster zuerst)':'Inverted (weakest first)'},{id:'manual',label:lang==='de'?'Manuell':'Manual'}].map(s=>(
+              <button key={s.id} className={`chip${(info.skillPhase?.seedingMode||'inverted')===s.id?' active':''}`} style={{flex:1,fontSize:11,justifyContent:'center',padding:'5px 8px'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),seedingMode:s.id})}>{s.label}</button>
+            ))}
+          </div>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:6,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:8,lineHeight:1.5}}>
+            {lang==='de'?'Invertiert: Der Athlet mit der niedrigsten Skill-Gesamtpunktzahl startet als Erster auf dem Stage-Parcours (klassischer Ninja-Wettkampf-Aufbau, maximaler Spannungsaufbau)':'Inverted: Athlete with lowest skill total runs first on stage (classic ninja comp format, maximum suspense)'}
+          </div>
+        </div>
+      )}
+
       {step===2&&(
         <div className="section fade-up" style={{flex:1}}>
           {numSt>1&&<StageTabs active={asi} onChange={setAthStage}/>}
@@ -1384,10 +1467,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       )}
 
       <div style={{padding:'0 16px 36px',marginTop:'auto'}}>
-        {step<2
+        {(()=>{const maxSt=info.skillPhase?.enabled?3:2;return step<maxSt
           ?<button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15}} disabled={step===0&&!info.name.trim()} onClick={()=>{SFX.click();setStep(s=>s+1);}}>{t('next')} <I.ChevR s={16}/></button>
-          :<button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichern…':<><I.Check s={17}/> {t('finish')}</>}</button>
-        }
+          :<button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichern…':<><I.Check s={17}/> {t('finish')}</>}</button>;
+        })()}
       </div>
     </div>
   );
@@ -1438,6 +1521,212 @@ const HomeView=({onOpen,lang,setLang})=>{
             </button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+// ════════════════════════════════════════════════════════════
+// SKILL PHASE VIEW (coordinator)
+// ════════════════════════════════════════════════════════════
+const SkillPhaseView=({compId,info,athletes})=>{
+  const {lang}=useLang();
+  const skillPhase=info?.skillPhase||{};
+  const skillStatus=useFbVal(`ogn/${compId}/skillPhaseStatus`);
+  const skillScores=useFbVal(`ogn/${compId}/skillScores`);
+  const [selCat,setSelCat]=useState(null);
+  const [selSkill,setSelSkill]=useState(null);
+  const [seedingDone,setSeedingDone]=useState(false);
+
+  const athList=athletes?Object.values(athletes):[];
+  const skills=skillPhase.skills||[];
+  const isOldschool=(skillPhase.type||'oldschool')==='oldschool';
+  const cats=[...new Set(athList.map(a=>a.cat))];
+
+  // Compute total score per athlete
+  const computeTotal=(athId)=>{
+    if(!skillScores)return 0;
+    let tot=0;
+    skills.forEach(sk=>{
+      const s=skillScores?.[athId]?.[sk.id];
+      if(!s)return;
+      if(isOldschool){
+        // attempts: {a1: bool, a2: bool, a3: bool}
+        if(s.a1===true)tot+=100;
+        else if(s.a2===true)tot+=50;
+        else if(s.a3===true)tot+=20;
+      } else {
+        // boulderstyle: score computed from pool
+        tot+=(s.poolScore||0)*(s.flashed?1.2:1);
+      }
+    });
+    return Math.round(tot);
+  };
+
+  // Ranking per category (for seeding)
+  const getRanking=(catId)=>athList
+    .filter(a=>a.cat===catId)
+    .map(a=>({...a,skillTotal:computeTotal(a.id)}))
+    .sort((a,b)=>b.skillTotal-a.skillTotal);
+
+  const generateSeeding=async()=>{
+    if(!window.confirm(lang==='de'?'Seeding aus Skill-Resultaten generieren?\n\nDie Startreihenfolge für alle Stages wird überschrieben.':'Generate seeding from skill results?\n\nQueue order for all stages will be overwritten.'))return;
+    const seedMode=skillPhase.seedingMode||'inverted';
+    const updates={};
+    const numSt=info.numStations||1;
+    cats.forEach(catId=>{
+      const ranked=getRanking(catId);
+      const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;
+      ordered.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
+      for(let s=1;s<=numSt;s++){ordered.forEach((a,i)=>{updates[`ogn/${compId}/stages/${s}/athletes/${a.id}/queueOrder`]=i;});}
+    });
+    await db.ref().update(updates);
+    await fbSet(`ogn/${compId}/skillPhaseStatus/seedingDone`,true);
+    setSeedingDone(true);
+    SFX.complete();
+  };
+
+  const setAttempt=async(athId,skillId,attempt,success)=>{
+    await fbSet(`ogn/${compId}/skillScores/${athId}/${skillId}/a${attempt}`,success);
+    SFX.checkpoint();
+  };
+
+  const getAttemptResult=(athId,skillId)=>{
+    const s=skillScores?.[athId]?.[skillId];
+    if(!s)return{tries:0,result:null};
+    if(s.a1===true)return{tries:1,result:'pass',pts:100};
+    if(s.a1===false&&s.a2===true)return{tries:2,result:'pass',pts:50};
+    if(s.a1===false&&s.a2===false&&s.a3===true)return{tries:3,result:'pass',pts:20};
+    if(s.a1===false&&s.a2===false&&s.a3===false)return{tries:3,result:'fail',pts:0};
+    const tries=[s.a1,s.a2,s.a3].filter(v=>v!=null).length;
+    return{tries,result:null,pts:null};
+  };
+
+  const curCatAths=selCat?athList.filter(a=>a.cat===selCat):[];
+  const activeCat=selCat||cats[0];
+  const ranking=getRanking(activeCat);
+  const seedingAlreadyDone=skillStatus?.seedingDone||seedingDone;
+  const base=location.href.split('?')[0];
+  const skillUrl=`${base}?mode=skill&comp=${compId}`;
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:12,paddingBottom:80}}>
+      {/* Header */}
+      <div className="sh-card" style={{padding:'14px 16px',background:'rgba(52,199,89,.08)',borderColor:'rgba(52,199,89,.25)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <span style={{fontSize:22}}>🏃</span>
+          <div>
+            <div style={{fontWeight:800,fontSize:15,color:'var(--green)'}}>{lang==='de'?'Skill Phase':'Skill Phase'}</div>
+            <div style={{fontSize:11,color:'var(--muted)'}}>
+              {isOldschool?(lang==='de'?'Jury-Modus — Versuche werden eingetragen':'Jury mode — attempts recorded'):'Boulderstyle — Athleten tragen selbst ein'}
+              {' · '}{skills.length} {lang==='de'?'Skills':'skills'}
+              {skillPhase.timerHrs>0&&` · ${skillPhase.timerHrs}h Timer`}
+            </div>
+          </div>
+        </div>
+        {!isOldschool&&(
+          <div style={{background:'rgba(255,255,255,.04)',borderRadius:10,padding:'10px 12px',display:'flex',alignItems:'center',gap:10}}>
+            <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{lang==='de'?'Athleten-Link (QR anzeigen):':'Athlete link (show QR):'}<br/><span style={{fontFamily:'JetBrains Mono',fontSize:10,color:'var(--cor)',wordBreak:'break-all'}}>{skillUrl}</span></div>
+            <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,flexShrink:0,gap:5}} onClick={()=>window.open(skillUrl,'_blank')}><I.QR s={13}/> QR</button>
+          </div>
+        )}
+      </div>
+
+      {/* Category tabs */}
+      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+        {cats.map(catId=>{const cat=IGN_CATS.find(c=>c.id===catId);return(
+          <button key={catId} className={`chip${activeCat===catId?' active':''}`} style={{fontSize:11,padding:'3px 10px',...(activeCat===catId?{background:`${cat?.color||'var(--cor)'}1A`,borderColor:`${cat?.color||'var(--cor)'}55`,color:cat?.color||'var(--cor)'}:{})}} onClick={()=>setSelCat(catId)}>{cat?.name[lang]||catId}</button>
+        );})}
+      </div>
+
+      {/* Skill tabs */}
+      {skills.length>0&&(
+        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+          <button className={`chip${!selSkill?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(null)}>{lang==='de'?'Rangliste':'Ranking'}</button>
+          {skills.map(sk=><button key={sk.id} className={`chip${selSkill===sk.id?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(sk.id)}>{sk.name||`Skill ${skills.indexOf(sk)+1}`}</button>)}
+        </div>
+      )}
+
+      {/* Ranking view */}
+      {!selSkill&&(
+        <div className="sh-card" style={{padding:'12px 14px'}}>
+          <div className="lbl" style={{marginBottom:8}}>{lang==='de'?'Skill-Rangliste':'Skill Ranking'} — {IGN_CATS.find(c=>c.id===activeCat)?.name[lang]||activeCat}</div>
+          {ranking.map((a,i)=>(
+            <div key={a.id} style={{display:'flex',alignItems:'center',gap:10,padding:'7px 0',borderBottom:i<ranking.length-1?'1px solid var(--border)':'none'}}>
+              <div style={{width:24,textAlign:'center',fontWeight:800,fontSize:13,color:i===0?'var(--gold)':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--muted)',fontFamily:'JetBrains Mono'}}>{i+1}</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600}}>{a.name}</div>
+                <div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}{a.team&&` · ${a.team}`}</div>
+              </div>
+              <div style={{textAlign:'right'}}>
+                <div style={{fontSize:16,fontWeight:800,color:a.skillTotal>0?'var(--cor)':'var(--dim)',fontFamily:'JetBrains Mono'}}>{a.skillTotal>0?a.skillTotal:'—'}</div>
+                <div style={{fontSize:9,color:'var(--muted)'}}>Punkte</div>
+              </div>
+            </div>
+          ))}
+          {ranking.length===0&&<div style={{textAlign:'center',padding:'20px',color:'var(--muted)',fontSize:13}}>{lang==='de'?'Keine Athleten in dieser Kategorie':'No athletes in this category'}</div>}
+        </div>
+      )}
+
+      {/* Skill scoring view (oldschool) */}
+      {selSkill&&isOldschool&&(()=>{
+        const sk=skills.find(s=>s.id===selSkill);
+        const catAths=athList.filter(a=>a.cat===activeCat);
+        return(
+          <div className="sh-card" style={{padding:'12px 14px'}}>
+            <div className="lbl" style={{marginBottom:8}}>
+              {sk?.name||selSkill} — {IGN_CATS.find(c=>c.id===activeCat)?.name[lang]||activeCat}
+              <span style={{fontSize:10,fontWeight:400,color:'var(--muted)',marginLeft:8}}>3 Versuche · 100/50/20 Punkte</span>
+            </div>
+            {catAths.map(a=>{
+              const res=getAttemptResult(a.id,selSkill);
+              const done=res.result==='pass'||res.tries===3;
+              return(
+                <div key={a.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600}}>{a.name}</div>
+                    <div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}</div>
+                  </div>
+                  {done?(
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:15,fontWeight:800,color:res.result==='pass'?'var(--green)':'var(--red)',fontFamily:'JetBrains Mono'}}>{res.result==='pass'?`+${res.pts}`:'0'}</div>
+                      <div style={{fontSize:9,color:'var(--muted)'}}>{res.result==='pass'?`${res.tries}. Versuch`:'Nicht geschafft'}</div>
+                      <button style={{fontSize:9,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',marginTop:2,textDecoration:'underline'}} onClick={async()=>{await fbSet(`ogn/${compId}/skillScores/${a.id}/${selSkill}`,null);SFX.click();}}>Reset</button>
+                    </div>
+                  ):(
+                    <div style={{display:'flex',gap:4,flexShrink:0}}>
+                      {[1,2,3].map(n=>{
+                        const prevFailed=n>1&&(skillScores?.[a.id]?.[selSkill]?.[`a${n-1}`]===false);
+                        const alreadyDone=skillScores?.[a.id]?.[selSkill]?.[`a${n}`]!=null;
+                        const canTry=(n===1&&!alreadyDone)||(n>1&&prevFailed&&!alreadyDone);
+                        return canTry?(
+                          <div key={n} style={{display:'flex',flexDirection:'column',gap:3,alignItems:'center'}}>
+                            <div style={{fontSize:8,color:'var(--muted)',fontWeight:700}}>V{n}</div>
+                            <div style={{display:'flex',gap:2}}>
+                              <button style={{width:30,height:30,borderRadius:8,border:'1.5px solid rgba(52,199,89,.5)',background:'rgba(52,199,89,.1)',color:'var(--green)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setAttempt(a.id,selSkill,n,true)}>✓</button>
+                              <button style={{width:30,height:30,borderRadius:8,border:'1.5px solid rgba(255,59,48,.5)',background:'rgba(255,59,48,.1)',color:'var(--red)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setAttempt(a.id,selSkill,n,false)}>✗</button>
+                            </div>
+                          </div>
+                        ):null;
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Generate seeding button */}
+      <div style={{marginTop:8,padding:'0 0 4px'}}>
+        {seedingAlreadyDone&&<div style={{fontSize:11,color:'var(--green)',textAlign:'center',marginBottom:8,display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I.Check s={12} c="var(--green)"/> {lang==='de'?'Seeding wurde generiert':'Seeding generated'}</div>}
+        <button className="btn btn-coral" style={{width:'100%',padding:'12px',fontSize:14,gap:8}} onClick={generateSeeding}>
+          🎯 {lang==='de'?`Seeding generieren (${skillPhase.seedingMode==='inverted'?'Invertiert':'Manuell'})`:`Generate seeding (${skillPhase.seedingMode==='inverted'?'inverted':'manual'})`}
+        </button>
+        <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',marginTop:6,lineHeight:1.4}}>
+          {skillPhase.seedingMode==='inverted'?(lang==='de'?'Niedrigste Skill-Punkte → zuerst auf den Stage-Parcours':'Lowest skill points → first on stage'):lang==='de'?'Reihenfolge wie im Skill-Ranking':'Order as in skill ranking'}
+        </div>
       </div>
     </div>
   );
@@ -1612,6 +1901,7 @@ const handleDeleteAth=async(a)=>{
             {k:'results',     ic:<I.Trophy s={13}/>, lb:'Ranking'},
             {k:'queue',       ic:<I.User s={13}/>, lb:'Next up'},
             {k:'stats',       ic:<I.TrendUp s={13}/>, lb:'Stats'},
+            ...(info?.skillPhase?.enabled?[{k:'skills',ic:<span style={{fontSize:13}}>🏃</span>,lb:'Skills'}]:[]),
           ].map(({k,ic,lb})=>(
             <button key={k} style={{flex:1,padding:'8px 4px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
               background:coordView===k?'var(--coral)':'transparent',
@@ -1626,6 +1916,7 @@ const handleDeleteAth=async(a)=>{
         {coordView==='results'&&<div style={{marginTop:8}}><ResultsView compId={compId} athletes={athletes}/></div>}
         {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
         {coordView==='stats'&&<div style={{marginTop:8}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
+        {coordView==='skills'&&info?.skillPhase?.enabled&&<div style={{marginTop:8}}><SkillPhaseView compId={compId} info={info} athletes={athletes}/></div>}
         {coordView==='coordinator'&&<>
         <div className="sep"/>
         <div className="lbl">Stages — direkt starten</div>
@@ -1879,6 +2170,11 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
     const updates={};arr.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
     if(Object.keys(updates).length)db.ref().update(updates);
   };
+  const shuffleQ=()=>{
+    const arr=[...effectiveQ];
+    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+    reorderQ(arr);SFX.click();
+  };
   const next=effectiveQ[0];
   return(
     <div style={{display:'flex',flexDirection:'column',gap:0}}>
@@ -1927,7 +2223,10 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div style={{paddingBottom:84}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                 <div className="lbl">Startreihenfolge</div>
-                <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title="Zufällige Reihenfolge">🔀 <span style={{fontSize:10}}>Mischen</span></button>
+                  <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
+                </div>
               </div>
               <DragList items={effectiveQ} onReorder={arr=>reorderQ(arr)} keyFn={a=>a.id}
                 renderItem={(a,i)=>(
@@ -2530,6 +2829,119 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
         )}
         <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:8}} onClick={handleSave} disabled={saving}>{saving?<I.RefreshCw s={14}/>:<I.Check s={14}/>} {lang==='de'?'Korrektur speichern':'Save correction'}</button>
         <button className="btn btn-ghost" style={{width:'100%',padding:11}} onClick={onClose}>↩ {lang==='de'?'Abbrechen':'Cancel'}</button>
+      </div>
+    </div>
+  );
+};
+
+// ════════════════════════════════════════════════════════════
+// SKILL SELF-ENTRY VIEW (boulderstyle — athlete opens link)
+// ════════════════════════════════════════════════════════════
+const SkillSelfEntryView=({compId})=>{
+  const {lang}=useLang();
+  const info=useFbVal(`ogn/${compId}/info`);
+  const athletes=useFbVal(`ogn/${compId}/athletes`);
+  const skillScores=useFbVal(`ogn/${compId}/skillScores`);
+  const [selCat,setSelCat]=useState(null);
+  const [selAth,setSelAth]=useState(null);
+  const [search,setSearch]=useState('');
+
+  const skillPhase=info?.skillPhase||{};
+  const skills=skillPhase.skills||[];
+  const athList=athletes?Object.values(athletes):[];
+  const cats=[...new Set(athList.map(a=>a.cat))];
+  const activeCat=selCat||cats[0];
+  const filtered=athList.filter(a=>a.cat===activeCat&&(!search.trim()||a.name.toLowerCase().includes(search.toLowerCase())||a.num?.toString()===search.trim()));
+
+  const recordAttempt=async(skillId,success)=>{
+    if(!selAth)return;
+    const path=`ogn/${compId}/skillScores/${selAth.id}/${skillId}`;
+    const cur=skillScores?.[selAth.id]?.[skillId]||{attempts:0,completed:false,flashed:false};
+    if(cur.completed)return;
+    const newAttempts=(cur.attempts||0)+1;
+    const flashed=newAttempts===1&&success;
+    const updates={attempts:newAttempts,completed:success?true:cur.completed,flashed:success&&flashed?true:cur.flashed};
+    if(success){
+      // Compute pool score (simple: 1000 shared among all completions)
+      // We'll just store 1000 as raw score and recompute on display
+      updates.poolScore=1000;
+    }
+    await fbSet(path,{...cur,...updates});
+    if(success)SFX.checkpoint();else SFX.click();
+  };
+
+  if(!info)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}><Spinner/></div>;
+
+  return(
+    <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+      <TopBar title="🏃 Skill Phase" sub={info.name||''} logo={false}/>
+      <div className="section" style={{flex:1}}>
+        {!selAth&&(
+          <>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{lang==='de'?'Wähle deine Kategorie:':'Select your category:'}</div>
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:16}}>
+              {cats.map(catId=>{const cat=IGN_CATS.find(c=>c.id===catId);return(
+                <button key={catId} className={`chip${activeCat===catId?' active':''}`} style={{fontSize:12}} onClick={()=>setSelCat(catId)}>{cat?.name[lang]||catId}</button>
+              );})}
+            </div>
+            <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{lang==='de'?'Wähle deinen Namen:':'Select your name:'}</div>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={lang==='de'?'Name oder Startnummer suchen…':'Search name or start number…'} style={{marginBottom:8}}/>
+            <div style={{display:'flex',flexDirection:'column',gap:4}}>
+              {filtered.map(a=>(
+                <button key={a.id} className="sh-card btn" style={{padding:'12px 14px',textAlign:'left',display:'flex',gap:12,alignItems:'center',justifyContent:'flex-start'}} onClick={()=>setSelAth(a)}>
+                  <div style={{width:32,height:32,borderRadius:8,background:'rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:13,color:'var(--cor)',fontFamily:'JetBrains Mono',flexShrink:0}}>#{a.num}</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:14}}>{a.name}</div>
+                    {a.team&&<div style={{fontSize:11,color:'var(--muted)'}}>{a.team}</div>}
+                  </div>
+                  <I.ChevR s={16} c="var(--muted)"/>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        {selAth&&(
+          <>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+              <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12,gap:5}} onClick={()=>setSelAth(null)}><I.ChevL s={13}/> {lang==='de'?'Zurück':'Back'}</button>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:16}}>{selAth.name}</div>
+                <div style={{fontSize:11,color:'var(--muted)'}}>#{selAth.num}{selAth.team&&` · ${selAth.team}`}</div>
+              </div>
+            </div>
+            {skills.map((sk,si)=>{
+              const score=skillScores?.[selAth.id]?.[sk.id]||{attempts:0,completed:false,flashed:false};
+              return(
+                <div key={sk.id} className="sh-card" style={{padding:'14px 16px',marginBottom:10,borderColor:score.completed?'rgba(52,199,89,.4)':'var(--border)',background:score.completed?'rgba(52,199,89,.06)':'var(--card)'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:14}}>{['🏋️','⚡','🧗','🤸','💪','🎯','🔥','🌊'][si%8]} {sk.name||`Skill ${si+1}`}</div>
+                      <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
+                        {score.completed?(
+                          <span style={{color:'var(--green)'}}>✓ {lang==='de'?'Geschafft':'Completed'}{score.flashed?` · ⚡ Flash (+20%)`:''} · {score.attempts} {lang==='de'?'Versuch(e)':'attempt(s)'}</span>
+                        ):(
+                          <span>{score.attempts} {lang==='de'?'Versuch(e)':'attempt(s)'} · {lang==='de'?'Noch nicht geschafft':'Not yet completed'}</span>
+                        )}
+                      </div>
+                    </div>
+                    {score.completed&&<I.CheckCircle s={22} c="var(--green)"/>}
+                  </div>
+                  {!score.completed&&(
+                    <div style={{display:'flex',gap:8}}>
+                      <button className="btn" style={{flex:1,padding:'12px',fontSize:14,gap:6,background:'rgba(52,199,89,.15)',border:'1.5px solid rgba(52,199,89,.4)',color:'var(--green)'}} onClick={()=>recordAttempt(sk.id,true)}>
+                        ✓ {lang==='de'?'Geschafft':'Done'}
+                        {score.attempts===0&&<span style={{fontSize:10,opacity:.7}}> (Flash +20%)</span>}
+                      </button>
+                      <button className="btn" style={{flex:1,padding:'12px',fontSize:14,gap:6,background:'rgba(255,59,48,.1)',border:'1.5px solid rgba(255,59,48,.35)',color:'var(--red)'}} onClick={()=>recordAttempt(sk.id,false)}>
+                        ✗ {lang==='de'?'Nicht geschafft':'Failed'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );
@@ -4004,7 +4416,7 @@ const App=()=>{
   const [lang,setLang]=useState(()=>storage.get('lang','de'));
   const [compId,setCompId]=useState(compP||null);
   const [stNum,setStNum]=useState(stP?parseInt(stP,10):1);
-  const [view,setView]=useState(()=>{if(modeP==='display')return 'display';if(modeP==='queue')return 'queue';if(modeP==='stats')return 'stats';if(stP&&compP)return 'jury';if(compP)return 'coordinator';return 'home';});
+  const [view,setView]=useState(()=>{if(modeP==='display')return 'display';if(modeP==='queue')return 'queue';if(modeP==='stats')return 'stats';if(modeP==='skill')return 'skill';if(stP&&compP)return 'jury';if(compP)return 'coordinator';return 'home';});
   const [prevView,setPrevView]=useState('coordinator');
   useEffect(()=>storage.set('lang',lang),[lang]);
   const openComp=id=>{setCompId(id);setView('coordinator');};
@@ -4021,6 +4433,8 @@ const App=()=>{
       {view==='queue'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('queue');}}/>}
       {view==='stats'&&compId&&<StatsDisplayView compId={compId} onBack={null}/>}
       {view==='stats'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('stats');}}/>}
+      {view==='skill'&&compId&&<SkillSelfEntryView compId={compId}/>}
+      {view==='skill'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('skill');}}/>}
       {/* Install prompt — only shows on mobile, dismissable, "not again" saves to localStorage */}
       <InstallPrompt lang={lang}/>
     </LangCtx.Provider>
