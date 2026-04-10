@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, toFlag } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, toFlag } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -174,16 +174,20 @@ const ResultsView=({compId,athletes})=>{
   // Reset stage selection when category changes
   useEffect(()=>{setSelStage(null);},[selCat]);
   // Stage numbers that have runs for the selected category
-  const stageNums=selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
-  const multiStage=stageNums.length>1;
+  const stageNums=!isPipeline&&selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
+  const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
+  const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
   const isMultiOverall=multiStage&&selStage===null;
-  const ranked=selCat?(selStage!=null?computeRankedStage(runList,selCat,selStage):isMultiOverall?computeRankedMultiStage(runList,selCat,stageNums):computeRanked(runList,selCat)):[];
+  const ranked=selCat?(selStage!=null?(isPipeline?computeRankedPipeline(runList,selCat,selStage):computeRankedStage(runList,selCat,selStage)):isMultiOverall?(isPipeline?computeRankedMultiStagePipeline(runList,selCat,stageIds):computeRankedMultiStage(runList,selCat,stageNums)):computeRanked(runList,selCat)):[];
   const rCPs=r=>isMultiOverall?r.totalCPs:(r.doneCP?.length||0);
   const rTime=r=>isMultiOverall?r.totalTime:(r.finalTime||0);
   const rMaxCPs=r=>{if(isMultiOverall){const tot=stageNums.reduce((s,sn)=>{const bd=r.stageBreakdown?.[String(sn)];return s+(bd?.totalCPs||0);},0);return tot||r.totalCPs||1;}return Math.max(r.totalCPs||0,r.doneCP?.length||0)||1;};
-  const StageBreakdown=({r,compact=false})=>{if(!isMultiOverall||!r.stageBreakdown)return null;const totCPs=rCPs(r),totT=rTime(r);return(<div style={{marginTop:compact?3:6,display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>{stageNums.map(sn=>{const bd=r.stageBreakdown[String(sn)];const cps=bd?.doneCP?.length||0;const maxC=bd?.totalCPs||'?';const tm=bd?.finalTime||0;return(<span key={sn} style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 5px',borderRadius:6,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.5)'}}><span style={{color:'rgba(255,144,64,.9)',fontWeight:700,fontSize:8}}>S{sn}</span><span>{cps}/{maxC}</span><span style={{opacity:.35}}>·</span><span>{tm>0?fmtMs(tm):'—'}</span></span>);})}  {stageNums.length>1&&<span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 6px',borderRadius:6,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,144,64,.25)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,144,64,.9)',fontWeight:700}}>Σ {totCPs}{totT>0?` · ${fmtMs(totT)}`:''}</span>}</div>);};
+  const StageBreakdown=({r,compact=false})=>{if(!isMultiOverall||!r.stageBreakdown)return null;const totCPs=rCPs(r),totT=rTime(r);const _stages=isPipeline?stageIds:stageNums;return(<div style={{marginTop:compact?3:6,display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>{_stages.map(sn=>{const bd=r.stageBreakdown[String(sn)];const cps=bd?.doneCP?.length||0;const maxC=bd?.totalCPs||'?';const tm=bd?.finalTime||0;return(<span key={sn} style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 5px',borderRadius:6,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.5)'}}><span style={{color:'rgba(255,144,64,.9)',fontWeight:700,fontSize:8}}>{isPipeline?(pipelineStages.find(s=>s.id===sn)?.name||sn).substring(0,3):`S${sn}`}</span><span>{cps}/{maxC}</span><span style={{opacity:.35}}>·</span><span>{tm>0?fmtMs(tm):'—'}</span></span>);})}  {stageNums.length>1&&<span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 6px',borderRadius:6,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,144,64,.25)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,144,64,.9)',fontWeight:700}}>Σ {totCPs}{totT>0?` · ${fmtMs(totT)}`:''}</span>}</div>);};
   const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
   const comp=useFbVal(`ogn/${compId}/info`);
+  const pipelineData=useFbVal(comp?.pipelineEnabled?`ogn/${compId}/pipeline`:null);
+  const isPipeline=!!(comp?.pipelineEnabled&&pipelineData);
+  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const qualRule=comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null);
   const qualCount=qualRule?.enabled&&ranked.length>0?Math.max(qualRule.minimum||1,Math.ceil(ranked.filter(r=>r.status!=='dsq').length*(qualRule.percent||50)/100)):null;
   const exportAll=(format='csv')=>{
@@ -228,7 +232,14 @@ const ResultsView=({compId,athletes})=>{
             onClick={()=>{setSelStage(null);SFX.hover();}}>
             {lang==='de'?'Gesamt':'Overall'}
           </button>
-          {stageNums.map(n=>(
+          {(isPipeline?pipelineStages:[]).map(stg=>(
+            <button key={stg.id} className={`chip${selStage===stg.id?' active':''}`}
+              style={{flexShrink:0,fontSize:11,padding:'3px 12px',...(selStage===stg.id?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+              onClick={()=>{setSelStage(stg.id);SFX.hover();}}>
+              {stg.name||stg.id}
+            </button>
+          ))}
+          {(!isPipeline?stageNums:[]).map(n=>(
             <button key={n} className={`chip${selStage===n?' active':''}`}
               style={{flexShrink:0,fontSize:11,padding:'3px 12px',...(selStage===n?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
               onClick={()=>{setSelStage(n);SFX.hover();}}>
@@ -243,7 +254,7 @@ const ResultsView=({compId,athletes})=>{
           <div className="section">
             {ranked[0]&&(()=>{const a=athMap[ranked[0].athleteId]||{name:ranked[0].athleteName||'?',num:'?'};return(
               <div className="winner-card">
-                <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,fontWeight:600,display:'flex',alignItems:'center',gap:5,justifyContent:'space-between'}}><span style={{display:'flex',alignItems:'center',gap:5}}><I.Trophy s={11} c="var(--cor)"/> {lang==='de'?'Platz 1':'Top Ranked'}{selStage!=null?` · Stage ${selStage}`:multiStage?` · ${lang==='de'?'Gesamt':'Overall'}`:''}</span><EditBtn r={ranked[0]}/></div>
+                <div style={{fontSize:10,color:'var(--cor)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:10,fontWeight:600,display:'flex',alignItems:'center',gap:5,justifyContent:'space-between'}}><span style={{display:'flex',alignItems:'center',gap:5}}><I.Trophy s={11} c="var(--cor)"/> {lang==='de'?'Platz 1':'Top Ranked'}{selStage!=null?` · ${isPipeline?(pipelineStages.find(s=>s.id===selStage)?.name||selStage):'Stage '+selStage}`:multiStage?` · ${lang==='de'?'Gesamt':'Overall'}`:''}</span><EditBtn r={ranked[0]}/></div>
                 <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:10}}>
                   {a.photo?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,215,10,.4)',flexShrink:0}}/>:null}
                   <div style={{flex:1,minWidth:0}}>
