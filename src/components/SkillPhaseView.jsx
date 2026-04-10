@@ -149,13 +149,42 @@ const SkillPhaseView=({compId,info,athletes})=>{
     if(!window.confirm(lang==='de'?'Seeding aus Skill-Resultaten generieren?\n\nDie Startreihenfolge für alle Stages wird überschrieben.':'Generate seeding from skill results?\n\nQueue order for all stages will be overwritten.'))return;
     const seedMode=skillPhase.seedingMode||'inverted';
     const updates={};
-    const numSt=info.numStations||1;
-    cats.forEach(catId=>{
-      const ranked=getRanking(catId);
-      const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;
-      ordered.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
-      for(let s=1;s<=numSt;s++){ordered.forEach((a,i)=>{updates[`ogn/${compId}/stages/${s}/athletes/${a.id}/queueOrder`]=i;});}
-    });
+    const isPipeline=!!(info?.pipelineEnabled&&info?.pipeline);
+    if(isPipeline){
+      const pStages=Object.entries(info.pipeline).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0));
+      const firstRound=pStages.filter(s=>!s.predecessorStages||s.predecessorStages.length===0);
+      firstRound.forEach(stage=>{
+        const sCats=stage.categories==='all'?cats:(stage.categoriesList||[]);
+        const stageAths=[];
+        sCats.forEach(catId=>{const ranked=getRanking(catId);const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;stageAths.push(...ordered);});
+        stageAths.forEach((a,i)=>{
+          updates[`ogn/${compId}/pipeline/${stage.id}/athletes/${a.id}`]={id:a.id,name:a.name,num:a.num,cat:a.cat,team:a.team||'',country:a.country||'',queueOrder:i};
+          updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
+        });
+      });
+    }else{
+      const isPipeline=!!(info?.pipelineEnabled&&info?.pipeline);
+    if(isPipeline){
+      const pStages=Object.entries(info.pipeline).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0));
+      const firstRound=pStages.filter(s=>!s.predecessorStages||s.predecessorStages.length===0);
+      firstRound.forEach(stage=>{
+        const sCats=stage.categories==='all'?cats:(stage.categoriesList||[]);
+        const stageAths=[];
+        sCats.forEach(catId=>{const ranked=getRanking(catId);const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;stageAths.push(...ordered);});
+        stageAths.forEach((a,i)=>{
+          updates[`ogn/${compId}/pipeline/${stage.id}/athletes/${a.id}`]={id:a.id,name:a.name,num:a.num,cat:a.cat,team:a.team||'',country:a.country||'',queueOrder:i};
+          updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
+        });
+      });
+    }else{
+      const numSt=info.numStations||1;
+      cats.forEach(catId=>{
+        const ranked=getRanking(catId);
+        const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;
+        ordered.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
+        for(let s=1;s<=numSt;s++){ordered.forEach((a,i)=>{updates[`ogn/${compId}/stages/${s}/athletes/${a.id}/queueOrder`]=i;});}
+      });
+    }
     await db.ref().update(updates);
     await fbSet(`ogn/${compId}/skillPhaseStatus/seedingDone`,true);
     setSeedingDone(true);
@@ -163,7 +192,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
   };
 
   const openSiegerehrung=async()=>{
-    const hasStages=(info?.numStations||0)>0;
+    const hasStages=(info?.numStations||0)>0||!!(info?.pipelineEnabled);
     const msgDe=hasStages?'Skill-Wettkampf abschließen und Siegerehrung anzeigen?\n\nKein Seeding für Stages wird generiert.':'Skill-Wettkampf abschließen und Siegerehrung anzeigen?';
     const msgEn=hasStages?'Close skill competition and show awards ceremony?\n\nNo seeding for stages will be generated.':'Close skill competition and show awards ceremony?';
     if(!window.confirm(lang==='de'?msgDe:msgEn))return;
@@ -454,7 +483,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
 
       {/* Action buttons */}
       {(()=>{
-        const hasStages=(info?.numStations||0)>0;
+        const hasStages=(info?.numStations||0)>0||!!(info?.pipelineEnabled);
         return(
         <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
           {seedingAlreadyDone&&<div style={{fontSize:11,color:'var(--green)',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I.Check s={12} c="var(--green)"/> {lang==='de'?'Seeding wurde generiert':'Seeding generated'}</div>}
