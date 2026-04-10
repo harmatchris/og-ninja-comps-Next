@@ -32,7 +32,7 @@ const AutoScrollList=({children,itemCount,tvMode,topPause=3500,minItems=5,maxH=n
 };
 
 
-const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
+const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipelineData=null})=>{
   const {lang,catName}=useLang();
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allActiveRuns=useFbVal(`ogn/${compId}/activeRuns`);
@@ -46,14 +46,16 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const getAvgMs=(sn)=>{
     const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
     if(lim>0)return lim*1000;
-    const recent=runList.filter(r=>String(r.stNum)===String(sn)&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000)
+    const recent=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000)
       .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,6);
     if(recent.length===0)return 90000;
     return Math.round(recent.reduce((s,r)=>s+(r.finalTime||0),0)/recent.length);
   };
 
-  const stages=Array.from({length:numStages},(_,i)=>i+1);
-  const activeStages=stages.filter(sn=>allStations?.[sn]?.cat);
+  const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
+  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  const stages=isPipeline?pipelineStages.map(s=>s.id):Array.from({length:numStages},(_,i)=>i+1);
+  const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(ps?.categoriesList||[]);return catIds.length>0;}):stages.filter(sn=>allStations?.[sn]?.cat);
 
   if(!allStations&&!info)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><Spinner/></div>;
   if(activeStages.length===0)return(
@@ -76,19 +78,22 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
       padding:tvMode?'20px 24px 40px':'4px 0 12px',
       alignItems:'start'}}>
       {activeStages.map(sn=>{
-        const catId=allStations?.[sn]?.cat;
-        const cat=IGN_CATS.find(c=>c.id===catId);
-        const doneIds=new Set(runList.filter(r=>r.catId===catId&&r.stNum===sn).map(r=>r.athleteId));
+        const pStage=isPipeline?pipelineStages.find(s=>s.id===sn):null;
+        const catId=isPipeline?null:allStations?.[sn]?.cat;
+        const stageCatIds=isPipeline?(pStage?.categories==='all'?IGN_CATS.map(c=>c.id):(pStage?.categoriesList||[])):(catId?[catId]:[]);
+        const stageCatSet=new Set(stageCatIds);
+        const cat=isPipeline?(stageCatIds.length===1?IGN_CATS.find(c=>c.id===stageCatIds[0]):null):IGN_CATS.find(c=>c.id===catId);
+        const doneIds=new Set(runList.filter(r=>isPipeline?(r.stageId===sn&&stageCatSet.has(r.catId)):(r.catId===catId&&r.stNum===sn)).map(r=>r.athleteId));
         const activeRun=allActiveRuns?.[sn];
         const runningId=(activeRun&&(activeRun.phase==='active'||activeRun.phase==='countdown'))?activeRun.athleteId:null;
-        const queue=athList.filter(a=>a.cat===catId&&!doneIds.has(a.id))
+        const queue=athList.filter(a=>isPipeline?(stageCatSet.has(a.cat)&&!doneIds.has(a.id)):(a.cat===catId&&!doneIds.has(a.id)))
           .sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
-        const total=athList.filter(a=>a.cat===catId).length;
+        const total=athList.filter(a=>isPipeline?stageCatSet.has(a.cat):(a.cat===catId)).length;
         const done=doneIds.size;
 
         if(queue.length===0)return(
           <div key={sn} style={{background:'rgba(48,209,88,.06)',border:'1px solid rgba(48,209,88,.25)',borderRadius:tvMode?18:12,padding:tvMode?'20px 24px':'12px 14px'}}>
-            <div style={{fontWeight:800,fontSize:tvMode?17:12}}>Stage {sn}</div>
+            <div style={{fontWeight:800,fontSize:tvMode?17:12}}>{isPipeline?(pStage?.name||'Stage'):('Stage '+sn)}</div>
             {cat&&<div style={{fontSize:tvMode?13:10,color:'var(--muted)',marginBottom:4}}>{catName(cat)}</div>}
             <div style={{fontSize:tvMode?15:11,color:'#30D158',fontWeight:700}}>✓ {lang==='de'?`Alle ${total} fertig`:`All ${total} done`}</div>
           </div>
@@ -96,7 +101,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
 
         const avgMs=getAvgMs(sn);
         const slotMs=avgMs+22000;
-        const recentCnt=runList.filter(r=>String(r.stNum)===String(sn)&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
+        const recentCnt=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
         const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
         const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`Ø${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
 
@@ -107,7 +112,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
               <div style={{display:'flex',alignItems:'center',gap:tvMode?12:8}}>
                 <div style={{width:tvMode?38:26,height:tvMode?38:26,borderRadius:tvMode?10:7,background:'rgba(255,94,58,.14)',border:'1px solid rgba(255,94,58,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?20:13,fontWeight:900,color:'var(--coral)',flexShrink:0}}>{sn}</div>
                 <div>
-                  <div style={{fontWeight:800,fontSize:tvMode?16:11,lineHeight:1.2}}>{info?.stageNames?.[sn]||`Stage ${sn}`}</div>
+                  <div style={{fontWeight:800,fontSize:tvMode?16:11,lineHeight:1.2}}>{isPipeline?(pStage?.name||sn):(info?.stageNames?.[sn]||`Stage ${sn}`)}</div>
                   {cat&&<div style={{fontSize:tvMode?12:9,color:'var(--muted)',marginTop:1}}>{catName(cat)}</div>}
                 </div>
               </div>
