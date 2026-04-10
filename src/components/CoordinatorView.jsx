@@ -368,7 +368,7 @@ const handleDeleteAth=async(a)=>{
         {coordView==='results'&&<div style={{marginTop:8}}>
           {info?.skillPhase?.enabled?<SkillRankingLive compId={compId} info={info} athletes={athletes}/>:<ResultsView compId={compId} athletes={athletes}/>}
         </div>}
-        {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
+        {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
         {coordView==='stats'&&<div style={{marginTop:8}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
         {coordView==='skills'&&info?.skillPhase?.enabled&&<div style={{marginTop:8}}><SkillPhaseView compId={compId} info={info} athletes={athletes}/></div>}
         {coordView==='coordinator'&&<>
@@ -390,7 +390,8 @@ const handleDeleteAth=async(a)=>{
             const isOccupied=occupiedStages.has(stageKey);
             const stageName=pStage.name||`Stage ${stageLetter}`;
             const pipelineAthletes=pipelineData?.[stageKey]?.athletes||{};
-            const athsInStage=Object.values(pipelineAthletes);
+            const hasPipeAths=Object.keys(pipelineAthletes).length>0;
+            const athsInStage=hasPipeAths?Object.values(pipelineAthletes):(()=>{const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(pStage.categoriesList||[]);const _cs=new Set(_cIds);return Object.values(athletes||{}).filter(a=>_cs.has(a.cat));})();
             const allRuns=completedRuns?Object.values(completedRuns):[];
             const stageRuns=allRuns.filter(r=>r.stageId===stageKey);
             const doneAthIds=new Set(stageRuns.map(r=>r.athleteId));
