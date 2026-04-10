@@ -98,31 +98,6 @@ export const computeRankedMultiStagePipeline = (runList, catId, stageIds) => {
 };
 
 
-export const computeRankedMultiStagePipeline = (runList, catId, stageIds) => {
-  const idSet = new Set(stageIds);
-  const byAS = {};
-  runList.filter(r => r.catId === catId && r.status !== 'dsq' && idSet.has(r.stageId)).forEach(r => {
-    const key = r.athleteId + '__' + r.stageId;
-    const ex = byAS[key];
-    const rc = r.doneCP?.length || 0, ec = ex?.doneCP?.length || 0;
-    if (!ex || rc > ec || (rc === ec && (r.finalTime || Infinity) < (ex.finalTime || Infinity))) byAS[key] = r;
-  });
-  const byA = {};
-  Object.values(byAS).forEach(r => {
-    const aid = r.athleteId;
-    if (!byA[aid]) byA[aid] = { athleteId: aid, athleteName: r.athleteName, totalCPs: 0, totalTime: 0, stageBreakdown: {}, status: 'complete' };
-    byA[aid].stageBreakdown[r.stageId] = r;
-    byA[aid].totalCPs += (r.doneCP?.length || 0);
-    byA[aid].totalTime += (r.finalTime || 0);
-    if (r.status !== 'complete') byA[aid].status = 'partial';
-  });
-  const inMain = new Set(Object.keys(byA));
-  const dsqMap = {};
-  runList.filter(r => r.catId === catId && r.status === 'dsq' && !inMain.has(r.athleteId)).forEach(r => {
-    dsqMap[r.athleteId] = { athleteId: r.athleteId, athleteName: r.athleteName, totalCPs: 0, totalTime: 0, stageBreakdown: {}, status: 'dsq' };
-  });
-  return [...Object.values(byA).sort((a, b) => b.totalCPs - a.totalCPs || a.totalTime - b.totalTime), ...Object.values(dsqMap)];
-};
 
 // ── PHOTO RESIZE
 export const resizePhotoUtil = (file, cb) => {
