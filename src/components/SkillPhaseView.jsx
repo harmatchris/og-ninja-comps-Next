@@ -163,20 +163,6 @@ const SkillPhaseView=({compId,info,athletes})=>{
         });
       });
     }else{
-      const isPipeline=!!(info?.pipelineEnabled&&info?.pipeline);
-    if(isPipeline){
-      const pStages=Object.entries(info.pipeline).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0));
-      const firstRound=pStages.filter(s=>!s.predecessorStages||s.predecessorStages.length===0);
-      firstRound.forEach(stage=>{
-        const sCats=stage.categories==='all'?cats:(stage.categoriesList||[]);
-        const stageAths=[];
-        sCats.forEach(catId=>{const ranked=getRanking(catId);const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;stageAths.push(...ordered);});
-        stageAths.forEach((a,i)=>{
-          updates[`ogn/${compId}/pipeline/${stage.id}/athletes/${a.id}`]={id:a.id,name:a.name,num:a.num,cat:a.cat,team:a.team||'',country:a.country||'',queueOrder:i};
-          updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
-        });
-      });
-    }else{
       const numSt=info.numStations||1;
       cats.forEach(catId=>{
         const ranked=getRanking(catId);
