@@ -162,7 +162,7 @@ const JuryCountdown=({onGo})=>{
 // JURY — ACTIVE RUN
 // ════════════════════════════════════════════════════════════
 
-const JuryActive=({compId,stNum,athlete,obstacles,info,lives,totalLivesLeft,activeFalls,startPerf:startPerfProp,frozenAt,onFall,onComplete,onStop,onRefillLives})=>{
+const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalLivesLeft,activeFalls,startPerf:startPerfProp,frozenAt,onFall,onComplete,onStop,onRefillLives})=>{
   const {lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
@@ -752,7 +752,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
 
   const juryContent=(()=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
-    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} totalLivesLeft={totalLivesLeft} activeFalls={activeFalls} startPerf={goTime} frozenAt={fallFreezeTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop} onRefillLives={info.mode==='lives'?handleRefillLives:null}/>;
+    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} activeRunKey={activeRunKey} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} totalLivesLeft={totalLivesLeft} activeFalls={activeFalls} startPerf={goTime} frozenAt={fallFreezeTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop} onRefillLives={info.mode==='lives'?handleRefillLives:null}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
     return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage} onDsq={handleDsqAth}/>;
   })();
