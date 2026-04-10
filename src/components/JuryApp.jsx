@@ -82,7 +82,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             </div>
             <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} Hindernisse</div>
             <div style={{display:'flex',gap:8,marginTop:16}}>
-              <button className="btn btn-coral" style={{flex:1,padding:15,fontSize:16,gap:8}} onClick={()=>{SFX.click();onStart(next);}}>
+              <button className="btn btn-coral" style={{flex:1,padding:18,fontSize:18,gap:10,minHeight:56,borderRadius:14}} onClick={()=>{SFX.click();onStart(next);}}>
                 <I.Play s={16}/> {t('startCountdown')}
               </button>
               {onDsq&&<button className="btn" style={{padding:'10px 14px',fontSize:13,gap:6,background:'rgba(255,59,80,.1)',border:'1px solid rgba(255,59,80,.35)',color:'#FF3B6B',flexShrink:0}} onClick={()=>{if(window.confirm(`${next.name} als DSQ markieren?`))onDsq(next);}}>
@@ -311,7 +311,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
       {!allDone&&(
         <div style={{padding:'6px 16px',flex:1,display:'flex',flexDirection:'column',gap:8}}>
           {(()=>{const isEndPlat=nextCp&&/endplattform/i.test(nextCp.name||'')&&info.mode==='segliv';const isStartPlat=nextCp&&/startplattform/i.test(nextCp.name||'')&&info.mode==='segliv';return(
-          <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:185,
+          <button className={`big-cp-btn${flash?' flash':''}`} style={{flex:1,minHeight:220,
             ...(isEndPlat?{borderColor:'rgba(255,200,0,.35)',background:'rgba(255,200,0,.06)'}:
                isStartPlat?{borderColor:'rgba(150,150,255,.3)',background:'rgba(100,100,255,.05)'}:{})}} onClick={handleCP} onTouchStart={()=>{longPressRef.current=setTimeout(undoCP,800);}} onTouchEnd={()=>clearTimeout(longPressRef.current)} onContextMenu={e=>e.preventDefault()}>
             <div style={{width:52,height:52,borderRadius:'50%',background:isEndPlat?'rgba(255,200,0,.1)':'rgba(255,94,58,.08)',border:`1px solid ${isEndPlat?'rgba(255,200,0,.3)':'rgba(255,94,58,.15)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}><I.Ninja s={28} c="rgba(255,255,255,.2)"/></div>
@@ -321,14 +321,14 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
             <div style={{fontSize:9,opacity:.28,fontWeight:400,letterSpacing:'.04em',marginTop:3,lineHeight:1,textTransform:'none'}}>{lang==='de'?'halten = rückgängig':'hold = undo'}</div>
           </button>);})()}
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-fall" style={{flex:1,padding:14,fontSize:13,gap:7}} onClick={handleFall}>
+            <button className="btn btn-fall" style={{flex:1,padding:20,fontSize:16,gap:10,minHeight:56,borderRadius:14}} onClick={handleFall}>
               <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
             </button>
-            <button className="btn btn-ghost" style={{padding:'9px 14px',fontSize:11,gap:5,opacity:.78}} onClick={handleStop}>
+            <button className="btn btn-ghost" style={{padding:'16px 20px',fontSize:14,gap:7,minHeight:56,borderRadius:14}} onClick={handleStop}>
               <I.StopOct s={12}/> {lang==='de'?'Abbrechen':'Stop run'}
             </button>
           </div>
-          <button className="btn btn-ghost" style={{width:'100%',padding:10,fontSize:12,gap:6,
+          <button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:13,gap:8,minHeight:48,
             ...(protested?{background:'rgba(255,200,0,.12)',color:'var(--gold)',borderColor:'rgba(255,200,0,.35)'}:{})}}
             onClick={()=>{setProtested(p=>!p);SFX.hover();}}>
             <I.Flag s={13} c={protested?'var(--gold)':'currentColor'}/> {protested
@@ -343,7 +343,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
           <div style={{fontSize:52}}>🏁</div>
           <div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{lang==='de'?'Ziel erreicht!':'Finish!'}</div>
           <div className="timer-grad" style={{fontSize:38}}>{fmtMs(doneCP[doneCP.length-1]?.time||el)}</div>
-          <button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:16,gap:8,marginTop:8}}
+          <button className="btn btn-coral" style={{width:'100%',padding:18,fontSize:18,gap:10,minHeight:56,borderRadius:14,marginTop:8}}
             onClick={()=>onComplete({doneCP,finalTime:doneCP[doneCP.length-1]?.time||Math.round(performance.now()-startPerf),lives})}>
             <I.Flag s={16}/> {lang==='de'?'Bestätigen':'Confirm finish'}
           </button>
