@@ -665,7 +665,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // In pipeline mode: athletesMap IS the global map, but queue = only pipeline stage athletes
   const pipelineAthIds=isPipeline&&stageAthletesRaw?new Set(Object.keys(stageAthletesRaw)):null;
   const athList=athletesMap?Object.values(athletesMap):[];
-  const stageAthList=isPipeline?athList.filter(a=>pipelineAthIds?.has(a.id)):athList.filter(a=>a.cat===catId);
+  const stageAthList=isPipeline?(pipelineAthIds&&pipelineAthIds.size>0?athList.filter(a=>pipelineAthIds.has(a.id)):(()=>{const _cats=pipelineStageCfg?.categories==='all'?IGN_CATS.map(c=>c.id):(pipelineStageCfg?.categoriesList||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})()):(athList.filter(a=>a.cat===catId));
   const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?r.stageId===stageId:(r.catId===catId&&r.stNum===stNum)).map(r=>r.athleteId):[]);
   const queue=stageAthList.filter(a=>!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
   const totalCatAthletes=stageAthList.length;
