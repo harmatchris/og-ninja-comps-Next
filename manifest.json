@@ -1,7 +1,7 @@
 {
-  "name": "OG Ninja Comp",
-  "short_name": "OG COMPS",
-  "description": "OG Games Ninja Competition Tool",
+  "name": "OG Comps",
+  "short_name": "OG Comps",
+  "description": "OG Comps \u2014 Ninja Competition Tool",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0B14",
