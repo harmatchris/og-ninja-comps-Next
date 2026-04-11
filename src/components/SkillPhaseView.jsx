@@ -18,6 +18,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const [liveNotif,setLiveNotif]=useState(null);
   const prevScoresRef=React.useRef(null);
   const [newSkillName,setNewSkillName]=useState('');
+  const [searchQ,setSearchQ]=useState('');
   const [showSkillMgmt,setShowSkillMgmt]=useState(false);
   const [now,setNow]=useState(Date.now());
 
@@ -118,6 +119,9 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const skillCats=skillPhase.skillCategories;
   const filteredAthList=skillCats&&skillCats!=='all'&&Array.isArray(skillCats)?athList.filter(a=>skillCats.includes(a.cat)):athList;
   const cats=[...new Set(filteredAthList.map(a=>a.cat))];
+  // Auto-select first skill and first category
+  useEffect(()=>{if(skills.length>0&&!selSkill)setSelSkill(skills[0].id);},[skills.length]);
+  useEffect(()=>{if(cats.length>0&&!selCat)setSelCat(cats[0]);},[cats.length]);
 
   // Difficulty multipliers
   const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
@@ -156,11 +160,12 @@ const SkillPhaseView=({compId,info,athletes})=>{
       const pStages=Object.entries(info.pipeline).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0));
       const firstRound=pStages.filter(s=>!s.predecessorStages||s.predecessorStages.length===0);
       firstRound.forEach(stage=>{
-        const sCats=stage.categories==='all'?cats:(stage.categoriesList||[]);
+        const sCats=stage.categories==='all'?cats:(Array.isArray(stage.categories)?stage.categories:[]);
         const stageAths=[];
         sCats.forEach(catId=>{const ranked=getRanking(catId);const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;stageAths.push(...ordered);});
         stageAths.forEach((a,i)=>{
           updates[`ogn/${compId}/pipeline/${stage.id}/athletes/${a.id}`]={id:a.id,name:a.name,num:a.num,cat:a.cat,team:a.team||'',country:a.country||'',queueOrder:i};
+          updates[`ogn/${compId}/athletes/${a.id}/pipelineQueueOrder/${stage.id}`]=i;
           updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
         });
       });
@@ -424,12 +429,16 @@ const SkillPhaseView=({compId,info,athletes})=>{
         const sk=skills.find(s=>s.id===selSkill);
         const catAths=filteredAthList.filter(a=>a.cat===activeCat);
         return(
-          <div className="sh-card" style={{padding:'12px 14px'}}>
-            <div className="lbl" style={{marginBottom:8}}>
-              {sk?.name||selSkill} — {IGN_CATS.find(c=>c.id===activeCat)?.name[lang]||activeCat}
-              <span style={{fontSize:10,fontWeight:400,color:'var(--muted)',marginLeft:8}}>3 Versuche · 100/50/20 Punkte</span>
+          <div className="sh-card" style={{padding:'14px 16px'}}>
+            <div style={{marginBottom:10}}>
+              <div className="lbl" style={{marginBottom:4}}>
+                {sk?.name||selSkill} — {IGN_CATS.find(c=>c.id===activeCat)?.name[lang]||activeCat}
+                <span style={{fontSize:10,fontWeight:400,color:'var(--muted)',marginLeft:8}}>3 Versuche · 100/50/20 Punkte</span>
+              </div>
+              <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>{catAths.length} {lang==='de'?'Athleten':'Athletes'} · {catAths.filter(a=>{const r=getAttemptResult(a.id,selSkill);return r.result!=null;}).length} {lang==='de'?'bewertet':'scored'}</div>
+              <input placeholder={lang==='de'?'Suche nach Name oder #...':'Search by name or #...'} value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',fontSize:14,color:'var(--text)',boxSizing:'border-box'}}/>
             </div>
-            {catAths.map(a=>{
+            {catAths.filter(a=>{if(!searchQ.trim())return true;const q=searchQ.toLowerCase();return a.name?.toLowerCase().includes(q)||String(a.num).includes(q);}).map(a=>{
               const res=getAttemptResult(a.id,selSkill);
               const done=res.result==='pass'||res.tries===3;
               return(
@@ -451,11 +460,11 @@ const SkillPhaseView=({compId,info,athletes})=>{
                         const alreadyDone=skillScores?.[a.id]?.[selSkill]?.[`a${n}`]!=null;
                         const canTry=(n===1&&!alreadyDone)||(n>1&&prevFailed&&!alreadyDone);
                         return canTry?(
-                          <div key={n} style={{display:'flex',flexDirection:'column',gap:3,alignItems:'center'}}>
-                            <div style={{fontSize:8,color:'var(--muted)',fontWeight:700}}>V{n}</div>
-                            <div style={{display:'flex',gap:2}}>
-                              <button style={{width:30,height:30,borderRadius:8,border:'1.5px solid rgba(52,199,89,.5)',background:'rgba(52,199,89,.1)',color:'var(--green)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setAttempt(a.id,selSkill,n,true)}>✓</button>
-                              <button style={{width:30,height:30,borderRadius:8,border:'1.5px solid rgba(255,59,48,.5)',background:'rgba(255,59,48,.1)',color:'var(--red)',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setAttempt(a.id,selSkill,n,false)}>✗</button>
+                          <div key={n} style={{display:'flex',flexDirection:'column',gap:6,alignItems:'center'}}>
+                            <div style={{fontSize:12,color:'var(--muted)',fontWeight:800,letterSpacing:'.05em'}}>V{n} ({n===1?'100P':n===2?'50P':'20P'})</div>
+                            <div style={{display:'flex',gap:8}}>
+                              <button style={{width:72,height:64,borderRadius:14,border:'2.5px solid rgba(52,199,89,.6)',background:'rgba(52,199,89,.12)',color:'var(--green)',cursor:'pointer',fontSize:28,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent',boxShadow:'0 2px 8px rgba(52,199,89,.15)'}} onClick={()=>setAttempt(a.id,selSkill,n,true)}>✓</button>
+                              <button style={{width:72,height:64,borderRadius:14,border:'2.5px solid rgba(255,59,48,.6)',background:'rgba(255,59,48,.12)',color:'var(--red)',cursor:'pointer',fontSize:28,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center',touchAction:'manipulation',WebkitTapHighlightColor:'transparent',boxShadow:'0 2px 8px rgba(255,59,48,.15)'}} onClick={()=>setAttempt(a.id,selSkill,n,false)}>✗</button>
                             </div>
                           </div>
                         ):null;
