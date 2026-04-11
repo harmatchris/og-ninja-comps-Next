@@ -9,7 +9,7 @@ import { AutocompleteInput, TopBar, EmptyState, DragList, TimePicker } from './s
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{},chRankingEnabled:false,chRankingFinale:false,skillPhase:{enabled:false,type:'oldschool',skills:[],timerHrs:0,seedingMode:'inverted'}});
+  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{},chRankingEnabled:false,chRankingFinale:false,skillPhase:{enabled:false,type:'oldschool',skills:[],timerMin:0,seedingMode:'inverted'}});
   // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
   const [stageObs,setStageObs]=useState(()=>{
     const n=initialInfo?.numStations||2;
@@ -170,7 +170,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const am0={};
     for(let i=0;i<numSt;i++){(stageAths[i]||[]).forEach(a=>{am0[a.id]=a;});}
     const data={
-      info:{...info,numStations:numSt,createdAt:Date.now()},
+      info:{...info,numStations:info.pipelineEnabled?0:numSt,createdAt:Date.now()},
       obstacles:om0,
       athletes:Object.keys(am0).length?am0:null,
       stages:stagesData,
@@ -178,7 +178,13 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     // Write pipeline config
     if(info.pipelineEnabled&&pipeline.length>0){
       const pipelineData={};
-      pipeline.forEach((stg,i)=>{pipelineData[stg.id]={...stg,order:i};});
+      pipeline.forEach((stg,i)=>{
+        const stgObs={};
+        (stageObs[i]||[]).forEach((o,idx)=>{stgObs[o.id]={...o,order:idx};});
+        const stgAths={};
+        (stageAths[i]||[]).forEach(a=>{stgAths[a.id]=a;});
+        pipelineData[stg.id]={...stg,order:i,obstacles:Object.keys(stgObs).length?stgObs:null,athletes:Object.keys(stgAths).length?stgAths:null};
+      });
       data.pipeline=pipelineData;
     }
     await fbSet(`ogn/${id}`,data);
@@ -200,6 +206,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   );
   const si=Math.min(obsStage,numSt-1);
   const curObs=stageObs[si]||[];
+  const curStageMode=info.pipelineEnabled&&info.pipeline?.[si]?.mode?info.pipeline[si].mode:info.mode;
   const asi=Math.min(athStage,numSt-1);
   const curAths=stageAths[asi]||[];
 
@@ -427,7 +434,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
                 {numSt>1&&catsWithAths.length>0&&(
             <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
-              <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}>ð {lang==='de'?'Qualifikation (mehrstufig)':'Qualification (multi-stage)'}</div>
+              <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}>🏆 {lang==='de'?'Qualifikation (mehrstufig)':'Qualification (multi-stage)'}</div>
               {catsWithAths.map(catId=>{
                 const cat=IGN_CATS.find(c=>c.id===catId);
                 const q=info.qualification?.[catId]||{};
@@ -463,7 +470,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 {step===1&&(
         <div className="section fade-up" style={{flex:1}}>
           {numSt>1&&<StageTabs active={si} onChange={setObsStage}/>}
-          {info.mode==='lives'&&(<div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'10px 12px',marginBottom:8}}>
+          {curStageMode==='lives'&&(<div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'10px 12px',marginBottom:8}}>
             <div className="lbl">❤️ Extra Life – Stage {si+1}</div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-start',marginTop:6}}>
               <div>
@@ -517,7 +524,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.target.closest('.drag-handle'))return;if(e.key==='Enter')addObs();}} style={{flex:1}}/>
             <button className="btn btn-coral" style={{padding:'10px 16px',flexShrink:0}} onClick={addObs}><I.Plus s={16}/></button>
           </div>
-          {info.mode==='lives'&&info?.stageExtraLife?.[si+1]?.livesPerSection&&(<>
+          {curStageMode==='lives'&&info?.stageExtraLife?.[si+1]?.livesPerSection&&(<>
             <button className="btn btn-ghost" style={{width:'100%',padding:'8px',fontSize:12,gap:6,borderColor:'rgba(255,200,0,.3)',color:'rgba(255,200,0,.8)'}}
               onClick={()=>setStageObs(s=>{const n=[...s];n[si]=[...n[si],{id:uid(),type:'section',name:'Start/Landeplattform',isCP:true,lives:info.lives||3,order:n[si].length}];return n;})}>
               ⬛ {lang==='de'?'Start/Landeplattform hinzufügen':'Add Start/Landing Platform'}
@@ -574,12 +581,29 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           </button>
           {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:11,color:'var(--muted)',textAlign:'center',marginTop:4,padding:'8px'}}>{lang==='de'?'Mindestens 1 Skill hinzufügen':'Add at least 1 skill'}</div>}
 
+          {/* Skill Categories / Divisionen */}
+          <div className="lbl" style={{marginTop:12,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><I.User s={13}/> {lang==='de'?'Divisionen für Skills':'Divisions for Skills'}</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            <button className={`chip${!(info.skillPhase?.skillCategories)||info.skillPhase?.skillCategories==='all'?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skillCategories:'all'})}>
+              {lang==='de'?'Alle':'All'}
+            </button>
+            {IGN_CATS.map(cat=>{
+              const selected=Array.isArray(info.skillPhase?.skillCategories)&&info.skillPhase.skillCategories.includes(cat.id);
+              return <button key={cat.id} className={`chip${selected?' active':''}`} style={{fontSize:10,padding:'2px 8px',...(selected?{background:`${cat.color}1A`,borderColor:`${cat.color}55`,color:cat.color}:{})}} onClick={()=>{
+                const cur=Array.isArray(info.skillPhase?.skillCategories)?info.skillPhase.skillCategories:[];
+                const next=selected?cur.filter(c=>c!==cat.id):[...cur,cat.id];
+                sI('skillPhase',{...(info.skillPhase||{}),skillCategories:next.length?next:'all'});
+              }}>{cat.name[lang]}</button>;
+            })}
+          </div>
+          <div style={{fontSize:10,color:'var(--muted)',marginTop:4,lineHeight:1.4}}>{lang==='de'?'Wähle welche Divisionen an der Skill Phase teilnehmen. Stages werden gesperrt bis Skills abgeschlossen.':'Select which divisions participate in the Skill Phase. Stages are locked until skills are complete.'}</div>
+
           {/* Timer */}
           <div className="lbl" style={{marginTop:12,marginBottom:6}}><I.Clock s={13}/> {lang==='de'?'Skill Phase Timer (0 = kein Limit)':'Skill Phase Timer (0 = no limit)'}</div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            {[0,1,2,3,4,5,6].map(h=>(
-              <button key={h} className={`chip${(info.skillPhase?.timerHrs||0)===h?' active':''}`} style={{fontSize:11,padding:'3px 9px',flex:1,justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerHrs:h})}>
-                {h===0?'∞':`${h}h`}
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+            {[0,5,10,15,20,30,45,60,90,120,180,240,300,360].map(m=>(
+              <button key={m} className={`chip${(info.skillPhase?.timerMin||0)===m?' active':''}`} style={{fontSize:10,padding:'3px 8px',justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerMin:m})}>
+                {m===0?'∞':m<60?`${m}m`:m%60===0?`${m/60}h`:`${Math.floor(m/60)}h${m%60}m`}
               </button>
             ))}
           </div>

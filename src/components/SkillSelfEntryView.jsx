@@ -22,21 +22,23 @@ const SkillSelfEntryView=({compId})=>{
 
   // Timer
   const timerStartedAt=skillStatus?.timerStartedAt||null;
-  const timerHrs=skillPhase.timerHrs||0;
-  const timerDurationMs=timerHrs*3600000;
+  const timerMin=skillPhase.timerMin||(skillPhase.timerHrs?skillPhase.timerHrs*60:0);
+  const timerDurationMs=timerMin*60000;
   const timerPaused=!!skillStatus?.paused;
   const pausedAt=skillStatus?.pausedAt||0;
   const pausedTotal=skillStatus?.pausedTotal||0;
-  const timerStarted=!!timerStartedAt&&timerHrs>0;
+  const timerStarted=!!timerStartedAt&&timerMin>0;
   const currentPauseDur=timerPaused&&pausedAt?(now-pausedAt):0;
   const timerElapsed=timerStarted?(now-timerStartedAt-pausedTotal-currentPauseDur):0;
   const timerRemaining=timerStarted?Math.max(0,timerDurationMs-timerElapsed):0;
   const timerExpired=timerStarted&&!timerPaused&&timerRemaining<=0;
   // Scoring only allowed when timer is running (started + not paused + not expired)
-  const scoringBlocked=timerHrs>0&&(!timerStarted||timerPaused||timerExpired);
+  const scoringBlocked=timerMin>0&&(!timerStarted||timerPaused||timerExpired);
   const fmtTimer=ms=>{const t=Math.floor(ms/1000);const h=Math.floor(t/3600);const m=Math.floor((t%3600)/60);const s=t%60;return h>0?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;};
   useEffect(()=>{if(!timerStarted||timerExpired||timerPaused)return;const iv=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(iv);},[timerStarted,timerExpired,timerPaused]);
-  const athList=athletes?Object.values(athletes):[];
+  const athListAll=athletes?Object.values(athletes):[];
+  const skillCats=skillPhase.skillCategories;
+  const athList=skillCats&&skillCats!=='all'&&Array.isArray(skillCats)?athListAll.filter(a=>skillCats.includes(a.cat)):athListAll;
   const cats=[...new Set(athList.map(a=>a.cat))];
   const activeCat=selCat||cats[0];
   const filtered=athList.filter(a=>a.cat===activeCat&&(!search.trim()||a.name.toLowerCase().includes(search.toLowerCase())||a.num?.toString()===search.trim()));
@@ -64,7 +66,7 @@ const SkillSelfEntryView=({compId})=>{
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
       <TopBar title="Skill Phase" sub={info.name||''} logo={false}/>
       {/* Timer bar */}
-      {timerHrs>0&&(
+      {timerMin>0&&(
         <div style={{padding:'10px 16px',
           background:timerExpired?'rgba(255,59,48,.15)':timerPaused?'rgba(255,149,0,.12)':timerStarted?'rgba(255,214,10,.1)':'rgba(255,255,255,.05)',
           borderBottom:`1px solid ${timerExpired?'rgba(255,59,48,.3)':timerPaused?'rgba(255,149,0,.35)':timerStarted?'rgba(255,214,10,.25)':'var(--border)'}`,
@@ -108,7 +110,7 @@ const SkillSelfEntryView=({compId})=>{
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={lang==='de'?'Name oder Startnummer suchen…':'Search name or start number…'} style={{marginBottom:8}}/>
             <div style={{display:'flex',flexDirection:'column',gap:4}}>
               {filtered.map(a=>(
-                <button key={a.id} className="sh-card btn" style={{padding:'12px 14px',textAlign:'left',display:'flex',gap:12,alignItems:'center',justifyContent:'flex-start'}} onClick={()=>setSelAth(a)}>
+                <button key={a.id} className="sh-card btn" style={{padding:'16px 18px',textAlign:'left',display:'flex',gap:14,alignItems:'center',justifyContent:'flex-start',minHeight:60}} onClick={()=>setSelAth(a)}>
                   <div style={{width:32,height:32,borderRadius:8,background:'rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:13,color:'var(--cor)',fontFamily:'JetBrains Mono',flexShrink:0}}>#{a.num}</div>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:700,fontSize:14}}>{a.name}</div>
@@ -163,24 +165,24 @@ const SkillSelfEntryView=({compId})=>{
                   )}
                   {!score.completed&&!scoringBlocked&&(
                     <div style={{display:'flex',gap:6}}>
-                      <button className="btn" style={{flex:1,padding:'12px',fontSize:13,gap:5,flexDirection:'column',background:'rgba(255,214,10,.12)',border:'1.5px solid rgba(255,214,10,.4)',color:'var(--gold)'}} onClick={()=>{
+                      <button className="btn" style={{flex:1,padding:'18px 12px',fontSize:15,gap:6,flexDirection:'column',background:'rgba(255,214,10,.12)',border:'2px solid rgba(255,214,10,.4)',color:'var(--gold)',minHeight:80,borderRadius:14}} onClick={()=>{
                         const path=`ogn/${compId}/skillScores/${selAth.id}/${sk.id}`;
                         fbSet(path,{attempts:1,completed:true,flashed:true,poolScore:1000});SFX.checkpoint();
                       }}>
-                        <span style={{fontSize:18}}>⚡</span>
+                        <span style={{fontSize:28}}>⚡</span>
                         <span style={{fontWeight:800}}>Flash</span>
                       </button>
-                      <button className="btn" style={{flex:1,padding:'12px',fontSize:13,gap:5,flexDirection:'column',background:'rgba(52,199,89,.15)',border:'1.5px solid rgba(52,199,89,.4)',color:'var(--green)'}} onClick={()=>{
+                      <button className="btn" style={{flex:1,padding:'18px 12px',fontSize:15,gap:6,flexDirection:'column',background:'rgba(52,199,89,.15)',border:'2px solid rgba(52,199,89,.4)',color:'var(--green)',minHeight:80,borderRadius:14}} onClick={()=>{
                         const path=`ogn/${compId}/skillScores/${selAth.id}/${sk.id}`;
                         const cur=skillScores?.[selAth.id]?.[sk.id]||{attempts:0,completed:false,flashed:false};
                         const newAttempts=Math.max((cur.attempts||0)+1,2);
                         fbSet(path,{...cur,attempts:newAttempts,completed:true,flashed:false,poolScore:1000});SFX.checkpoint();
                       }}>
-                        <span style={{fontSize:18}}>✓</span>
+                        <span style={{fontSize:28}}>✓</span>
                         <span style={{fontWeight:800}}>Top</span>
                       </button>
-                      <button className="btn" style={{flex:1,padding:'12px',fontSize:13,gap:5,flexDirection:'column',background:'rgba(255,59,48,.1)',border:'1.5px solid rgba(255,59,48,.35)',color:'var(--red)'}} onClick={()=>recordAttempt(sk.id,false)}>
-                        <span style={{fontSize:18}}>✗</span>
+                      <button className="btn" style={{flex:1,padding:'18px 12px',fontSize:15,gap:6,flexDirection:'column',background:'rgba(255,59,48,.1)',border:'2px solid rgba(255,59,48,.35)',color:'var(--red)',minHeight:80,borderRadius:14}} onClick={()=>recordAttempt(sk.id,false)}>
+                        <span style={{fontSize:28}}>✗</span>
                         <span style={{fontWeight:800}}>Failed</span>
                       </button>
                     </div>

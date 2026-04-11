@@ -23,12 +23,12 @@ const SkillPhaseView=({compId,info,athletes})=>{
 
   // Timer state from Firebase
   const timerStartedAt=skillStatus?.timerStartedAt||null;
-  const timerHrs=skillPhase.timerHrs||0;
-  const timerDurationMs=timerHrs*3600000;
+  const timerMin=skillPhase.timerMin||(skillPhase.timerHrs?skillPhase.timerHrs*60:0);
+  const timerDurationMs=timerMin*60000;
   const timerPaused=!!skillStatus?.paused;
   const pausedAt=skillStatus?.pausedAt||0;
   const pausedTotal=skillStatus?.pausedTotal||0;
-  const timerStarted=!!timerStartedAt&&timerHrs>0;
+  const timerStarted=!!timerStartedAt&&timerMin>0;
   // Effective elapsed = now - startedAt - totalPausedTime - (if currently paused, time since pause start)
   const currentPauseDur=timerPaused&&pausedAt?(now-pausedAt):0;
   const timerElapsed=timerStarted?(now-timerStartedAt-pausedTotal-currentPauseDur):0;
@@ -115,7 +115,9 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const athList=athletes?Object.values(athletes):[];
   const skills=skillPhase.skills||[];
   const isOldschool=(skillPhase.type||'oldschool')==='oldschool';
-  const cats=[...new Set(athList.map(a=>a.cat))];
+  const skillCats=skillPhase.skillCategories;
+  const filteredAthList=skillCats&&skillCats!=='all'&&Array.isArray(skillCats)?athList.filter(a=>skillCats.includes(a.cat)):athList;
+  const cats=[...new Set(filteredAthList.map(a=>a.cat))];
 
   // Difficulty multipliers
   const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
@@ -210,7 +212,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
     const prev=prevScoresRef.current;
     const newFlash=new Set();
     let notifMsg=null;
-    athList.forEach(a=>{
+    filteredAthList.forEach(a=>{
       skills.forEach(sk=>{
         const cur=skillScores?.[a.id]?.[sk.id];
         const prv=prev?.[a.id]?.[sk.id];
@@ -251,7 +253,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
             <div style={{fontSize:11,color:'var(--muted)'}}>
               {isOldschool?(lang==='de'?'Jury-Modus — Versuche werden eingetragen':'Jury mode — attempts recorded'):'Boulderstyle — Athleten tragen selbst ein'}
               {' · '}{skills.length} {lang==='de'?'Skills':'skills'}
-              {skillPhase.timerHrs>0&&` · ${skillPhase.timerHrs}h Timer`}
+              {skillPhase.timerMin>0&&` · ${timerMin>=60?Math.floor(timerMin/60)+"h"+(timerMin%60?timerMin%60+"m":""):timerMin+"m"} Timer`}
             </div>
           </div>
         </div>
@@ -280,7 +282,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
       )}
 
       {/* Timer */}
-      {timerHrs>0&&(
+      {timerMin>0&&(
         <div className="sh-card" style={{padding:'12px 16px',
           background:timerExpired?'rgba(255,59,48,.1)':timerPaused?'rgba(255,149,0,.1)':timerStarted?'rgba(255,214,10,.08)':'rgba(255,255,255,.03)',
           borderColor:timerExpired?'rgba(255,59,48,.35)':timerPaused?'rgba(255,149,0,.4)':timerStarted?'rgba(255,214,10,.3)':'var(--border)'}}>
@@ -420,7 +422,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
       {/* Skill scoring view (oldschool) */}
       {selSkill&&isOldschool&&(()=>{
         const sk=skills.find(s=>s.id===selSkill);
-        const catAths=athList.filter(a=>a.cat===activeCat);
+        const catAths=filteredAthList.filter(a=>a.cat===activeCat);
         return(
           <div className="sh-card" style={{padding:'12px 14px'}}>
             <div className="lbl" style={{marginBottom:8}}>

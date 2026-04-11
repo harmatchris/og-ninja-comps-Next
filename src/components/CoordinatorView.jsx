@@ -27,9 +27,9 @@ const SkillRankingLive=({compId,info,athletes})=>{
 
   // Timer display
   const timerStartedAt=skillStatus?.timerStartedAt||null;
-  const timerHrs=skillPhase.timerHrs||0;
-  const timerDurationMs=timerHrs*3600000;
-  const timerRunning=!!timerStartedAt&&timerHrs>0;
+  const timerMin=skillPhase.timerMin||(skillPhase.timerHrs?skillPhase.timerHrs*60:0);
+  const timerDurationMs=timerMin*60000;
+  const timerRunning=!!timerStartedAt&&timerMin>0;
   const [now,setNow]=useState(Date.now());
   const timerRemaining=timerRunning?Math.max(0,timerDurationMs-(now-timerStartedAt)):0;
   const timerExpired=timerRunning&&timerRemaining<=0;
@@ -67,7 +67,7 @@ const SkillRankingLive=({compId,info,athletes})=>{
   return(
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       {/* Timer bar */}
-      {timerHrs>0&&timerRunning&&(
+      {timerMin>0&&timerRunning&&(
         <div style={{padding:'10px 16px',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',gap:10,
           background:timerExpired?'rgba(255,59,48,.12)':'rgba(255,214,10,.1)',border:`1px solid ${timerExpired?'rgba(255,59,48,.3)':'rgba(255,214,10,.25)'}`}}>
           <I.Clock s={18} c={timerExpired?'var(--red)':'var(--gold)'}/>
@@ -235,9 +235,13 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     acProfileSave(newA.name,{team:newA.team,country:newA.country,gender:newA.gender,photo:newA.photo});
     acSave(AC_KEYS.names,newA.name);if(newA.team)acSave(AC_KEYS.teams,newA.team);if(newA.country)acSave(AC_KEYS.countries,newA.country);
     // Also write to all stage athlete lists so they show up in JuryApp
-    const numSt2=info.numStations||1;
     const updates={};
-    for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${id}`]=newA;}
+    if(info?.pipelineEnabled&&pipelineData){
+      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${id}`]=newA;});
+    }else{
+      const numSt2=info.numStations||1;
+      for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${id}`]=newA;}
+    }
     if(Object.keys(updates).length)db.ref().update(updates);
     setQuickAth(a=>({...a,name:'',num:'',country:'',team:'',photo:null}));
     setAddingAth(false);SFX.complete();
@@ -249,9 +253,13 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     await fbSet(`ogn/${compId}/athletes/${a.id}`,a);
     acProfileSave(a.name,{team:a.team||'',country:a.country||'',gender:a.gender,photo:a.photo||null});
     acSave(AC_KEYS.names,a.name);if(a.team)acSave(AC_KEYS.teams,a.team);if(a.country)acSave(AC_KEYS.countries,a.country);
-    const numSt2=info.numStations||1;
     const updates={};
-    for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=a;}
+    if(info?.pipelineEnabled&&pipelineData){
+      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=a;});
+    }else{
+      const numSt2=info.numStations||1;
+      for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=a;}
+    }
     if(Object.keys(updates).length)db.ref().update(updates);
     setEditingAth(null);setEditAthDraft(null);SFX.complete();
   };
@@ -303,9 +311,13 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
 const handleDeleteAth=async(a)=>{
     if(!window.confirm(lang==='de'?`Athlet "${a.name}" wirklich löschen?\nBereits absolvierte Läufe bleiben erhalten.`:`Delete athlete "${a.name}"?\nCompleted runs are kept.`))return;
     await fbRemove(`ogn/${compId}/athletes/${a.id}`);
-    const numSt2=info.numStations||1;
     const updates={};
-    for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=null;}
+    if(info?.pipelineEnabled&&pipelineData){
+      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=null;});
+    }else{
+      const numSt2=info.numStations||1;
+      for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=null;}
+    }
     if(Object.keys(updates).length)db.ref().update(updates);
     if(editingAth===a.id){setEditingAth(null);setEditAthDraft(null);}
     SFX.fall();
@@ -449,7 +461,9 @@ const handleDeleteAth=async(a)=>{
                     ?<div style={{width:'100%',padding:12,fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:7,opacity:.5,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>✔ {lang==='de'?'Abgeschlossen':'Closed'}</div>
                     :!predsClosed
                       ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>🔒 {lang==='de'?'Vorgänger-Stage(s) erst abschließen':'Complete predecessor stage(s) first'}</div>
-                      :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(0,stageKey);}}><I.Play s={16}/> {stageName} starten</button>
+                      :info?.skillPhase?.enabled&&!skillStatus?.seedingDone&&!skillStatus?.finalized
+                        ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'rgba(52,199,89,.7)'}}>🔒 {lang==='de'?'Skill Phase muss erst abgeschlossen werden':'Complete Skill Phase first'}</div>
+                        :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(0,stageKey);}}><I.Play s={16}/> {stageName} starten</button>
                 }
                 {/* Close stage button (shows when not occupied, not closed, has successors or qualiPercent) */}
                 {!stageClosed&&!isOccupied&&(successors.length>0||pStage.qualiPercent>0)&&predsClosed&&(
