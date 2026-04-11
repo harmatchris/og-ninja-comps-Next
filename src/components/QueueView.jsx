@@ -55,7 +55,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const stages=isPipeline?pipelineStages.map(s=>s.id):Array.from({length:numStages},(_,i)=>i+1);
-  const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(ps?.categoriesList||[]);return catIds.length>0;}):stages.filter(sn=>allStations?.[sn]?.cat);
+  const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(ps?.categories)?ps.categories:[]);const catSet=new Set(catIds);return catIds.length>0&&athList.some(a=>catSet.has(a.cat));}):stages.filter(sn=>allStations?.[sn]?.cat);
 
   if(!allStations&&!info)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><Spinner/></div>;
   if(activeStages.length===0)return(
@@ -80,14 +80,18 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
       {activeStages.map(sn=>{
         const pStage=isPipeline?pipelineStages.find(s=>s.id===sn):null;
         const catId=isPipeline?null:allStations?.[sn]?.cat;
-        const stageCatIds=isPipeline?(pStage?.categories==='all'?IGN_CATS.map(c=>c.id):(pStage?.categoriesList||[])):(catId?[catId]:[]);
+        const stageCatIds=isPipeline?(pStage?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage?.categories)?pStage.categories:[])):(catId?[catId]:[]);
         const stageCatSet=new Set(stageCatIds);
         const cat=isPipeline?(stageCatIds.length===1?IGN_CATS.find(c=>c.id===stageCatIds[0]):null):IGN_CATS.find(c=>c.id===catId);
         const doneIds=new Set(runList.filter(r=>isPipeline?(r.stageId===sn&&stageCatSet.has(r.catId)):(r.catId===catId&&r.stNum===sn)).map(r=>r.athleteId));
         const activeRun=allActiveRuns?.[sn];
         const runningId=(activeRun&&(activeRun.phase==='active'||activeRun.phase==='countdown'))?activeRun.athleteId:null;
         const queue=athList.filter(a=>isPipeline?(stageCatSet.has(a.cat)&&!doneIds.has(a.id)):(a.cat===catId&&!doneIds.has(a.id)))
-          .sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
+          .sort((a,b)=>{
+            const aOrd=isPipeline?(a.pipelineQueueOrder?.[sn]??a.queueOrder??999):(a.queueOrder??999);
+            const bOrd=isPipeline?(b.pipelineQueueOrder?.[sn]??b.queueOrder??999):(b.queueOrder??999);
+            return aOrd-bOrd;
+          });
         const total=athList.filter(a=>isPipeline?stageCatSet.has(a.cat):(a.cat===catId)).length;
         const done=doneIds.size;
 
@@ -95,7 +99,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
           <div key={sn} style={{background:'rgba(48,209,88,.06)',border:'1px solid rgba(48,209,88,.25)',borderRadius:tvMode?18:12,padding:tvMode?'20px 24px':'12px 14px'}}>
             <div style={{fontWeight:800,fontSize:tvMode?17:12}}>{isPipeline?(pStage?.name||'Stage'):('Stage '+sn)}</div>
             {cat&&<div style={{fontSize:tvMode?13:10,color:'var(--muted)',marginBottom:4}}>{catName(cat)}</div>}
-            <div style={{fontSize:tvMode?15:11,color:'#30D158',fontWeight:700}}>✓ {lang==='de'?`Alle ${total} fertig`:`All ${total} done`}</div>
+            <div style={{fontSize:tvMode?15:11,color:'#30D158',fontWeight:700}}>\u2713 {lang==='de'?`Alle ${total} fertig`:`All ${total} done`}</div>
           </div>
         );
 
@@ -103,11 +107,10 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
         const slotMs=avgMs+22000;
         const recentCnt=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
         const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
-        const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`Ø${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
+        const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`\u00d8${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
 
         return(
           <div key={sn} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:tvMode?18:12,overflow:'hidden'}}>
-            {/* Stage header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:tvMode?'12px 18px':'8px 12px',background:'rgba(255,255,255,.03)',borderBottom:'1px solid var(--border)'}}>
               <div style={{display:'flex',alignItems:'center',gap:tvMode?12:8}}>
                 <div style={{width:tvMode?38:26,height:tvMode?38:26,borderRadius:tvMode?10:7,background:'rgba(255,94,58,.14)',border:'1px solid rgba(255,94,58,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?20:13,fontWeight:900,color:'var(--coral)',flexShrink:0}}>{sn}</div>
@@ -121,20 +124,19 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
                 <div style={{fontSize:tvMode?10:8,color:'var(--dim)',marginTop:1}}>{basisLabel}</div>
               </div>
             </div>
-            {/* Auto-scrolling athlete list */}
             <AutoScrollList itemCount={queue.length} tvMode={tvMode}>
               {queue.map((ath,i)=>{
                 const isNowRunning=ath.id===runningId;
                 const slotsAhead=i;
                 let etaLabel,etaColor;
-                if(isNowRunning){etaLabel='▶';etaColor='#30D158';}
-                else if(slotsAhead===0){etaLabel=lang==='de'?'Next →':'Next →';etaColor='var(--coral)';}
+                if(isNowRunning){etaLabel='\u25b6';etaColor='#30D158';}
+                else if(slotsAhead===0){etaLabel=lang==='de'?'Next \u2192':'Next \u2192';etaColor='var(--coral)';}
                 else{const mins=Math.max(1,Math.round((slotsAhead*slotMs)/60000));etaLabel=`~${mins}m`;etaColor=mins<=3?'var(--gold)':'var(--muted)';}
                 const isNext=!runningId&&i===0;
                 const isLast=i===queue.length-1;
                 return(
                   <div key={ath.id} style={{display:'flex',alignItems:'center',gap:tvMode?12:7,padding:tvMode?'12px 18px':'7px 12px',background:isNowRunning?'rgba(48,209,88,.07)':isNext?'rgba(255,94,58,.06)':'transparent',borderBottom:isLast?'none':'1px solid rgba(255,255,255,.04)'}}>
-                    <div style={{width:tvMode?24:18,textAlign:'center',fontSize:tvMode?14:10,fontWeight:900,color:isNowRunning?'#30D158':isNext?'var(--coral)':'var(--dim)',flexShrink:0}}>{isNowRunning?'▶':(i+1)}</div>
+                    <div style={{width:tvMode?24:18,textAlign:'center',fontSize:tvMode?14:10,fontWeight:900,color:isNowRunning?'#30D158':isNext?'var(--coral)':'var(--dim)',flexShrink:0}}>{isNowRunning?'\u25b6':(i+1)}</div>
                     {ath.photo
                       ?<img src={ath.photo} style={{width:photoSz,height:photoSz,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`2px solid ${isNowRunning?'rgba(48,209,88,.5)':isNext?'rgba(255,94,58,.4)':'rgba(255,255,255,.1)'}`}}/>
                       :<div style={{width:photoSz,height:photoSz,borderRadius:'50%',background:isNext?'rgba(255,94,58,.1)':'rgba(255,255,255,.05)',border:`2px solid ${isNext?'rgba(255,94,58,.3)':'rgba(255,255,255,.08)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -142,7 +144,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
                       </div>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:nameSz,fontWeight:700,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:isNowRunning?'#30D158':isNext?'#fff':'var(--text)'}}>{ath.name}</div>
-                      <div style={{fontSize:subSz,color:'var(--dim)',marginTop:1}}>#{ath.num}{ath.team?` · ${ath.team}`:''}</div>
+                      <div style={{fontSize:subSz,color:'var(--dim)',marginTop:1}}>#{ath.num}{ath.team?` \u00b7 ${ath.team}`:''}</div>
                     </div>
                     <div style={{fontSize:etaSz,fontWeight:700,color:etaColor,flexShrink:0}}>{etaLabel}</div>
                   </div>
