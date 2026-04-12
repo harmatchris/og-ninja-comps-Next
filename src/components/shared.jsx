@@ -87,7 +87,7 @@ const CompEmoji=({emoji,logo,s=40})=>logo?<img src={logo} style={{width:s,height
 
 const TopBar=({title,sub,onBack,right,logo=true})=>(
   <div className="topbar">
-    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div className="topbar-logo"><I.Bolt s={14}/></div>}
+    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div className="topbar-logo" style={{background:"transparent",boxShadow:"none"}}><I.NinjaLogo s={30}/></div>}
     <div style={{flex:1}}><div className="topbar-title">{title}</div>{sub&&<div className="topbar-sub">{sub}</div>}</div>
     {right}
   </div>
@@ -121,7 +121,7 @@ const DragList=({items,onReorder,renderItem,keyFn,onExternalDrop})=>{
     if(to!==from){const a=[...items];const[m]=a.splice(from,1);a.splice(to,0,m);onReorder(a);SFX.click();}
     dragIdxRef.current=null;setDragging(null);setInsertAt(null);
   };
-  // Touch drag (mobile) — only initiates from .drag-handle
+  // Touch drag (mobile) â only initiates from .drag-handle
   const onItemTouchStart=(idx,e)=>{
     if(!e.target.closest('.drag-handle'))return;
     dragIdxRef.current=idx;setDragging(idx);setInsertAt(idx);
