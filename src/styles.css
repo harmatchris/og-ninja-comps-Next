@@ -76,7 +76,7 @@ select option{background:#1A1A2C;}
   cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
 .chip:hover{background:rgba(255,255,255,.07);color:var(--text);}
 .chip.active{background:rgba(255,94,58,.14);border-color:rgba(255,94,58,.4);color:var(--cor);}
-/* cp pills — obstacle name pills (Superhuman style) */
+/* cp pills -- obstacle name pills (Superhuman style) */
 .cp-pill{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:500;transition:all .22s;}
 .cp-pill.done{background:rgba(255,94,58,.12);border:1px solid rgba(255,94,58,.28);color:rgba(255,94,58,.85);}
 .cp-pill.cur{background:rgba(255,94,58,.22);border:1px solid rgba(255,94,58,.6);color:var(--cor);}
@@ -133,8 +133,8 @@ select option{background:#1A1A2C;}
 .rw-chapter{border-bottom:1px solid var(--border);}
 .rw-chapter summary{padding:15px 16px;cursor:pointer;font-weight:700;font-size:14px;
   list-style:none;display:flex;justify-content:space-between;align-items:center;user-select:none;}
-.rw-chapter[open] summary::after{content:'▲';font-size:9px;color:var(--muted);}
-.rw-chapter summary::after{content:'▼';font-size:9px;color:var(--dim);}
+.rw-chapter[open] summary::after{content:'\25B2';font-size:9px;color:var(--muted);}
+.rw-chapter summary::after{content:'\25BC';font-size:9px;color:var(--dim);}
 .rw-body{padding:0 16px 16px;font-size:13px;color:var(--muted);line-height:1.75;}
 .rw-body p{margin-bottom:8px;}
 .rw-body strong{color:rgba(255,255,255,.7);}
@@ -154,3 +154,13 @@ select option{background:#1A1A2C;}
 @keyframes fade-up{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 @keyframes name-pop{0%{opacity:0;letter-spacing:.22em;filter:blur(8px);}70%{filter:blur(0);}100%{opacity:1;letter-spacing:.06em;}}
 @keyframes ring-pulse{0%,100%{opacity:0;transform:scale(.7);}40%{opacity:.25;}80%{opacity:0;transform:scale(1.6);}}
+
+/* fancy button enhancements */
+.btn{transition:all .18s ease;position:relative;overflow:hidden;}
+.btn:active{transform:scale(.97);}
+.btn-coral:hover{box-shadow:0 6px 22px rgba(255,94,58,.4);filter:brightness(1.08);}
+.btn-ghost:hover{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.15);}
+.chip{transition:all .15s ease;}
+.chip:active{transform:scale(.95);}
+.sh-card:hover{border-color:rgba(255,255,255,.13);background:rgba(255,255,255,.04);}
+.sh-card:active{transform:scale(.99);}
