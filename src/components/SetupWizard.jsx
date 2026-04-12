@@ -6,183 +6,238 @@ import { SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { AutocompleteInput, TopBar, EmptyState, DragList, TimePicker } from './shared.jsx';
 
+/* ââ colour palette for main-stage frames ââ */
+const FRAME_COLORS=['#FF5E3A','#5E9CFF','#34C759','#FF9F0A','#BF5AF2','#FF375F','#30D158','#64D2FF'];
+
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
-  const [info,setInfo]=useState(initialInfo||{name:'',date:today(),location:'',mode:'classic',numStations:2,lives:3,timeLimit:0,stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},emoji:'',logo:null,qualification:{},chRankingEnabled:false,chRankingFinale:false,skillPhase:{enabled:false,type:'oldschool',skills:[],timerMin:0,seedingMode:'inverted'}});
-  // Per-stage obstacles: array[stageIdx] = [{id,name,isCP,order}]
+
+  /* ââ info state ââ */
+  const [info,setInfo]=useState(initialInfo||{
+    name:'',date:today(),location:'',
+    modes:[],                           // NEW: array of 'skill','classic','lives'
+    mode:'classic',                     // kept for backward compat
+    pipelineEnabled:true,               // always stagebuilder now
+    pipeline:[],                        // main stages + continuations
+    numStations:0,
+    lives:3,timeLimit:0,
+    stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},
+    emoji:'',logo:null,
+    qualification:{},
+    chRankingEnabled:false,chRankingFinale:false,
+    skillPhase:{enabled:false,type:'oldschool',skills:[],timerMin:0,seedingMode:'inverted',skillCategories:'all'}
+  });
+
+  /* ââ migrate old data ââ */
+  useEffect(()=>{
+    if(initialInfo&&!initialInfo.modes){
+      const m=[];
+      if(initialInfo.skillPhase?.enabled)m.push('skill');
+      if(initialInfo.mode==='classic'||!initialInfo.mode)m.push('classic');
+      if(initialInfo.mode==='lives')m.push('lives');
+      sI('modes',m.length?m:['classic']);
+    }
+  },[]);
+
   const [stageObs,setStageObs]=useState(()=>{
-    const n=initialInfo?.numStations||2;
-    return Array.from({length:4},(_,i)=>{
+    return Array.from({length:8},(_,i)=>{
       if(initialStages?.[i+1]?.obstacles)return Object.values(initialStages[i+1].obstacles).sort((a,b)=>a.order-b.order);
       if(initialObstacles&&i===0)return Object.values(initialObstacles).sort((a,b)=>a.order-b.order);
       return DEF_OBS.map(o=>({...o,id:uid()}));
     });
   });
-  // Per-stage athletes: array[stageIdx] = [{id,name,num,cat,stageNum}]
   const [stageAths,setStageAths]=useState(()=>{
-    const n=initialInfo?.numStations||2;
-    return Array.from({length:4},(_,i)=>{
+    return Array.from({length:8},(_,i)=>{
       if(initialStages?.[i+1]?.athletes)return Object.values(initialStages[i+1].athletes);
       if(initialAthletes&&i===0)return Object.values(initialAthletes);
       return [];
     });
   });
-  const [obsStage,setObsStage]=useState(0);// which stage tab is active for obstacles
-  const [athStage,setAthStage]=useState(0);// which stage tab is active for athletes
+
+  const [obsStage,setObsStage]=useState(0);
+  const [athStage,setAthStage]=useState(0);
   const [newObs,setNewObs]=useState('');
   const [newAth,setNewAth]=useState({name:'',num:'1',cat:'am1',gender:'m',country:'',team:'',photo:null,stageNum:1});
   const [saving,setSaving]=useState(false);
   const [csvError,setCsvError]=useState('');
+  const [showEmojiPicker,setShowEmojiPicker]=useState(false);
   const sI=(k,v)=>setInfo(i=>({...i,[k]:v}));
-  const setStageLim=(n,v)=>setInfo(i=>({...i,stageLimits:{...(i.stageLimits||{}),[n]:v}}));
-  // CH Ranking unlock
+
+  /* ââ CH Ranking ââ */
   const [chRankingUnlocked,setChRankingUnlocked]=useState(!!(initialInfo?.chRankingEnabled));
   const [chRankingPwPrompt,setChRankingPwPrompt]=useState(false);
   const [chRankingPwInput,setChRankingPwInput]=useState('');
   const CH_RANKING_PW='CH2026';
   const tryUnlock=()=>{if(chRankingPwInput===CH_RANKING_PW){setChRankingUnlocked(true);setChRankingPwPrompt(false);setChRankingPwInput('');}else{setChRankingPwInput('');alert(lang==='de'?'Falsches Passwort':'Wrong password');}};
-  const numSt=info.pipelineEnabled?(info.pipeline||[]).length:(info.numStations||1);const catsWithAths=[...new Set((stageAths||[]).flat().map(a=>a.cat))];
-  // Sync stageNum in newAth when obsStage changes
-  const curAthStage=athStage;
+
+  /* ââ derived ââ */
+  const modes=info.modes||[];
+  const hasSkill=modes.includes('skill');
+  const hasClassic=modes.includes('classic');
+  const hasLives=modes.includes('lives');
+  const hasAnyStage=hasClassic||hasLives;
+  const pipeline=info.pipeline||[];
+  const numSt=pipeline.length;
+  const catsWithAths=[...new Set((stageAths||[]).flat().map(a=>a.cat))];
+
+  /* ââ step flow ââ */
+  // step 0: basic info + modes
+  // step 1: skill config (if skill enabled)
+  // step 2: stage builder + obstacles (if any stage mode)
+  // step 3: athletes
+  const steps=[];
+  steps.push('info');
+  if(hasSkill)steps.push('skills');
+  if(hasAnyStage)steps.push('stages');
+  steps.push('athletes');
+  const maxStep=steps.length-1;
+  const stepLabel={info:'Setup',skills:'Skills',stages:t('obstacles'),athletes:t('athletes')};
 
   const resizePhoto=resizePhotoUtil;
+
+  /* ââ obstacle helpers ââ */
+  const si=Math.min(obsStage,Math.max(numSt-1,0));
+  const curObs=stageObs[si]||[];
   const addObs=()=>{
     if(!newObs.trim())return;
-    const si=Math.min(obsStage,numSt-1);
-    setStageObs(s=>{const n=[...s];n[si]=[...n[si],{id:uid(),name:newObs.trim(),isCP:true,order:n[si].length}];return n;});
+    const idx=Math.min(obsStage,Math.max(numSt-1,0));
+    setStageObs(s=>{const n=[...s];n[idx]=[...n[idx],{id:uid(),name:newObs.trim(),isCP:true,order:n[idx].length}];return n;});
     setNewObs('');SFX.click();
   };
   const reorderObs=arr=>{
-    const si=Math.min(obsStage,numSt-1);
-    setStageObs(s=>{const n=[...s];n[si]=arr.map((o,i)=>({...o,order:i}));return n;});
+    const idx=Math.min(obsStage,Math.max(numSt-1,0));
+    setStageObs(s=>{const n=[...s];n[idx]=arr.map((o,i)=>({...o,order:i}));return n;});
   };
-  const removeObs=(si,id)=>{
-    setStageObs(s=>{const n=[...s];n[si]=n[si].filter(o=>o.id!==id);return n;});
-  };
-  const toggleObsCP=(si,id)=>{
-    setStageObs(s=>{const n=[...s];n[si]=n[si].map(o=>o.id===id?{...o,isCP:!o.isCP}:o);return n;});
-  };
+  const removeObs=(idx,id)=>{setStageObs(s=>{const n=[...s];n[idx]=n[idx].filter(o=>o.id!==id);return n;});};
+  const toggleObsCP=(idx,id)=>{setStageObs(s=>{const n=[...s];n[idx]=n[idx].map(o=>o.id===id?{...o,isCP:!o.isCP}:o);return n;});};
+
+  /* ââ athlete helpers ââ */
+  const asi=Math.min(athStage,Math.max(numSt-1,0));
+  const curAths=stageAths[asi]||[];
   const addAth=()=>{
     if(!newAth.name.trim())return;
-    const si=Math.min(curAthStage,numSt-1);
-    const stageNum=si+1;
-    setStageAths(a=>{const n=[...a];n[si]=[...n[si],{id:uid(),...newAth,stageNum}];return n;});
-    // Persist for autocomplete
+    const idx=Math.min(athStage,Math.max(numSt-1,0));
+    const stageNum=idx+1;
+    setStageAths(a=>{const n=[...a];n[idx]=[...n[idx],{id:uid(),...newAth,stageNum}];return n;});
     acSave(AC_KEYS.names,newAth.name);
     if(newAth.team)acSave(AC_KEYS.teams,newAth.team);
     if(newAth.country)acSave(AC_KEYS.countries,newAth.country);
     acProfileSave(newAth.name,{country:newAth.country||'',photo:newAth.photo||null});
-    setNewAth(a=>({...a,name:'',num:String(stageAths[si].length+2)}));
+    setNewAth(a=>({...a,name:'',num:String((stageAths[idx]||[]).length+2)}));
     SFX.click();
   };
-  const removeAth=(si,id)=>{
-    setStageAths(a=>{const n=[...a];n[si]=n[si].filter(x=>x.id!==id);return n;});
-  };
-  const reorderAth=(si,arr)=>{
-    setStageAths(a=>{const na=[...a];na[si]=arr;return na;});
-  };
+  const removeAth=(idx,id)=>{setStageAths(a=>{const n=[...a];n[idx]=n[idx].filter(x=>x.id!==id);return n;});};
+  const reorderAth=(idx,arr)=>{setStageAths(a=>{const na=[...a];na[idx]=arr;return na;});};
 
-  // CSV Import
-  const normalizeGender=raw=>{
-    const g=(raw||'').trim().toLowerCase();
-    if(['m','male','männlich','maennlich','man'].includes(g))return 'm';
-    if(['w','f','female','weiblich','frau','woman'].includes(g))return 'w';
-    if(['d','div','diverse','divers','non-binary','nb','x'].includes(g))return 'd';
-    return 'm'; // default
-  };
-  const importCSV=(si,text)=>{
+  /* ââ CSV import ââ */
+  const normalizeGender=raw=>{const g=(raw||'').trim().toLowerCase();if(['m','male'].includes(g))return 'm';if(['w','f','female'].includes(g))return 'w';if(['d','div','diverse'].includes(g))return 'd';return 'm';};
+  const importCSV=(idx,text)=>{
     setCsvError('');
     const lines=text.trim().split(/\r?\n/).filter(l=>l.trim());
-    // Skip header row if it looks like a header
-    const start=(lines[0]&&isNaN(lines[0].split(/[,;\t]/)[0].trim())&&!lines[0].split(/[,;\t]/)[0].trim().match(/^\d/))?1:0;
+    const start=(lines[0]&&isNaN(lines[0].split(/[,;\t]/)[0].trim()))?1:0;
     const results=[];
     for(const line of lines.slice(start)){
       const parts=line.split(/[,;\t]/).map(s=>s.trim().replace(/^["']|["']$/g,''));
-      if(parts.length<2){setCsvError(`Ungültige Zeile: ${line}`);return;}
+      if(parts.length<2){setCsvError(`UngÃ¼ltige Zeile: ${line}`);return;}
       const [num,name,catRaw='',genderRaw='',countryRaw='',teamRaw='']=parts;
       const catLow=catRaw.toLowerCase();
       const cat=IGN_CATS.find(c=>c.id===catLow||c.name.de.toLowerCase().includes(catLow)||c.name.en.toLowerCase().includes(catLow))||IGN_CATS[9];
-      const gender=normalizeGender(genderRaw);
-      results.push({id:uid(),num:num||String(results.length+1),name,cat:cat.id,gender,country:countryRaw.trim(),team:teamRaw.trim(),stageNum:si+1});
+      results.push({id:uid(),num:num||String(results.length+1),name,cat:cat.id,gender:normalizeGender(genderRaw),country:countryRaw.trim(),team:teamRaw.trim(),stageNum:idx+1});
     }
-    if(results.length===0){setCsvError('Keine Athleten gefunden');return;}
-    setStageAths(a=>{const n=[...a];n[si]=[...n[si],...results];return n;});
-    SFX.complete();
-    alert(`${results.length} Athleten importiert`);
+    if(!results.length){setCsvError('Keine Athleten gefunden');return;}
+    setStageAths(a=>{const n=[...a];n[idx]=[...n[idx],...results];return n;});
+    SFX.complete();alert(`${results.length} Athleten importiert`);
   };
-  const downloadCsvTemplate=()=>{
-    const rows=[
-      'Startnr,Name,Kategorie-ID,Geschlecht,Land,Team',
-      '1,Max Muster,am1,M,CH,',
-      '2,Laura Beispiel,aw1,W,AT,Team Ninja',
-      '3,Robin Test,am2,D,DE,',
-      '4,Anna Sample,jm1,W,CH,SwissNinja',
-    ];
-    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');a.href=url;a.download='athleten-vorlage.csv';a.click();URL.revokeObjectURL(url);
-    SFX.click();
-  };
-  const handleFileImport=(si,file)=>{
-    if(!file)return;
-    const r=new FileReader();
-    r.onload=e=>{
-      if(file.name.endsWith('.csv')||file.name.endsWith('.txt')){
-        importCSV(si,e.target.result);
-      } else {
-        // Try xlsx via SheetJS if available, else treat as CSV
-        try{
-          const data=new Uint8Array(e.target.result);
-          const wb=XLSX.read(data,{type:'array'});
-          const ws=wb.Sheets[wb.SheetNames[0]];
-          const rows=XLSX.utils.sheet_to_json(ws,{header:1});
-          // Skip header row if first cell looks like a header
-          const start=(rows[0]&&typeof rows[0][0]==='string'&&isNaN(rows[0][0]))?1:0;
-          const csvLines=rows.slice(start).map(r=>`${r[0]||''},${r[1]||''},${r[2]||''},${r[3]||''},${r[4]||''},${r[5]||''}`).join('\n');
-          importCSV(si,csvLines);
-        }catch{
-          // Fallback: try as text
-          importCSV(si,e.target.result);
-        }
-      }
-    };
-    if(file.name.endsWith('.xlsx')||file.name.endsWith('.xls')){
-      r.readAsArrayBuffer(file);
-    } else {
-      r.readAsText(file);
-    }
+  const downloadCsvTemplate=()=>{const rows=['Startnr,Name,Kategorie-ID,Geschlecht,Land,Team','1,Max Muster,am1,M,CH,','2,Laura Beispiel,aw1,W,AT,Team Ninja'];const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='athleten-vorlage.csv';a.click();URL.revokeObjectURL(url);SFX.click();};
+  const handleFileImport=(idx,file)=>{if(!file)return;const r=new FileReader();r.onload=e=>{try{importCSV(idx,e.target.result);}catch(err){setCsvError(err.message);}};r.readAsText(file);};
+
+  /* ââ divisions used by main stages ââ */
+  const getDivsUsedByOtherMains=(excludeId)=>{
+    const used=new Set();
+    pipeline.filter(s=>s.isMain&&s.id!==excludeId).forEach(s=>{
+      if(s.categories==='all')IGN_CATS.forEach(c=>used.add(c.id));
+      else(s.categories||[]).forEach(c=>used.add(c));
+    });
+    return used;
   };
 
+  /* ââ stage helpers ââ */
+  const addMainStage=()=>{
+    const pl=info.pipeline||[];
+    const letter=STAGE_LETTERS[pl.filter(s=>s.isMain).length]||`S${pl.length+1}`;
+    const defaultMode=hasLives?'lives':'classic';
+    sI('pipeline',[...pl,{id:uid(),name:`Main Stage ${letter}`,mode:defaultMode,categories:[],isMain:true,continuations:[],qualiPercent:0,minPerDivision:3,order:pl.length,timeLimit:0}]);
+    SFX.click();
+  };
+  const addContinuation=(mainId)=>{
+    const pl=[...(info.pipeline||[])];
+    const mainIdx=pl.findIndex(s=>s.id===mainId);
+    if(mainIdx<0)return;
+    const main=pl[mainIdx];
+    const contCount=(main.continuations||[]).length;
+    const contId=uid();
+    const cont={id:contId,name:`${main.name} â Runde ${contCount+2}`,mode:main.mode,qualiPercent:50,minPerDivision:3,timeLimit:0,isMain:false};
+    pl[mainIdx]={...main,continuations:[...(main.continuations||[]),cont]};
+    sI('pipeline',pl);
+    SFX.click();
+  };
+  const updateStage=(stageId,key,val)=>{
+    sI('pipeline',(info.pipeline||[]).map(s=>{
+      if(s.id===stageId)return{...s,[key]:val};
+      // check continuations
+      if(s.continuations?.length){
+        const newConts=s.continuations.map(c=>c.id===stageId?{...c,[key]:val}:c);
+        if(newConts!==s.continuations)return{...s,continuations:newConts};
+      }
+      return s;
+    }));
+  };
+  const removeStage=(stageId)=>{
+    const pl=(info.pipeline||[]).filter(s=>s.id!==stageId).map(s=>({
+      ...s,continuations:(s.continuations||[]).filter(c=>c.id!==stageId)
+    }));
+    sI('pipeline',pl);SFX.click();
+  };
+
+  /* ââ get flat list of all stages for obs/ath indexing ââ */
+  const flatStages=[];
+  pipeline.forEach(s=>{flatStages.push(s);(s.continuations||[]).forEach(c=>flatStages.push(c));});
+
+  /* ââ StageTabs ââ */
+  const StageTabs=({active,onChange})=>(
+    <div style={{display:'flex',gap:4,overflowX:'auto',padding:'0 0 6px'}}>
+      {flatStages.map((s,i)=>(
+        <button key={s.id} className={`chip${active===i?' active':''}`}
+          style={{flexShrink:0,padding:'4px 12px',fontSize:11}}
+          onClick={()=>{onChange(i);SFX.hover();}}>
+          {s.name||`Stage ${i+1}`}
+        </button>
+      ))}
+    </div>
+  );
+
+  /* ââ save ââ */
   const save=async()=>{
     if(!info.name.trim())return;setSaving(true);
     const id=existingId||uid();
+    // build backward-compat mode field
+    const primaryMode=hasLives?'lives':'classic';
     const stagesData={};
-    const pipeline=info.pipeline||[];
-    for(let i=0;i<numSt;i++){
-      const n=info.pipelineEnabled?(pipeline[i]?.id||i+1):(i+1);
+    flatStages.forEach((stg,i)=>{
       const om={};(stageObs[i]||[]).forEach((o,idx)=>{om[o.id]={...o,order:idx};});
       const am={};(stageAths[i]||[]).forEach(a=>{am[a.id]=a;});
-      stagesData[n]={obstacles:om,athletes:Object.keys(am).length?am:null};
-    }
-    // Global fallback
+      stagesData[stg.id]={obstacles:om,athletes:Object.keys(am).length?am:null};
+    });
     const om0={};(stageObs[0]||[]).forEach((o,i)=>{om0[o.id]={...o,order:i};});
-    const am0={};
-    for(let i=0;i<numSt;i++){(stageAths[i]||[]).forEach(a=>{am0[a.id]=a;});}
-    const data={
-      info:{...info,numStations:info.pipelineEnabled?0:numSt,createdAt:Date.now()},
-      obstacles:om0,
-      athletes:Object.keys(am0).length?am0:null,
-      stages:stagesData,
-    };
-    // Write pipeline config
-    if(info.pipelineEnabled&&pipeline.length>0){
+    const am0={};flatStages.forEach((_,i)=>{(stageAths[i]||[]).forEach(a=>{am0[a.id]=a;});});
+    const finalInfo={...info,mode:primaryMode,numStations:hasAnyStage?0:0,pipelineEnabled:hasAnyStage,skillPhase:{...(info.skillPhase||{}),enabled:hasSkill},createdAt:info.createdAt||Date.now()};
+    const data={info:finalInfo,obstacles:om0,athletes:Object.keys(am0).length?am0:null,stages:stagesData};
+    if(hasAnyStage&&pipeline.length>0){
       const pipelineData={};
-      pipeline.forEach((stg,i)=>{
-        const stgObs={};
-        (stageObs[i]||[]).forEach((o,idx)=>{stgObs[o.id]={...o,order:idx};});
-        const stgAths={};
-        (stageAths[i]||[]).forEach(a=>{stgAths[a.id]=a;});
+      flatStages.forEach((stg,i)=>{
+        const stgObs={};(stageObs[i]||[]).forEach((o,idx)=>{stgObs[o.id]={...o,order:idx};});
+        const stgAths={};(stageAths[i]||[]).forEach(a=>{stgAths[a.id]=a;});
         pipelineData[stg.id]={...stg,order:i,obstacles:Object.keys(stgObs).length?stgObs:null,athletes:Object.keys(stgAths).length?stgAths:null};
       });
       data.pipeline=pipelineData;
@@ -191,457 +246,394 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     setSaving(false);SFX.complete();onDone(id);
   };
 
-  // Stage tab bar helper
-  const pipelineStages=info.pipelineEnabled?(info.pipeline||[]):null;
-  const StageTabs=({active,onChange})=>(
-    <div style={{display:'flex',gap:4,overflowX:'auto',padding:'0 0 4px'}}>
-      {Array.from({length:numSt},(_,i)=>(
-        <button key={i} className={`chip${active===i?' active':''}`}
-          style={{flexShrink:0,padding:'4px 14px',fontSize:12}}
-          onClick={()=>{onChange(i);SFX.hover();}}>
-          {pipelineStages?pipelineStages[i]?.name||`Stage ${i+1}`:`Stage ${i+1}`}
-        </button>
-      ))}
-    </div>
-  );
-  const si=Math.min(obsStage,numSt-1);
-  const curObs=stageObs[si]||[];
-  const curStageMode=info.pipelineEnabled&&info.pipeline?.[si]?.mode?info.pipeline[si].mode:info.mode;
-  const asi=Math.min(athStage,numSt-1);
-  const curAths=stageAths[asi]||[];
+  /* ââ shared styles ââ */
+  const chipStyle=(active,color)=>({
+    padding:'6px 14px',fontSize:12,fontWeight:600,borderRadius:10,cursor:'pointer',
+    border:`1.5px solid ${active?(color||'var(--cor)'):'var(--border)'}`,
+    background:active?`${color||'var(--cor)'}18`:'rgba(255,255,255,.03)',
+    color:active?(color||'var(--cor)'):'var(--text)',transition:'all .15s',
+    display:'inline-flex',alignItems:'center',gap:6
+  });
+  const cardStyle={background:'rgba(255,255,255,.03)',borderRadius:12,padding:'12px 14px',border:'1px solid var(--border)'};
+  const lblStyle={fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:6,letterSpacing:'.03em'};
 
+  /* ââââââââââââ RENDER ââââââââââââ */
   return(
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
-      <TopBar title={['Setup',t('obstacles'),t('athletes'),'Skill Phase'][step]||'Setup'} logo={false}
-        onBack={step===0?onBack:()=>{
-          const noStages=(info.numStations||0)===0;
-          // skip Obstacles step when going back if no stages
-          if(step===2&&noStages)setStep(0);
-          else setStep(s=>s-1);
-        }}
-        right={<div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>{step+1}/{info.skillPhase?.enabled?4:3}</div>}/>
+      <TopBar title={stepLabel[steps[step]]||'Setup'} logo={false}
+        onBack={step===0?onBack:()=>setStep(s=>s-1)}
+        right={<div style={{fontSize:12,color:'var(--muted)',fontWeight:700}}>{step+1}/{steps.length}</div>}/>
+      {/* progress bar */}
       <div style={{display:'flex',gap:3,padding:'10px 16px',background:'rgba(255,255,255,.02)',borderBottom:'1px solid var(--border)'}}>
-        {(info.skillPhase?.enabled?[0,1,2,3]:[0,1,2]).map(i=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=step?'var(--cor)':'var(--border)',transition:'background .3s'}}/>)}
+        {steps.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=step?'var(--cor)':'var(--border)',transition:'background .3s'}}/>)}
       </div>
 
-      {step===0&&(
+      {/* âââââââ STEP 0: INFO + MODES âââââââ */}
+      {steps[step]==='info'&&(
         <div className="section fade-up" style={{flex:1}}>
-          <div className="lbl">{lang==='de'?'Emoji':'Emoji'}</div>
-          {/* Competition logo upload */}
-          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-            <label style={{cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:72,height:72,borderRadius:16,border:`2px dashed ${info.logo?'rgba(255,94,58,.5)':'var(--border)'}`,background:info.logo?'transparent':'rgba(255,255,255,.03)',overflow:'hidden',flexShrink:0,transition:'border-color .15s',position:'relative'}}>
-              {info.logo?<img src={info.logo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><I.Camera s={22} c="var(--muted)"/><span style={{fontSize:9,color:'var(--muted)',marginTop:3,textAlign:'center',letterSpacing:'.04em'}}>LOGO</span></>}
+          {/* Logo + Emoji */}
+          <div style={lblStyle}>Logo / Emoji</div>
+          <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+            <label style={{cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:64,height:64,borderRadius:14,border:`2px dashed ${info.logo?'rgba(255,94,58,.5)':'var(--border)'}`,background:info.logo?'transparent':'rgba(255,255,255,.03)',overflow:'hidden',flexShrink:0,position:'relative'}}>
+              {info.logo?<img src={info.logo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><I.Camera s={20} c="var(--muted)"/><span style={{fontSize:8,color:'var(--muted)',marginTop:2}}>LOGO</span></>}
               <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizeLogoUtil(e.target.files[0],b64=>sI('logo',b64));e.target.value='';}}/>
             </label>
+            {/* Emoji button (popup trigger) */}
+            <button onClick={()=>setShowEmojiPicker(!showEmojiPicker)} style={{width:48,height:48,borderRadius:12,border:'1.5px solid var(--border)',background:info.emoji?'rgba(255,94,58,.1)':'rgba(255,255,255,.03)',cursor:'pointer',fontSize:22,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>
+              {info.emoji||'ð'}
+            </button>
             <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--text)',marginBottom:4}}>{lang==='de'?'Wettkampf-Logo (optional)':'Competition Logo (optional)'}</div>
-              <div style={{fontSize:11,color:'var(--muted)',lineHeight:1.5}}>{lang==='de'?'Wird überall angezeigt — Display, Warteliste, etc.':'Shown everywhere — display, queue, etc.'}</div>
-              {info.logo&&<button style={{marginTop:6,fontSize:11,color:'var(--red)',background:'rgba(255,59,48,.12)',border:'none',borderRadius:6,padding:'3px 8px',cursor:'pointer'}} onClick={()=>sI('logo',null)}>{lang==='de'?'Entfernen':'Remove'}</button>}
+              <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{lang==='de'?'Logo oder Emoji':'Logo or Emoji'}</div>
+              <div style={{fontSize:10,color:'var(--muted)',lineHeight:1.4}}>{lang==='de'?'Optional â wird auf Displays angezeigt':'Optional â shown on displays'}</div>
+              {info.logo&&<button style={{marginTop:4,fontSize:10,color:'var(--red)',background:'rgba(255,59,48,.12)',border:'none',borderRadius:6,padding:'2px 7px',cursor:'pointer'}} onClick={()=>sI('logo',null)}>{lang==='de'?'Entfernen':'Remove'}</button>}
             </div>
           </div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:4}}>
-            {['🥷','🏆','🥇','🎯','💪','🔥','⚡','🌟','🏅','🤸','🧗','🦸','🐉','⚔️','🐯','🦁','🦅','💥','🌊','🎖️'].map(e=>(
-              <button key={e} onClick={()=>sI('emoji',e)} style={{width:38,height:38,fontSize:20,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'var(--border)'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.03)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>{e}</button>
-            ))}
-          </div>
-          <div className="lbl">{t('compName')}</div>
-          <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="OG Ninja Cup 2026" autoFocus/>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            <div style={{flex:'1 1 160px',minWidth:0}}><div className="lbl" style={{marginBottom:6}}>{t('compDate')}</div><input type="date" value={info.date} onChange={e=>sI('date',e.target.value)} style={{width:'100%'}}/></div>
-            <div style={{flex:'2 1 180px',minWidth:0}}><div className="lbl" style={{marginBottom:6}}>{t('compLocation')}</div><input value={info.location} onChange={e=>sI('location',e.target.value)} placeholder="Zurich Ninja Park" style={{width:'100%'}}/></div>
-          </div>
-          <div className="lbl">{t('mode')}</div>
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            {Object.values(MODES).map(m=><button key={m.id} className={`chip${info.mode===m.id?' active':''}`} onClick={()=>{sI('mode',m.id);SFX.hover();}}>{m.name[lang]||m.name.de}</button>)}
-          </div>
-          <div className="lbl">{t('numStations')}</div>
-          {/* Pipeline toggle */}
-          <div style={{display:'flex',gap:6,marginBottom:8}}>
-            <button className={`chip${!info.pipelineEnabled?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>{sI('pipelineEnabled',false);SFX.hover();}}>
-              {lang==='de'?'Einfach (1-4)':'Simple (1-4)'}
-            </button>
-            <button className={`chip${info.pipelineEnabled?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>{sI('pipelineEnabled',true);SFX.hover();}}>
-              {lang==='de'?'Stagebuilder':'Stagebuilder'}
-            </button>
-          </div>
-
-          {/* Simple mode */}
-          {!info.pipelineEnabled&&(<>
-            <div style={{display:'flex',gap:6}}>
-              {(info.skillPhase?.enabled?[0,1,2,3,4]:[1,2,3,4]).map(n=><button key={n} className={`chip${info.numStations===n?' active':''}`} style={{flex:1,justifyContent:'center'}} onClick={()=>sI('numStations',n)}>{n===0?(lang==='de'?'Keine':'None'):n}</button>)}
-            </div>
-            {info.numStations===0&&info.skillPhase?.enabled&&<div style={{fontSize:11,color:'var(--muted)',marginTop:4,padding:'6px 10px',background:'rgba(52,199,89,.06)',border:'1px solid rgba(52,199,89,.2)',borderRadius:8,lineHeight:1.5}}>{lang==='de'?'Reiner Skill-Wettkampf — kein Stage-Parcours, direkt Siegerehrung nach Skills':'Pure skill competition — no stage course, awards ceremony directly after skills'}</div>}
-            {numSt>1&&(<div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}><label style={{fontSize:12,color:'var(--muted)',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}><input type="checkbox" checked={info.stageLinked||false} onChange={e=>sI('stageLinked',e.target.checked)} style={{cursor:'pointer'}}/>{lang==='de'?'Stages verbinden (Qualifikation)':'Link stages (qualification)'}</label></div>)}
-            {numSt>1&&(<div style={{marginTop:8}}><div className="lbl" style={{display:'flex',alignItems:'center',gap:5,marginBottom:4}}><I.Trophy s={13}/> {lang==='de'?'Qualifikation (%)':'Qualification (%)'}</div><div style={{display:'flex',alignItems:'center',gap:6}}><input type="number" min={0} max={100} value={info.qualPercent||''} onChange={e=>sI('qualPercent',e.target.value===''?0:Number(e.target.value))} style={{width:72,padding:'6px 10px',background:'var(--card2)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)',fontSize:13}}/><span style={{fontSize:11,color:'var(--muted)'}}>% {lang==='de'?'kommen weiter':'advance'}</span></div></div>)}
-          </>)}
-
-          {/* Pipeline / Stagebuilder mode */}
-          {info.pipelineEnabled&&(<>
-            <div style={{background:'rgba(255,94,58,.04)',border:'1px solid rgba(255,94,58,.2)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <div className="lbl" style={{margin:0}}>{lang==='de'?'Stage Pipeline':'Stage Pipeline'} ({(info.pipeline||[]).length})</div>
-                <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:4}} onClick={()=>{
-                  const pl=info.pipeline||[];
-                  const letter=STAGE_LETTERS[pl.length]||`S${pl.length+1}`;
-                  sI('pipeline',[...pl,{id:uid(),name:`Stage ${letter}`,mode:info.mode||'classic',categories:'all',predecessorStages:[],qualiPercent:0,minPerDivision:3,order:pl.length}]);
-                  SFX.click();
-                }}><I.Plus s={12}/> {lang==='de'?'Stage hinzufügen':'Add Stage'}</button>
-              </div>
-
-              {(info.pipeline||[]).map((stg,si)=>{
-                const updateStg=(key,val)=>{sI('pipeline',(info.pipeline||[]).map((s,j)=>j===si?{...s,[key]:val}:s));};
-                const others=(info.pipeline||[]).filter(s=>s.id!==stg.id);
-                const isEntry=!stg.predecessorStages||stg.predecessorStages.length===0;
-                const isEnd=!stg.qualiPercent||stg.qualiPercent<=0;
-                return(
-                  <div key={stg.id} style={{background:'rgba(255,255,255,.03)',borderRadius:10,padding:'10px 12px',border:'1px solid var(--border)'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                      <div style={{width:28,height:28,borderRadius:8,background:'rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:12,color:'var(--cor)',flexShrink:0}}>{si+1}</div>
-                      <input value={stg.name} onChange={e=>updateStg('name',e.target.value)} style={{flex:1,padding:'4px 8px',fontSize:13,fontWeight:700}} placeholder="Stage Name"/>
-                      {isEntry&&<span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,background:'rgba(52,199,89,.15)',color:'var(--green)',border:'1px solid rgba(52,199,89,.3)'}}>Entry</span>}
-                      {isEnd&&!isEntry&&<span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,background:'rgba(255,94,58,.15)',color:'var(--cor)',border:'1px solid rgba(255,94,58,.3)'}}>Ende</span>}
-                      <button style={{background:'none',border:'none',cursor:'pointer',padding:4}} onClick={()=>{sI('pipeline',(info.pipeline||[]).filter(s=>s.id!==stg.id));SFX.click();}}><I.Trash s={13} c="var(--red)"/></button>
-                    </div>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:12}}>
-                      {/* Mode */}
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{t('mode')}</div>
-                        <div style={{display:'flex',gap:3}}>
-                          {Object.values(MODES).map(m=><button key={m.id} className={`chip${stg.mode===m.id?' active':''}`} style={{fontSize:10,padding:'2px 8px',flex:1,justifyContent:'center'}} onClick={()=>updateStg('mode',m.id)}>{m.name[lang]}</button>)}
-                        </div>
-                      </div>
-                      {/* Categories */}
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Kategorien':'Categories'}</div>
-                        <button className={`chip${stg.categories==='all'?' active':''}`} style={{fontSize:10,padding:'2px 8px',width:'100%',justifyContent:'center'}} onClick={()=>updateStg('categories',stg.categories==='all'?[]:'all')}>{lang==='de'?'Alle':'All'}</button>
-                      </div>
-                    </div>
-                    {stg.categories!=='all'&&(
-                      <div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
-                        {IGN_CATS.map(c=>{const sel=(stg.categories||[]).includes(c.id);return(
-                          <button key={c.id} className={`chip${sel?' active':''}`} style={{fontSize:9,padding:'1px 6px',...(sel?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
-                            onClick={()=>updateStg('categories',sel?(stg.categories||[]).filter(x=>x!==c.id):[...(stg.categories||[]),c.id])}>{c.name[lang]||c.id}</button>
-                        );})}
-                      </div>
-                    )}
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:6}}>
-                      {/* Predecessor */}
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Nach Stage':'After Stage'}</div>
-                        <select value={stg.predecessorStages?.[0]||''} onChange={e=>{updateStg('predecessorStages',e.target.value?[e.target.value]:[]);}} style={{fontSize:11,padding:'4px 6px'}}>
-                          <option value="">{lang==='de'?'— Einstieg —':'— Entry —'}</option>
-                          {others.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}
-                        </select>
-                      </div>
-                      {/* Quali */}
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Quali %':'Quali %'}</div>
-                        <div style={{display:'flex',gap:4,alignItems:'center'}}>
-                          <input type="number" min={0} max={100} value={stg.qualiPercent||0} onChange={e=>updateStg('qualiPercent',Number(e.target.value)||0)} style={{width:50,padding:'4px 6px',fontSize:12,textAlign:'center'}}/>
-                          <span style={{fontSize:9,color:'var(--muted)'}}>Min:</span>
-                          <input type="number" min={0} max={99} value={stg.minPerDivision||3} onChange={e=>updateStg('minPerDivision',Number(e.target.value)||0)} style={{width:36,padding:'4px 4px',fontSize:12,textAlign:'center'}}/>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Pipeline preview */}
-              {(info.pipeline||[]).length>0&&(
-                <div style={{padding:'8px 0',display:'flex',flexWrap:'wrap',gap:4,alignItems:'center'}}>
-                  {(info.pipeline||[]).filter(s=>!s.predecessorStages||s.predecessorStages.length===0).map(s=>(
-                    <span key={s.id} style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:5,background:'rgba(52,199,89,.15)',color:'var(--green)',border:'1px solid rgba(52,199,89,.3)'}}>{s.name}</span>
-                  ))}
-                  {(info.pipeline||[]).some(s=>s.predecessorStages?.length>0)&&<span style={{color:'var(--muted)',fontSize:12}}>→</span>}
-                  {(info.pipeline||[]).filter(s=>s.predecessorStages?.length>0).map(s=>(
-                    <span key={s.id} style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:5,background:'rgba(255,94,58,.12)',color:'var(--cor)',border:'1px solid rgba(255,94,58,.25)'}}>{s.name}{s.qualiPercent>0?` (${s.qualiPercent}%)`:''}</span>
+          {/* Emoji popup */}
+          {showEmojiPicker&&(
+            <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowEmojiPicker(false)}>
+              <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:18,padding:20,maxWidth:320}} onClick={e=>e.stopPropagation()}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:12,textAlign:'center'}}>{lang==='de'?'Emoji wÃ¤hlen':'Pick Emoji'}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center'}}>
+                  {['ð¥·','ð','ð¥','ð¯','ðª','ð¥','â¡','ð','ð','ð¤¸','ð§','ð¦¸','ð','âï¸','ð¯','ð¦','ð¦','ð¥','ð','ðï¸'].map(e=>(
+                    <button key={e} onClick={()=>{sI('emoji',e);setShowEmojiPicker(false);SFX.click();}} style={{width:44,height:44,fontSize:24,borderRadius:12,border:`2px solid ${info.emoji===e?'var(--cor)':'transparent'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.05)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{e}</button>
                   ))}
                 </div>
-              )}
-            </div>
-          </>)}
-
-          {/* CH Ranking Toggle */}
-          <div style={{marginTop:14,background:'rgba(200,168,75,.07)',border:`1px solid ${chRankingUnlocked&&info.chRankingEnabled?'rgba(200,168,75,.5)':'rgba(200,168,75,.2)'}`,borderRadius:12,padding:'12px 14px'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:chRankingUnlocked?10:0}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:18}}>🇨🇭</span>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>{lang==='de'?'CH Ninja Ranking':'CH Ninja Ranking'}</div>
-                  <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div>
-                </div>
               </div>
-              {!chRankingUnlocked?(
-                <button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔒 {lang==='de'?'Freischalten':'Unlock'}</button>
-              ):(
-                <button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);sI('chRankingFinale',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓 {lang==='de'?'Sperren':'Lock'}</button>
-              )}
-            </div>
-            {chRankingUnlocked&&(
-              <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'var(--text)'}}>
-                  <input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{cursor:'pointer',accentColor:'#C8A84B',width:16,height:16}}/>
-                  {lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}
-                </label>
-                {info.chRankingEnabled&&(
-                  <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,color:'var(--text)',paddingLeft:24}}>
-                    <input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{cursor:'pointer',accentColor:'#C8A84B',width:16,height:16}}/>
-                    <span>🏆 {lang==='de'?'Dies ist das Finale (doppelte Punkte)':'This is the Finale (double points)'}</span>
-                  </label>
-                )}
-              </div>
-            )}
-            {chRankingPwPrompt&&(
-              <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget){setChRankingPwPrompt(false);setChRankingPwInput('');}}}> n                <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,padding:24,width:280,display:'flex',flexDirection:'column',gap:12}}>
-                  <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>🇨🇭 CH Ranking {lang==='de'?'freischalten':'unlock'}</div>
-                  <input autoFocus type="password" value={chRankingPwInput} onChange={e=>setChRankingPwInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryUnlock()} placeholder={lang==='de'?'Passwort eingeben':'Enter password'} style={{padding:'10px 14px',borderRadius:10,border:'1px solid var(--border)',background:'var(--card2)',color:'var(--text)',fontSize:14}}/>
-                  <div style={{display:'flex',gap:8}}>
-                    <button onClick={()=>{setChRankingPwPrompt(false);setChRankingPwInput('');}} style={{flex:1,padding:'9px',borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',cursor:'pointer',fontSize:13}}>{lang==='de'?'Abbrechen':'Cancel'}</button>
-                    <button onClick={tryUnlock} style={{flex:1,padding:'9px',borderRadius:10,border:'none',background:'#C8A84B',color:'#000',fontWeight:700,cursor:'pointer',fontSize:13}}>{lang==='de'?'OK':'OK'}</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          {/* Skill Phase Toggle */}
-          <div style={{marginTop:14,background:`rgba(52,199,89,${info.skillPhase?.enabled?.07:.04})`,border:`1px solid ${info.skillPhase?.enabled?'rgba(52,199,89,.4)':'rgba(52,199,89,.2)'}`,borderRadius:12,padding:'12px 14px',transition:'all .2s'}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg>
-                <div>
-                  <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{lang==='de'?'Skill Phase':'Skill Phase'}</div>
-                  <div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Qualifikation vor dem Stage-Wettkampf':'Qualification before stage competition'}</div>
-                </div>
-              </div>
-              <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
-                <div style={{position:'relative',width:40,height:22,flexShrink:0}}>
-                  <input type="checkbox" checked={info.skillPhase?.enabled||false} onChange={e=>sI('skillPhase',{...(info.skillPhase||{enabled:false,type:'oldschool',skills:[],timerHrs:0,seedingMode:'inverted'}),enabled:e.target.checked})} style={{opacity:0,width:0,height:0,position:'absolute'}}/>
-                  <div style={{position:'absolute',inset:0,borderRadius:11,background:info.skillPhase?.enabled?'var(--green)':'rgba(255,255,255,.15)',transition:'background .2s'}}/>
-                  <div style={{position:'absolute',top:3,left:info.skillPhase?.enabled?20:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s',boxShadow:'0 1px 4px rgba(0,0,0,.3)'}}/>
-                </div>
-              </label>
-            </div>
-            {info.skillPhase?.enabled&&(
-              <div style={{marginTop:10,fontSize:11,color:'rgba(52,199,89,.8)',display:'flex',alignItems:'center',gap:5}}>
-                <span>✓</span>
-                <span>{lang==='de'?'Skill-Konfiguration im nächsten Schritt':'Skill configuration in next step'}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-                {numSt>1&&catsWithAths.length>0&&(
-            <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 14px',display:'flex',flexDirection:'column',gap:10}}>
-              <div className="lbl" style={{display:'flex',alignItems:'center',gap:5}}>🏆 {lang==='de'?'Qualifikation (mehrstufig)':'Qualification (multi-stage)'}</div>
-              {catsWithAths.map(catId=>{
-                const cat=IGN_CATS.find(c=>c.id===catId);
-                const q=info.qualification?.[catId]||{};
-                const setQ=(key,val)=>setInfo(i=>({...i,qualification:{...(i.qualification||{}),[catId]:{...(i.qualification?.[catId]||{}),[key]:val}}}));
-                return(
-                  <div key={catId} style={{background:'rgba(255,255,255,.03)',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8,border:`1px solid ${cat?.color||'#888'}22`}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <input type="checkbox" id={`q_${catId}`} checked={!!q.enabled} onChange={e=>setQ('enabled',e.target.checked)} style={{width:15,height:15,accentColor:cat?.color||'var(--cor)'}}/>
-                      <label htmlFor={`q_${catId}`} style={{fontSize:13,fontWeight:700,color:cat?.color||'currentColor',cursor:'pointer'}}>{cat?.name[lang]||catId}</label>
-                    </div>
-                    {q.enabled&&(
-                      <div style={{display:'flex',flexDirection:'column',gap:6,paddingLeft:23}}>
-                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                          {[10,20,30,40,50,60].map(p=>(
-                            <button key={p} className={`chip${(q.percent||50)===p?' active':''}`} style={{fontSize:11,padding:'2px 8px'}} onClick={()=>setQ('percent',p)}>{p}%</button>
-                          ))}
-                        </div>
-                        <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                          <span style={{fontSize:11,color:'var(--muted)',flexShrink:0}}>{lang==='de'?'Mind.:':'Min.:'}</span>
-                          <input type="number" min={1} max={99} value={q.minimum||1} onChange={e=>setQ('minimum',parseInt(e.target.value)||1)} style={{width:50,textAlign:'center',fontSize:12}}/>
-                          <span style={{fontSize:11,color:'var(--muted)',flexShrink:0}}>{lang==='de'?'â Stage:':'â Stage:'}</span>
-                          <select value={q.targetStage||numSt} onChange={e=>setQ('targetStage',parseInt(e.target.value))} style={{fontSize:12,padding:'3px 6px'}}>
-                            {Array.from({length:numSt},(_,i)=>i+1).filter(n=>n>1).map(n=><option key={n} value={n}>Stage {n}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
             </div>
           )}
-{step===1&&(
-        <div className="section fade-up" style={{flex:1}}>
-          {numSt>1&&<StageTabs active={si} onChange={setObsStage}/>}
-          {curStageMode==='lives'&&(<div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:'10px 12px',marginBottom:8}}>
-            <div className="lbl">❤️ Extra Life – Stage {si+1}</div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'flex-start',marginTop:6}}>
-              <div>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Lives</div>
-                <div style={{display:'flex',gap:4}}>{[1,2,3,4,5].map(n=>{const cur=info?.stageExtraLife?.[si+1]?.lives??info.lives??3;return(<button key={n} onClick={()=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),lives:n}}}))} style={{background:cur===n?'var(--cor)':'var(--card2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 10px',cursor:'pointer',color:cur===n?'#fff':'var(--text)',fontWeight:cur===n?700:400,fontSize:13,fontFamily:'JetBrains Mono'}}>{n}</button>);})}</div>
+
+          {/* Name */}
+          <div style={lblStyle}>{t('compName')}</div>
+          <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="OG Ninja Cup 2026" autoFocus/>
+
+          {/* Date + Location (fixed overlap) */}
+          <div style={{display:'flex',gap:8}}>
+            <div style={{flex:'0 0 130px'}}><div style={lblStyle}>{t('compDate')}</div><input type="date" value={info.date} onChange={e=>sI('date',e.target.value)} style={{width:'100%',padding:'10px 8px',fontSize:13}}/></div>
+            <div style={{flex:1,minWidth:0}}><div style={lblStyle}>{t('compLocation')}</div><input value={info.location} onChange={e=>sI('location',e.target.value)} placeholder="Zurich Ninja Park" style={{width:'100%'}}/></div>
+          </div>
+
+          {/* ââ MODE SELECTION (multi-select) ââ */}
+          <div style={lblStyle}>{lang==='de'?'Wettkampf-Modus':'Competition Mode'}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {/* Skill Phase */}
+            <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('skill');idx>=0?m.splice(idx,1):m.push('skill');sI('modes',m);sI('skillPhase',{...(info.skillPhase||{}),enabled:m.includes('skill')});SFX.hover();}}
+              style={{...chipStyle(hasSkill,'#34C759'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
+              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasSkill?'#34C759':'var(--border)'}`,background:hasSkill?'#34C759':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
+                {hasSkill&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
               </div>
-              <div>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Pro Sektion':'Per section'}</div>
-                <input type="checkbox" checked={!!(info?.stageExtraLife?.[si+1]?.livesPerSection)} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),livesPerSection:e.target.checked}}}))} style={{width:18,height:18,cursor:'pointer'}}/>
+              <div style={{textAlign:'left'}}>
+                <div style={{fontWeight:700}}>â¡ Skill Phase</div>
+                <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Vorqualifikation mit Skills':'Pre-qualification with skills'}</div>
               </div>
-              <div>
-                <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Gesamt-Lives (0=∞)':'Total lives (0=∞)'}</div>
-                <input type="number" min={0} max={99} value={info?.stageExtraLife?.[si+1]?.stageTotalLives??0} onChange={e=>setInfo(i=>({...i,stageExtraLife:{...(i.stageExtraLife||{}),[si+1]:{...(i.stageExtraLife?.[si+1]||{}),stageTotalLives:Number(e.target.value)}}}))} style={{width:56,background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'4px 8px',color:'var(--text)',fontSize:13,fontFamily:'JetBrains Mono'}}/>
-              </div>
-            </div>
-          </div>)}
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div className="lbl">{t('obstacles')} ({curObs.length}){numSt>1&&<span style={{marginLeft:6,color:'var(--muted)',fontWeight:500}}>· Stage {si+1}</span>}</div>
-            <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
-          </div>
-          <div style={{maxHeight:310,overflowY:'auto'}}>
-            <DragList items={curObs} onReorder={reorderObs} keyFn={o=>o.id} onExternalDrop={(data,pos)=>{const si=Math.min(obsStage,numSt-1);setStageObs(s=>{const n=[...s];const newItem={id:uid(),name:data.trim(),isCP:true,order:pos};const arr=[...n[si]];arr.splice(pos,0,newItem);n[si]=arr.map((o,i)=>({...o,order:i}));return n;});setNewObs('');SFX.click();}}
-              renderItem={(o,i)=>o.type==='section'?(
-                <div style={{padding:'7px 12px',display:'flex',alignItems:'center',gap:8,background:'rgba(255,200,0,.06)',borderTop:'1px dashed rgba(255,200,0,.3)',borderBottom:'1px dashed rgba(255,200,0,.3)'}}>
-                  <div className="drag-handle"><I.Drag s={16}/></div>
-                  <div style={{fontSize:11,color:'rgba(255,200,0,.8)',flex:1,fontWeight:700}}>⬛ {o.name||'Start/Landeplattform'}</div>
-                  <span style={{fontSize:10,color:'var(--muted)'}}>{lang==='de'?'Leben:':'Lives:'}</span>
-                  <input type="number" min={1} max={99} value={o.lives||info.lives||3} onChange={e=>setStageObs(s=>{const n=[...s];n[si]=n[si].map((x,j)=>j===i?{...x,lives:Math.max(1,parseInt(e.target.value)||1)}:x);return n;})} style={{width:44,textAlign:'center',fontSize:12,fontWeight:700,padding:'2px 4px'}}/>
-                  <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}} onClick={()=>removeObs(si,o.id)}><I.Trash s={13} c="var(--red)"/></button>
-                </div>
-              ):(
-                <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:8}}>
-                  <div className="drag-handle"><I.Drag s={16}/></div>
-                  <div style={{fontSize:11,color:'var(--muted)',minWidth:18,fontFamily:'JetBrains Mono',textAlign:'center'}}>{i+1}</div>
-                  <div style={{flex:1,fontSize:13,fontWeight:500}}>{o.name}</div>
-                  <button className={`chip${o.isCP?' active':''}`} style={{padding:'2px 9px',fontSize:10}}
-                    onClick={()=>toggleObsCP(si,o.id)}>CP</button>
-                  <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}}
-                    onClick={()=>removeObs(si,o.id)}><I.Trash s={13} c="var(--red)"/></button>
-                </div>
-              )}/>
-          </div>
-          <div style={{fontSize:11,color:'var(--muted)',background:'rgba(255,255,255,.03)',borderRadius:10,padding:'8px 12px'}}>
-            💡 {lang==='de'?'Die vorausgefüllten Hindernisse sind nur Vorschläge — jeder Wettkampf speichert seine eigene Liste.':'Pre-filled obstacles are suggestions only — each competition saves its own list.'}
-            {numSt>1&&<span> {lang==='de'?'Jede Stage hat eigene Hindernisse.':'Each stage has its own obstacles.'}</span>}
-          </div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}
-            draggable={!!newObs.trim()}
-            onDragStart={e=>{if(!e.target.closest('.drag-handle')||!newObs.trim()){e.preventDefault();return;}e.dataTransfer.setData('dnd-obs-ext',newObs.trim());e.dataTransfer.effectAllowed='copy';}}>
-            <div className="drag-handle" title={lang==='de'?'Ziehen zum Einfügen an Position':'Drag to insert at position'} style={{opacity:newObs.trim()?1:0.3,cursor:newObs.trim()?'grab':'default'}}><I.Drag s={16}/></div>
-            <input value={newObs} onChange={e=>setNewObs(e.target.value)} placeholder={t('obsName')} onKeyDown={e=>{if(e.target.closest('.drag-handle'))return;if(e.key==='Enter')addObs();}} style={{flex:1}}/>
-            <button className="btn btn-coral" style={{padding:'10px 16px',flexShrink:0}} onClick={addObs}><I.Plus s={16}/></button>
-          </div>
-          {curStageMode==='lives'&&info?.stageExtraLife?.[si+1]?.livesPerSection&&(<>
-            <button className="btn btn-ghost" style={{width:'100%',padding:'8px',fontSize:12,gap:6,borderColor:'rgba(255,200,0,.3)',color:'rgba(255,200,0,.8)'}}
-              onClick={()=>setStageObs(s=>{const n=[...s];n[si]=[...n[si],{id:uid(),type:'section',name:'Start/Landeplattform',isCP:true,lives:info.lives||3,order:n[si].length}];return n;})}>
-              ⬛ {lang==='de'?'Start/Landeplattform hinzufügen':'Add Start/Landing Platform'}
             </button>
-            <div style={{fontSize:10,color:'var(--muted)',marginTop:4,lineHeight:1.4}}>{lang==='de'?'▸ Zwischen Hindernissen einfügen → neue Sektion mit Leben-Auffüllung':'▸ Insert between obstacles → new section with life refill'}</div>
-          </>)}
+            {/* Skill sub-options */}
+            {hasSkill&&(
+              <div style={{marginLeft:28,display:'flex',flexDirection:'column',gap:8,paddingBottom:4}}>
+                <div style={{display:'flex',gap:6}}>
+                  {[{id:'oldschool',icon:'ð¥',lbl:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)'},{id:'boulderstyle',icon:'ð±',lbl:'Boulderstyle'}].map(m=>(
+                    <button key={m.id} onClick={()=>{sI('skillPhase',{...(info.skillPhase||{}),type:m.id});SFX.hover();}}
+                      style={{...chipStyle((info.skillPhase?.type||'oldschool')===m.id,'#34C759'),flex:1,justifyContent:'center',padding:'8px 10px'}}>
+                      <span>{m.icon}</span> {m.lbl}
+                    </button>
+                  ))}
+                </div>
+                {/* Skill divisions */}
+                <div style={{fontSize:11,fontWeight:600,color:'var(--muted)'}}>{lang==='de'?'Welche Divisionen bei Skills?':'Which divisions for skills?'}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                  <button style={chipStyle(!(info.skillPhase?.skillCategories)||info.skillPhase?.skillCategories==='all','#34C759')} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skillCategories:'all'})}>
+                    {lang==='de'?'Alle':'All'}
+                  </button>
+                  {IGN_CATS.map(cat=>{
+                    const sel=Array.isArray(info.skillPhase?.skillCategories)&&info.skillPhase.skillCategories.includes(cat.id);
+                    return <button key={cat.id} style={{...chipStyle(sel,cat.color),fontSize:10,padding:'3px 8px'}} onClick={()=>{
+                      const cur=Array.isArray(info.skillPhase?.skillCategories)?info.skillPhase.skillCategories:[];
+                      const next=sel?cur.filter(c=>c!==cat.id):[...cur,cat.id];
+                      sI('skillPhase',{...(info.skillPhase||{}),skillCategories:next.length?next:'all'});
+                    }}>{cat.name[lang]}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+            {/* Classic */}
+            <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('classic');idx>=0?m.splice(idx,1):m.push('classic');sI('modes',m);SFX.hover();}}
+              style={{...chipStyle(hasClassic,'#FF5E3A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
+              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasClassic?'#FF5E3A':'var(--border)'}`,background:hasClassic?'#FF5E3A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
+                {hasClassic&&<span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
+              </div>
+              <div style={{textAlign:'left'}}>
+                <div style={{fontWeight:700}}>ð Classic Stage</div>
+                <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Klassischer Ninja Parcours':'Classic ninja course'}</div>
+              </div>
+            </button>
+            {/* Extra Life */}
+            <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('lives');idx>=0?m.splice(idx,1):m.push('lives');sI('modes',m);SFX.hover();}}
+              style={{...chipStyle(hasLives,'#FFD60A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
+              <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasLives?'#FFD60A':'var(--border)'}`,background:hasLives?'#FFD60A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
+                {hasLives&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
+              </div>
+              <div style={{textAlign:'left'}}>
+                <div style={{fontWeight:700}}>â¤ï¸ Extra Life Stage</div>
+                <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Parcours mit Lebenssystem':'Course with lives system'}</div>
+              </div>
+            </button>
+          </div>
+          {!modes.length&&<div style={{fontSize:11,color:'var(--red)',marginTop:4,textAlign:'center'}}>{lang==='de'?'Mindestens einen Modus auswÃ¤hlen':'Select at least one mode'}</div>}
+
+          {/* CH Ranking */}
+          <div style={{marginTop:14,background:'rgba(200,168,75,.07)',border:`1px solid ${chRankingUnlocked&&info.chRankingEnabled?'rgba(200,168,75,.5)':'rgba(200,168,75,.2)'}`,borderRadius:12,padding:'12px 14px'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:18}}>ð¨ð­</span>
+                <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
+              </div>
+              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>ð</button>
+              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>ð</button>}
+            </div>
+            {chRankingUnlocked&&<div style={{marginTop:8}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}</label>
+              {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>ð {lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
+            </div>}
+            {chRankingPwPrompt&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget){setChRankingPwPrompt(false);setChRankingPwInput('');}}}>
+              <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,padding:24,width:280,display:'flex',flexDirection:'column',gap:12}}>
+                <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>ð¨ð­ Freischalten</div>
+                <input autoFocus type="password" value={chRankingPwInput} onChange={e=>setChRankingPwInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryUnlock()} placeholder="Passwort" style={{padding:'10px 14px',borderRadius:10}}/>
+                <div style={{display:'flex',gap:8}}>
+                  <button onClick={()=>{setChRankingPwPrompt(false);setChRankingPwInput('');}} style={{flex:1,padding:9,borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',cursor:'pointer',fontSize:13}}>{lang==='de'?'Abbrechen':'Cancel'}</button>
+                  <button onClick={tryUnlock} style={{flex:1,padding:9,borderRadius:10,border:'none',background:'#C8A84B',color:'#000',fontWeight:700,cursor:'pointer',fontSize:13}}>OK</button>
+                </div>
+              </div>
+            </div>}
+          </div>
         </div>
       )}
 
-      {step===3&&info.skillPhase?.enabled&&(
+      {/* âââââââ STEP: SKILLS CONFIG âââââââ */}
+      {steps[step]==='skills'&&(
         <div className="section fade-up" style={{flex:1}}>
-          <div className="lbl" style={{display:'flex',alignItems:'center',gap:6}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg> {lang==='de'?'Skill Phase Konfiguration':'Skill Phase Configuration'}</div>
-
-          {/* Type */}
-          <div className="lbl" style={{marginBottom:6}}>{lang==='de'?'Modus':'Mode'}</div>
-          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {[
-              {id:'oldschool',icon:'👥',label:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)',sub:lang==='de'?'Jury trägt Versuche ein':'Jury records attempts'},
-              {id:'boulderstyle',icon:'📱',label:'Boulderstyle',sub:lang==='de'?'Athleten tragen selbst ein':'Athletes self-report via link'}
-            ].map(m=>(
-              <button key={m.id} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),type:m.id})}
-                style={{flex:1,minWidth:140,padding:'12px',borderRadius:12,border:`1.5px solid ${(info.skillPhase?.type||'oldschool')===m.id?'var(--green)':'var(--border)'}`,background:(info.skillPhase?.type||'oldschool')===m.id?'rgba(52,199,89,.1)':'rgba(255,255,255,.03)',cursor:'pointer',textAlign:'left',transition:'all .15s'}}>
-                <div style={{fontSize:20,marginBottom:4}}>{m.icon}</div>
-                <div style={{fontSize:13,fontWeight:700,color:(info.skillPhase?.type||'oldschool')===m.id?'var(--green)':'var(--text)'}}>{m.label}</div>
-                <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{m.sub}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* Skills list */}
-          <div className="lbl" style={{marginTop:12,marginBottom:6}}>{lang==='de'?'Skills / Hindernisse':'Skills / Obstacles'}</div>
+          <div style={lblStyle}>{lang==='de'?'Skills / Hindernisse':'Skills / Obstacles'}</div>
           {(info.skillPhase?.skills||[]).map((sk,i)=>{
             const diffColors={easy:'#30D158',medium:'#FF9F0A',hard:'#FF3B30'};
             const diffLabels={easy:lang==='de'?'Leicht':'Easy',medium:lang==='de'?'Mittel':'Medium',hard:lang==='de'?'Schwer':'Hard'};
             const diff=sk.difficulty||'medium';
             return(
-            <div key={sk.id} style={{padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,marginBottom:4,border:'1px solid var(--border)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:22,height:22,borderRadius:6,background:'rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'var(--muted)',flexShrink:0}}>{i+1}</div>
-                <input value={sk.name} onChange={e=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).map((s,j)=>j===i?{...s,name:e.target.value}:s)})} style={{flex:1,padding:'4px 8px',fontSize:13}} placeholder={`Skill ${i+1}`}/>
-                <button style={{background:'none',border:'none',cursor:'pointer',padding:4,color:'var(--red)',display:'flex'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).filter((_,j)=>j!==i)})}><I.Trash s={14} c="var(--red)"/></button>
+              <div key={sk.id} style={{padding:'10px 12px',background:'rgba(255,255,255,.03)',borderRadius:12,marginBottom:6,border:'1px solid var(--border)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <div style={{width:24,height:24,borderRadius:7,background:'rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'var(--muted)',flexShrink:0}}>{i+1}</div>
+                  <input value={sk.name} onChange={e=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).map((s,j)=>j===i?{...s,name:e.target.value}:s)})} style={{flex:1,padding:'6px 10px',fontSize:14}} placeholder={`Skill ${i+1}`}/>
+                  <button style={{background:'none',border:'none',cursor:'pointer',padding:4}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).filter((_,j)=>j!==i)})}><I.Trash s={14} c="var(--red)"/></button>
+                </div>
+                <div style={{display:'flex',gap:4,marginTop:6,marginLeft:32}}>
+                  {['easy','medium','hard'].map(d=>(
+                    <button key={d} style={{flex:1,padding:'5px 8px',fontSize:11,fontWeight:700,borderRadius:8,cursor:'pointer',border:`1.5px solid ${diff===d?diffColors[d]+'88':'var(--border)'}`,background:diff===d?diffColors[d]+'1A':'transparent',color:diff===d?diffColors[d]:'var(--muted)',transition:'all .15s'}}
+                      onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).map((s,j)=>j===i?{...s,difficulty:d}:s)})}>{diffLabels[d]}</button>
+                  ))}
+                </div>
               </div>
-              <div style={{display:'flex',gap:4,marginTop:6,marginLeft:30}}>
-                {['easy','medium','hard'].map(d=>(
-                  <button key={d} style={{flex:1,padding:'3px 6px',fontSize:10,fontWeight:700,borderRadius:6,cursor:'pointer',border:`1.5px solid ${diff===d?diffColors[d]+'88':'var(--border)'}`,background:diff===d?diffColors[d]+'1A':'transparent',color:diff===d?diffColors[d]:'var(--muted)',transition:'all .15s'}}
-                    onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:(info.skillPhase?.skills||[]).map((s,j)=>j===i?{...s,difficulty:d}:s)})}>{diffLabels[d]}</button>
-                ))}
-              </div>
-            </div>
             );
           })}
-          <button className="btn btn-ghost" style={{width:'100%',padding:'8px',fontSize:12,gap:6,marginTop:4}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:[...(info.skillPhase?.skills||[]),{id:uid(),name:'',difficulty:'medium'}]})}>
-            <I.Plus s={13}/> {lang==='de'?'Skill hinzufügen':'Add skill'}
+          <button className="btn btn-ghost" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,borderRadius:12}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:[...(info.skillPhase?.skills||[]),{id:uid(),name:'',difficulty:'medium'}]})}>
+            <I.Plus s={14}/> {lang==='de'?'Skill hinzufÃ¼gen':'Add skill'}
           </button>
-          {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:11,color:'var(--muted)',textAlign:'center',marginTop:4,padding:'8px'}}>{lang==='de'?'Mindestens 1 Skill hinzufügen':'Add at least 1 skill'}</div>}
-
-          {/* Skill Categories / Divisionen */}
-          <div className="lbl" style={{marginTop:12,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><I.User s={13}/> {lang==='de'?'Divisionen für Skills':'Divisions for Skills'}</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            <button className={`chip${!(info.skillPhase?.skillCategories)||info.skillPhase?.skillCategories==='all'?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skillCategories:'all'})}>
-              {lang==='de'?'Alle':'All'}
-            </button>
-            {IGN_CATS.map(cat=>{
-              const selected=Array.isArray(info.skillPhase?.skillCategories)&&info.skillPhase.skillCategories.includes(cat.id);
-              return <button key={cat.id} className={`chip${selected?' active':''}`} style={{fontSize:10,padding:'2px 8px',...(selected?{background:`${cat.color}1A`,borderColor:`${cat.color}55`,color:cat.color}:{})}} onClick={()=>{
-                const cur=Array.isArray(info.skillPhase?.skillCategories)?info.skillPhase.skillCategories:[];
-                const next=selected?cur.filter(c=>c!==cat.id):[...cur,cat.id];
-                sI('skillPhase',{...(info.skillPhase||{}),skillCategories:next.length?next:'all'});
-              }}>{cat.name[lang]}</button>;
-            })}
-          </div>
-          <div style={{fontSize:10,color:'var(--muted)',marginTop:4,lineHeight:1.4}}>{lang==='de'?'Wähle welche Divisionen an der Skill Phase teilnehmen. Stages werden gesperrt bis Skills abgeschlossen.':'Select which divisions participate in the Skill Phase. Stages are locked until skills are complete.'}</div>
+          {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:6,padding:10}}>{lang==='de'?'Mindestens 1 Skill hinzufÃ¼gen':'Add at least 1 skill'}</div>}
 
           {/* Timer */}
-          <div className="lbl" style={{marginTop:12,marginBottom:6}}><I.Clock s={13}/> {lang==='de'?'Skill Phase Timer (0 = kein Limit)':'Skill Phase Timer (0 = no limit)'}</div>
-          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}>
+          <div style={{...lblStyle,marginTop:16}}><I.Clock s={13}/> Timer (0 = {lang==='de'?'kein Limit':'no limit'})</div>
+          <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
             {[0,5,10,15,20,30,45,60,90,120,180,240,300,360].map(m=>(
-              <button key={m} className={`chip${(info.skillPhase?.timerMin||0)===m?' active':''}`} style={{fontSize:10,padding:'3px 8px',justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerMin:m})}>
-                {m===0?'∞':m<60?`${m}m`:m%60===0?`${m/60}h`:`${Math.floor(m/60)}h${m%60}m`}
+              <button key={m} style={chipStyle((info.skillPhase?.timerMin||0)===m)} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerMin:m})}>
+                {m===0?'â':m<60?`${m}m`:`${Math.floor(m/60)}h${m%60?m%60+'m':''}`}
               </button>
             ))}
           </div>
 
-          {/* Seeding — only relevant when stages exist */}
-          {(info.numStations||0)>0&&(<>
-          <div className="lbl" style={{marginTop:12,marginBottom:6,display:'flex',alignItems:'center',gap:5}}><I.Sort s={13}/> {lang==='de'?'Seeding für Stage':'Seeding for stage'}</div>
-          <div style={{display:'flex',gap:8}}>
-            {[{id:'inverted',label:lang==='de'?'Invertiert (Schwächster zuerst)':'Inverted (weakest first)'},{id:'manual',label:lang==='de'?'Manuell':'Manual'}].map(s=>(
-              <button key={s.id} className={`chip${(info.skillPhase?.seedingMode||'inverted')===s.id?' active':''}`} style={{flex:1,fontSize:11,justifyContent:'center',padding:'5px 8px'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),seedingMode:s.id})}>{s.label}</button>
-            ))}
-          </div>
-          <div style={{fontSize:11,color:'var(--muted)',marginTop:6,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:8,lineHeight:1.5}}>
-            {lang==='de'?'Invertiert: Der Athlet mit der niedrigsten Skill-Gesamtpunktzahl startet als Erster auf dem Stage-Parcours (klassischer Ninja-Wettkampf-Aufbau, maximaler Spannungsaufbau)':'Inverted: Athlete with lowest skill total runs first on stage (classic ninja comp format, maximum suspense)'}
-          </div>
+          {/* Seeding */}
+          {hasAnyStage&&(<>
+            <div style={{...lblStyle,marginTop:16}}>{lang==='de'?'Seeding fÃ¼r Stage':'Seeding for stage'}</div>
+            <div style={{display:'flex',gap:6}}>
+              {[{id:'inverted',lbl:lang==='de'?'Invertiert':'Inverted'},{id:'manual',lbl:lang==='de'?'Manuell':'Manual'}].map(s=>(
+                <button key={s.id} style={{...chipStyle((info.skillPhase?.seedingMode||'inverted')===s.id),flex:1,justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),seedingMode:s.id})}>{s.lbl}</button>
+              ))}
+            </div>
           </>)}
         </div>
       )}
 
-      {step===2&&(
+      {/* âââââââ STEP: STAGES (builder + obstacles) âââââââ */}
+      {steps[step]==='stages'&&(
         <div className="section fade-up" style={{flex:1}}>
-          {numSt>1&&<StageTabs active={asi} onChange={setAthStage}/>}
+          {/* Main stage groups */}
+          {pipeline.map((mainStg,mi)=>{
+            if(!mainStg.isMain)return null;
+            const frameColor=FRAME_COLORS[mi%FRAME_COLORS.length];
+            const usedByOthers=getDivsUsedByOtherMains(mainStg.id);
+            const flatIdx=flatStages.findIndex(s=>s.id===mainStg.id);
+            const stgMode=mainStg.mode||(hasLives?'lives':'classic');
+            return(
+              <div key={mainStg.id} style={{borderRadius:16,border:`2px solid ${frameColor}44`,background:`${frameColor}08`,padding:14,marginBottom:16}}>
+                {/* Main stage header */}
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                  <div style={{width:30,height:30,borderRadius:9,background:`${frameColor}22`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:14,color:frameColor,flexShrink:0}}>{STAGE_LETTERS[mi]||mi+1}</div>
+                  <input value={mainStg.name} onChange={e=>updateStage(mainStg.id,'name',e.target.value)} style={{flex:1,padding:'6px 10px',fontSize:14,fontWeight:700}} placeholder="Stage Name"/>
+                  <button style={{background:'none',border:'none',cursor:'pointer',padding:4}} onClick={()=>removeStage(mainStg.id)}><I.Trash s={14} c="var(--red)"/></button>
+                </div>
+
+                {/* Mode per stage */}
+                <div style={{display:'flex',gap:4,marginBottom:8}}>
+                  {[{id:'classic',lbl:'ð Classic'},{id:'lives',lbl:'â¤ï¸ Extra Life'}].map(m=>(
+                    <button key={m.id} style={{...chipStyle(stgMode===m.id,frameColor),flex:1,justifyContent:'center',fontSize:11}} onClick={()=>updateStage(mainStg.id,'mode',m.id)}>{m.lbl}</button>
+                  ))}
+                </div>
+
+                {/* Divisions (exclusive) */}
+                <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Divisionen':'Divisions'}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
+                  {IGN_CATS.map(cat=>{
+                    const sel=(mainStg.categories||[]).includes(cat.id);
+                    const blocked=usedByOthers.has(cat.id);
+                    return <button key={cat.id} disabled={blocked&&!sel} style={{...chipStyle(sel,cat.color),fontSize:9,padding:'3px 7px',opacity:blocked&&!sel?.35:1,cursor:blocked&&!sel?'not-allowed':'pointer'}} onClick={()=>{
+                      if(blocked&&!sel)return;
+                      const cur=mainStg.categories||[];
+                      updateStage(mainStg.id,'categories',sel?cur.filter(c=>c!==cat.id):[...cur,cat.id]);
+                    }}>{cat.name[lang]}{blocked&&!sel?' â':''}</button>;
+                  })}
+                </div>
+
+                {/* Time limit (10s steps) */}
+                <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>â± Time Limit</div>
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'timeLimit',Math.max(0,(mainStg.timeLimit||0)-10))}>â</button>
+                      <div style={{fontFamily:'JetBrains Mono',fontSize:14,fontWeight:700,minWidth:50,textAlign:'center'}}>{Math.floor((mainStg.timeLimit||0)/60)}:{String((mainStg.timeLimit||0)%60).padStart(2,'0')}</div>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'timeLimit',(mainStg.timeLimit||0)+10)}>+</button>
+                    </div>
+                  </div>
+                  {/* Quali % */}
+                  <div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>ð Quali %</div>
+                    <div style={{display:'flex',alignItems:'center',gap:4}}>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.max(0,(mainStg.qualiPercent||0)-1))}>â</button>
+                      <input type="number" min={0} max={100} value={mainStg.qualiPercent||0} onChange={e=>updateStage(mainStg.id,'qualiPercent',Math.min(100,Math.max(0,Number(e.target.value)||0)))} style={{width:48,textAlign:'center',fontSize:13,fontWeight:700,padding:'4px 2px',fontFamily:'JetBrains Mono'}}/>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.min(100,(mainStg.qualiPercent||0)+1))}>+</button>
+                      <span style={{fontSize:10,color:'var(--muted)'}}>%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Extra Life config */}
+                {stgMode==='lives'&&(
+                  <div style={{...cardStyle,marginBottom:8}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>â¤ï¸ Extra Life</div>
+                    <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+                      <div>
+                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Leben pro Sektion':'Lives per section'}</div>
+                        <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{n}</button>)}</div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben (0=â)':'Total lives (0=â)'}</div>
+                        <input type="number" min={0} max={99} value={mainStg.totalLives??0} onChange={e=>updateStage(mainStg.id,'totalLives',Number(e.target.value)||0)} style={{width:60,textAlign:'center',fontSize:14,fontWeight:700,padding:'6px',fontFamily:'JetBrains Mono'}}/>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Obstacles for this main stage */}
+                {flatIdx>=0&&(<>
+                  <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Hindernisse':'Obstacles'} ({(stageObs[flatIdx]||[]).length})</div>
+                  <div style={{maxHeight:180,overflowY:'auto',marginBottom:6}}>
+                    <DragList items={stageObs[flatIdx]||[]} onReorder={arr=>{setStageObs(s=>{const n=[...s];n[flatIdx]=arr.map((o,i)=>({...o,order:i}));return n;});}} keyFn={o=>o.id}
+                      renderItem={(o,i)=>(
+                        <div style={{padding:'7px 10px',display:'flex',alignItems:'center',gap:6}}>
+                          <div className="drag-handle"><I.Drag s={14}/></div>
+                          <div style={{fontSize:10,color:'var(--muted)',minWidth:16,fontFamily:'JetBrains Mono'}}>{i+1}</div>
+                          <div style={{flex:1,fontSize:12,fontWeight:500}}>{o.name}</div>
+                          <button className={`chip${o.isCP?' active':''}`} style={{padding:'1px 7px',fontSize:9}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].map(x=>x.id===o.id?{...x,isCP:!x.isCP}:x);return n;});}}>CP</button>
+                          <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].filter(x=>x.id!==o.id);return n;});}}><I.Trash s={12} c="var(--red)"/></button>
+                        </div>
+                      )}/>
+                  </div>
+                  <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                    <input value={obsStage===flatIdx?newObs:''} onChange={e=>{setObsStage(flatIdx);setNewObs(e.target.value);}} onFocus={()=>setObsStage(flatIdx)} placeholder={lang==='de'?'Hindernis...':'Obstacle...'} onKeyDown={e=>{if(e.key==='Enter'&&newObs.trim()){setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}} style={{flex:1,fontSize:12,padding:'8px 10px'}}/>
+                    <button style={{padding:'8px 14px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:14,boxShadow:'0 2px 8px rgba(255,94,58,.3)',transition:'transform .1s'}} onClick={()=>{if(!newObs.trim())return;setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}><I.Plus s={14}/></button>
+                  </div>
+                </>)}
+
+                {/* Continuations */}
+                {(mainStg.continuations||[]).map((cont,ci)=>{
+                  const contFlatIdx=flatStages.findIndex(s=>s.id===cont.id);
+                  return(
+                    <div key={cont.id} style={{marginTop:10,paddingTop:10,borderTop:`1px dashed ${frameColor}44`}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                        <span style={{fontSize:11,color:frameColor,fontWeight:700}}>â³ Runde {ci+2}</span>
+                        <input value={cont.name} onChange={e=>updateStage(cont.id,'name',e.target.value)} style={{flex:1,padding:'4px 8px',fontSize:12}} placeholder={`Runde ${ci+2}`}/>
+                        <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} onClick={()=>removeStage(cont.id)}><I.Trash s={12} c="var(--red)"/></button>
+                      </div>
+                      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                        <div style={{fontSize:10,color:'var(--muted)'}}>Quali:</div>
+                        <div style={{display:'flex',alignItems:'center',gap:3}}>
+                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.max(0,(cont.qualiPercent||50)-1))}>â</button>
+                          <input type="number" min={0} max={100} value={cont.qualiPercent||50} onChange={e=>updateStage(cont.id,'qualiPercent',Number(e.target.value)||0)} style={{width:42,textAlign:'center',fontSize:12,fontWeight:700,padding:'3px',fontFamily:'JetBrains Mono'}}/>
+                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.min(100,(cont.qualiPercent||50)+1))}>+</button>
+                          <span style={{fontSize:10,color:'var(--muted)'}}>% (min 3/Div)</span>
+                        </div>
+                      </div>
+                      {/* Time limit for continuation */}
+                      <div style={{display:'flex',alignItems:'center',gap:4,marginTop:6}}>
+                        <span style={{fontSize:10,color:'var(--muted)'}}>â±</span>
+                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'timeLimit',Math.max(0,(cont.timeLimit||0)-10))}>â</button>
+                        <span style={{fontFamily:'JetBrains Mono',fontSize:12,fontWeight:700,minWidth:40,textAlign:'center'}}>{Math.floor((cont.timeLimit||0)/60)}:{String((cont.timeLimit||0)%60).padStart(2,'0')}</span>
+                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'timeLimit',(cont.timeLimit||0)+10)}>+</button>
+                      </div>
+                      {/* Obstacles for continuation */}
+                      {contFlatIdx>=0&&(<>
+                        <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>{lang==='de'?'Hindernisse':'Obstacles'} ({(stageObs[contFlatIdx]||[]).length})</div>
+                        <div style={{maxHeight:120,overflowY:'auto'}}>
+                          <DragList items={stageObs[contFlatIdx]||[]} onReorder={arr=>{setStageObs(s=>{const n=[...s];n[contFlatIdx]=arr.map((o,i)=>({...o,order:i}));return n;});}} keyFn={o=>o.id}
+                            renderItem={(o,i)=>(
+                              <div style={{padding:'5px 8px',display:'flex',alignItems:'center',gap:5,fontSize:11}}>
+                                <div className="drag-handle"><I.Drag s={12}/></div>
+                                <div style={{flex:1}}>{o.name}</div>
+                                <button style={{background:'none',border:'none',cursor:'pointer',padding:2}} onClick={()=>{setStageObs(s=>{const n=[...s];n[contFlatIdx]=n[contFlatIdx].filter(x=>x.id!==o.id);return n;});}}><I.Trash s={11} c="var(--red)"/></button>
+                              </div>
+                            )}/>
+                        </div>
+                      </>)}
+                    </div>
+                  );
+                })}
+                {/* Add continuation button */}
+                {(mainStg.categories||[]).length>0&&(
+                  <button onClick={()=>addContinuation(mainStg.id)} style={{width:'100%',marginTop:10,padding:'8px',fontSize:12,fontWeight:600,borderRadius:10,border:`1.5px dashed ${frameColor}66`,background:'transparent',color:frameColor,cursor:'pointer',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    <I.Plus s={12}/> {lang==='de'?'Fortsetzung hinzufÃ¼gen':'Add continuation'}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add Main Stage button */}
+          <button onClick={addMainStage} style={{width:'100%',padding:12,fontSize:14,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 16px rgba(255,94,58,.3)',transition:'all .15s'}}>
+            <I.Plus s={16}/> {lang==='de'?'Main Stage hinzufÃ¼gen':'Add Main Stage'}
+          </button>
+          {pipeline.filter(s=>s.isMain).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:8}}>{lang==='de'?'Mindestens eine Stage hinzufÃ¼gen':'Add at least one stage'}</div>}
+        </div>
+      )}
+
+      {/* âââââââ STEP: ATHLETES âââââââ */}
+      {steps[step]==='athletes'&&(
+        <div className="section fade-up" style={{flex:1}}>
+          {flatStages.length>1&&<StageTabs active={asi} onChange={setAthStage}/>}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div className="lbl">{t('athletes')} ({curAths.length}){numSt>1&&<span style={{marginLeft:6,color:'var(--muted)',fontWeight:500}}>· Stage {asi+1}</span>}</div>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <div style={{fontSize:11,color:'var(--muted)'}}>{t('sortHint')}</div>
-              <label className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,cursor:'pointer',gap:5}}>
+            <div style={lblStyle}>{t('athletes')} ({curAths.length}){flatStages.length>1&&<span style={{marginLeft:6,fontWeight:500}}>Â· {flatStages[asi]?.name||'Stage'}</span>}</div>
+            <div style={{display:'flex',gap:6}}>
+              <label className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,cursor:'pointer',gap:4}}>
                 <I.Upload s={12}/> CSV
-                <input type="file" accept=".csv,.txt,.xlsx,.xls" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleFileImport(asi,e.target.files[0]);e.target.value='';}}/>
+                <input type="file" accept=".csv,.txt" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleFileImport(asi,e.target.files[0]);e.target.value='';}}/>
               </label>
-              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5}} onClick={downloadCsvTemplate}><I.FileText s={12}/> {lang==='de'?'Vorlage':'Template'}</button>
+              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:4}} onClick={downloadCsvTemplate}><I.FileText s={12}/> {lang==='de'?'Vorlage':'Template'}</button>
             </div>
           </div>
-          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>⚠️ {csvError}</div>}
-          <div style={{fontSize:11,color:'var(--muted)',background:'rgba(255,255,255,.03)',borderRadius:8,padding:'7px 12px'}}>
-            📋 CSV-Format: <code style={{fontSize:10,color:'var(--cor)'}}>Startnr, Name, Kategorie-ID, Geschlecht, Land, Team</code> — {lang==='de'?'Land/Team optional':'Country/Team optional'}
-          </div>
-          <div style={{maxHeight:230,overflowY:'auto'}}>
+          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>â ï¸ {csvError}</div>}
+          <div style={{maxHeight:260,overflowY:'auto'}}>
             {curAths.length===0?<EmptyState icon={<I.User s={28} c="rgba(255,255,255,.3)"/>} text="Noch keine Athleten"/>:
               <DragList items={curAths} onReorder={arr=>reorderAth(asi,arr)} keyFn={a=>a.id}
                 renderItem={(a,i)=>{const cat=IGN_CATS.find(c=>c.id===a.cat);return(
@@ -651,53 +643,44 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                     {a.photo?<img src={a.photo} style={{width:26,height:26,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.User s={13} c="rgba(255,255,255,.35)"/></div>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-                      {(a.country||a.team)&&<div style={{fontSize:10,color:'var(--muted)'}}>{[a.country,a.team].filter(Boolean).join(' · ')}</div>}
+                      {(a.country||a.team)&&<div style={{fontSize:10,color:'var(--muted)'}}>{[a.country,a.team].filter(Boolean).join(' Â· ')}</div>}
                     </div>
-                    <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>#{a.num}</div>
-                    <div style={{fontSize:10,padding:'2px 7px',borderRadius:10,background:`${cat?.color||'#888'}1A`,color:cat?.color||'#888',border:`1px solid ${cat?.color||'#888'}44`,fontWeight:600,whiteSpace:'nowrap',flexShrink:0}}>{cat?.name[lang]||'?'}</div>
-                    <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex',flexShrink:0}} onClick={()=>removeAth(asi,a.id)}><I.Trash s={13} c="var(--red)"/></button>
+                    <div style={{fontSize:10,padding:'2px 6px',borderRadius:8,background:`${cat?.color||'#888'}1A`,color:cat?.color||'#888',border:`1px solid ${cat?.color||'#888'}44`,fontWeight:600,flexShrink:0}}>{cat?.name[lang]||'?'}</div>
+                    <button style={{background:'none',border:'none',cursor:'pointer',padding:4,flexShrink:0}} onClick={()=>removeAth(asi,a.id)}><I.Trash s={13} c="var(--red)"/></button>
                   </div>
                 );}}/>
             }
           </div>
-          <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:14,display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{...cardStyle,display:'flex',flexDirection:'column',gap:8}}>
             <div style={{display:'flex',gap:8}}>
-              <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
-              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.team)setNewAth(a=>({...a,team:profile.team}));if(profile?.gender)setNewAth(a=>({...a,gender:profile.gender}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
+              <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:55,flexShrink:0}}/>
+              <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.team)setNewAth(a=>({...a,team:profile.team}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
             </div>
             <select value={newAth.cat} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
               {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
             </select>
-            {/* gender removed - encoded in category name */}
             <div style={{display:'flex',gap:8}}>
-              <AutocompleteInput acKey={AC_KEYS.countries} value={newAth.country||''} onChange={e=>setNewAth(a=>({...a,country:e.target.value.toUpperCase().slice(0,3)}))} placeholder={lang==='de'?`${toFlag('CH')} Land (CH, AT…)`:`${toFlag('US')} Country (US, DE…)`} style={{flex:1}}/>
-              <AutocompleteInput acKey={AC_KEYS.teams} value={newAth.team||''} onChange={e=>setNewAth(a=>({...a,team:e.target.value}))} placeholder={lang==='de'?'Team (optional)':'Team (optional)'} style={{flex:1}}/>
+              <AutocompleteInput acKey={AC_KEYS.countries} value={newAth.country||''} onChange={e=>setNewAth(a=>({...a,country:e.target.value.toUpperCase().slice(0,3)}))} placeholder={`${toFlag('CH')} Land`} style={{flex:1}}/>
+              <AutocompleteInput acKey={AC_KEYS.teams} value={newAth.team||''} onChange={e=>setNewAth(a=>({...a,team:e.target.value}))} placeholder="Team" style={{flex:1}}/>
             </div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid var(--border)'}}>
               {newAth.photo
-                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1}}>{lang==='de'?'Foto ändern ✓':'Change photo ✓'}</span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}>{lang==='de'?'Löschen':'Remove'}</button></>
-                :<><I.Camera s={17} c="var(--muted)"/><span style={{fontSize:12,flex:1,color:'var(--muted)'}}>{lang==='de'?'Foto hinzufügen (optional)':'Add photo (optional)'}</span></>
+                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1}}>Foto â</span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}>â</button></>
+                :<><I.Camera s={17} c="var(--muted)"/><span style={{fontSize:12,flex:1,color:'var(--muted)'}}>Foto (optional)</span></>
               }
               <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizePhoto(e.target.files[0],b64=>setNewAth(a=>({...a,photo:b64})));e.target.value='';}}/>
             </label>
-            <button className="btn btn-coral" style={{padding:10,gap:6}} onClick={addAth}><I.Plus s={15}/> {t('addAth')}</button>
+            <button style={{width:'100%',padding:11,borderRadius:12,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 3px 12px rgba(255,94,58,.3)',transition:'all .15s'}} onClick={addAth}><I.Plus s={15}/> {t('addAth')}</button>
           </div>
         </div>
       )}
 
+      {/* âââââââ BOTTOM NAV âââââââ */}
       <div style={{padding:'0 16px 36px',marginTop:'auto'}}>
-        {(()=>{
-          const maxSt=info.skillPhase?.enabled?3:2;
-          const noStages=(info.numStations||0)===0;
-          const nextStep=s=>{
-            // skip Obstacles step (step 1) when no stages configured
-            if(s===0&&noStages)return 2;
-            return s+1;
-          };
-          return step<maxSt
-          ?<button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15}} disabled={step===0&&!info.name.trim()} onClick={()=>{SFX.click();setStep(s=>nextStep(s));}}>{t('next')} <I.ChevR s={16}/></button>
-          :<button className="btn btn-coral" style={{width:'100%',padding:15,fontSize:15}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichern…':<><I.Check s={17}/> {t('finish')}</>}</button>;
-        })()}
+        {step<maxStep
+          ?<button style={{width:'100%',padding:15,fontSize:15,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 4px 18px rgba(255,94,58,.3)',transition:'all .15s',opacity:step===0&&(!info.name.trim()||!modes.length)?.5:1}} disabled={step===0&&(!info.name.trim()||!modes.length)} onClick={()=>{SFX.click();setStep(s=>s+1);}}>{t('next')} <I.ChevR s={16}/></button>
+          :<button style={{width:'100%',padding:15,fontSize:15,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,#34C759,#30B852)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 4px 18px rgba(52,199,89,.3)',transition:'all .15s'}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichernâ¦':<><I.Check s={17}/> {t('finish')}</>}</button>
+        }
       </div>
     </div>
   );
