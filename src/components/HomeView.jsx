@@ -19,11 +19,7 @@ const HomeView=({onOpen,lang,setLang})=>{
     <div style={{minHeight:'100vh'}}>
       {/* #1 â Compact single-line header */}
       <TopBar title={
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <span style={{fontFamily:"'Inter',sans-serif",fontSize:15,fontWeight:800,letterSpacing:'-.3px',lineHeight:1}}>OG Comps</span>
-          <span style={{fontSize:10,color:'var(--muted)',fontWeight:500,opacity:.7}}>â</span>
-          <span style={{fontSize:11,color:'var(--muted)',fontWeight:500,letterSpacing:'.02em'}}>Ninja Competition Tool</span>
-        </div>}
+        <span style={{fontSize:12,color:'var(--muted)',fontWeight:500,letterSpacing:'.02em'}}>Ninja Competition Tool</span>}
         right={<div style={{display:'flex',gap:6}}>
           <button className="btn btn-ghost" style={{padding:'5px 11px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>
           <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>window.open(`${location.href.split('?')[0]}?mode=display`,'_blank')}><I.Monitor s={15}/></button>
