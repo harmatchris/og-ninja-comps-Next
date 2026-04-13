@@ -96,7 +96,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                 <div className="lbl">Startreihenfolge</div>
                 <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title="Zufällige Reihenfolge">🔀 <span style={{fontSize:10}}>Mischen</span></button>
+                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title="Zufällige Reihenfolge"><span style={{fontSize:10}}>Mischen</span></button>
                   <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
                 </div>
               </div>
@@ -282,7 +282,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
         <div style={{textAlign:'center'}}>
           <div className="lbl" style={{marginBottom:10}}>{lang==='de'?'Laufzeit':'Run time'}</div>
           <div className="timer-grad" style={{fontSize:54}}>{fmtMs(el)}</div>
-          {nextCp&&!allDone&&<div style={{fontSize:12,color:'var(--muted)',marginTop:8}}><ObsLabel obs={nextCp} size={11}/> · CP {nextIdx+1}/{cpObst.length}{totalLivesLeft!=null&&<span style={{marginLeft:8,color:'rgba(255,200,0,.8)',fontFamily:'JetBrains Mono'}}>❤️{totalLivesLeft}</span>}</div>}
+          {nextCp&&!allDone&&<div style={{fontSize:12,color:'var(--muted)',marginTop:8}}><ObsLabel obs={nextCp} size={11}/> · CP {nextIdx+1}/{cpObst.length}{totalLivesLeft!=null&&<span style={{marginLeft:8,color:'rgba(255,200,0,.8)',fontFamily:'JetBrains Mono'}}>{totalLivesLeft}</span>}</div>}
           {remaining!==null&&(
             <div style={{marginTop:10,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
               <span style={{fontSize:11,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',display:'flex',alignItems:'center',gap:4}}><I.Clock s={12}/> {lang==='de'?'Verbleibend':'Remaining'}</span>
@@ -340,7 +340,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
 
       {allDone&&(
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:'0 16px'}}>
-          <div style={{fontSize:52}}>🏁</div>
+          <div style={{fontSize:28,fontWeight:900,color:'var(--green)'}}>FINISH</div>
           <div style={{fontSize:22,fontWeight:900,color:'var(--green)'}}>{lang==='de'?'Ziel erreicht!':'Finish!'}</div>
           <div className="timer-grad" style={{fontSize:38}}>{fmtMs(doneCP[doneCP.length-1]?.time||el)}</div>
           <button className="btn btn-coral" style={{width:'100%',padding:18,fontSize:18,gap:10,minHeight:56,borderRadius:14,marginTop:8}}
@@ -467,7 +467,7 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
         {hasLives&&lives>1&&onUseLive&&(
           <button className="btn btn-coral" style={{width:'100%',padding:13,marginBottom:8,gap:8}}
             onClick={()=>onUseLive({selCount,time:officialTime})}>
-            ❤️ {lang==='de'?`Leben verbrauchen & weiter (${lives-1} übrig)`:`Use life & continue (${lives-1} left)`}
+             {lang==='de'?`Leben verbrauchen & weiter (${lives-1} übrig)`:`Use life & continue (${lives-1} left)`}
           </button>
         )}
         <button className="btn" style={{width:'100%',padding:13,marginBottom:8,gap:8,

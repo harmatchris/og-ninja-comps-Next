@@ -117,12 +117,12 @@ const SkillRankingLive=({compId,info,athletes})=>{
                   let bg='rgba(255,255,255,.05)',bdr='rgba(255,255,255,.08)',col='var(--dim)',icon='·',extra='';
                   if(isOldschool){
                     // Oldschool: show which attempt it was passed on
-                    if(sc?.a1===true){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='⚡';extra='V1';}
+                    if(sc?.a1===true){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='F';extra='V1';}
                     else if(sc?.a1===false&&sc?.a2===true){bg='rgba(52,199,89,.15)';bdr='rgba(52,199,89,.3)';col='var(--green)';icon='✓';extra='V2';}
                     else if(sc?.a1===false&&sc?.a2===false&&sc?.a3===true){bg='rgba(52,199,89,.1)';bdr='rgba(52,199,89,.25)';col='var(--green)';icon='✓';extra='V3';}
                     else if(sc?.a1===false&&sc?.a2===false&&sc?.a3===false){bg='rgba(255,59,48,.1)';bdr='rgba(255,59,48,.2)';col='var(--red)';icon='✗';}
                   } else {
-                    if(sc?.completed&&sc?.flashed){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='⚡';}
+                    if(sc?.completed&&sc?.flashed){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='F';}
                     else if(sc?.completed){bg='rgba(52,199,89,.15)';bdr='rgba(52,199,89,.3)';col='var(--green)';icon='✓';}
                     else if(sc?.attempts>0){bg='rgba(255,59,48,.1)';bdr='rgba(255,59,48,.2)';col='var(--red)';icon='✗';}
                   }
@@ -460,9 +460,9 @@ const handleDeleteAth=async(a)=>{
                   :stageClosed
                     ?<div style={{width:'100%',padding:12,fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:7,opacity:.5,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>✔ {lang==='de'?'Abgeschlossen':'Closed'}</div>
                     :!predsClosed
-                      ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>🔒 {lang==='de'?'Vorgänger-Stage(s) erst abschließen':'Complete predecessor stage(s) first'}</div>
+                      ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>{lang==='de'?'Vorgänger-Stage(s) erst abschließen':'Complete predecessor stage(s) first'}</div>
                       :info?.skillPhase?.enabled&&!skillStatus?.seedingDone&&!skillStatus?.finalized
-                        ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'rgba(52,199,89,.7)'}}>🔒 {lang==='de'?'Skill Phase muss erst abgeschlossen werden':'Complete Skill Phase first'}</div>
+                        ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'rgba(52,199,89,.7)'}}>{lang==='de'?'Skill Phase muss erst abgeschlossen werden':'Complete Skill Phase first'}</div>
                         :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(0,stageKey);}}><I.Play s={16}/> {stageName} starten</button>
                 }
                 {/* Close stage button (shows when not occupied, not closed, has successors or qualiPercent) */}
@@ -556,7 +556,7 @@ const handleDeleteAth=async(a)=>{
                     {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
                   </button>
                 :info?.stageLinked&&n>1&&!stages?.[n-1]?.closed
-                    ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>🔒 {lang==='de'?`Stage ${n-1} zuerst abschließen`:`Complete Stage ${n-1} first`}</div>
+                    ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>{lang==='de'?`Stage ${n-1} zuerst abschließen`:`Complete Stage ${n-1} first`}</div>
                     :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(n);}}><I.Play s={16}/> {info.stageNames?.[n]||`Stage ${n}`} starten</button>
               }
               {info?.stageLinked&&!stages?.[n]?.closed&&!occupiedStages.has(n)&&n<numSt&&(<button className="btn" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,background:'var(--card2)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:10}} onClick={()=>closeStage(n)}>✔ {lang==='de'?`Stage ${n} abschließen`:`Close Stage ${n}`}</button>)}
@@ -570,7 +570,7 @@ const handleDeleteAth=async(a)=>{
                   <div style={{maxHeight:280,overflowY:'auto'}}>
                     <DragList items={localObs} onReorder={arr=>setLocalObs(arr)} keyFn={o=>o.id}
                       onExternalDrop={(data,pos)=>{const name=data.trim();if(!name)return;setLocalObs(obs=>{const a=[...obs];a.splice(pos,0,{id:uid(),name,isCP:true,order:pos});return a.map((x,i)=>({...x,order:i}));});setNewObsName('');SFX.click();}}
-                      renderItem={(o,idx)=>o.type==='section'?(<div data-drag-item style={{display:'flex',alignItems:'center',gap:6,padding:'5px 4px',borderRadius:8,background:'rgba(255,153,0,0.08)',borderLeft:'3px solid var(--accent)',marginBottom:2}}><div className="drag-handle" style={{cursor:'grab',color:'var(--dim)',padding:'4px 5px',borderRadius:6,display:'flex',alignItems:'center',touchAction:'none'}}>⠿</div><span style={{fontSize:14}}>🏁</span><input value={o.name} onChange={e=>setLocalObs(lo=>lo.map(x=>x.id===o.id?{...x,name:e.target.value}:x))} style={{flex:1,background:'transparent',border:'1px solid rgba(255,153,0,0.3)',borderRadius:6,padding:'3px 8px',color:'var(--fg)',fontSize:13}}/><label style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--dim)',flexShrink:0}}><span>{lang==='de'?'Pause':'Rest'}</span><input type="number" min={0} max={60} value={o.restTime||0} onChange={e=>setLocalObs(lo=>lo.map(x=>x.id===o.id?{...x,restTime:+e.target.value}:x))} style={{width:36,background:'transparent',border:'1px solid rgba(255,153,0,0.3)',borderRadius:4,padding:'2px 3px',color:'var(--fg)',fontSize:11,textAlign:'center'}}/><span>s</span></label><button onClick={()=>setLocalObs(lo=>lo.filter(x=>x.id!==o.id))} style={{background:'none',border:'none',color:'var(--danger)',cursor:'pointer',padding:'2px 8px',fontSize:16,flexShrink:0}}>×</button></div>):(
+                      renderItem={(o,idx)=>o.type==='section'?(<div data-drag-item style={{display:'flex',alignItems:'center',gap:6,padding:'5px 4px',borderRadius:8,background:'rgba(255,153,0,0.08)',borderLeft:'3px solid var(--accent)',marginBottom:2}}><div className="drag-handle" style={{cursor:'grab',color:'var(--dim)',padding:'4px 5px',borderRadius:6,display:'flex',alignItems:'center',touchAction:'none'}}>⠿</div><span style={{fontSize:14}}></span><input value={o.name} onChange={e=>setLocalObs(lo=>lo.map(x=>x.id===o.id?{...x,name:e.target.value}:x))} style={{flex:1,background:'transparent',border:'1px solid rgba(255,153,0,0.3)',borderRadius:6,padding:'3px 8px',color:'var(--fg)',fontSize:13}}/><label style={{display:'flex',alignItems:'center',gap:3,fontSize:11,color:'var(--dim)',flexShrink:0}}><span>{lang==='de'?'Pause':'Rest'}</span><input type="number" min={0} max={60} value={o.restTime||0} onChange={e=>setLocalObs(lo=>lo.map(x=>x.id===o.id?{...x,restTime:+e.target.value}:x))} style={{width:36,background:'transparent',border:'1px solid rgba(255,153,0,0.3)',borderRadius:4,padding:'2px 3px',color:'var(--fg)',fontSize:11,textAlign:'center'}}/><span>s</span></label><button onClick={()=>setLocalObs(lo=>lo.filter(x=>x.id!==o.id))} style={{background:'none',border:'none',color:'var(--danger)',cursor:'pointer',padding:'2px 8px',fontSize:16,flexShrink:0}}>×</button></div>):(
                         <div style={{padding:'4px 6px',display:'flex',alignItems:'center',gap:5}}>
                           <div className="drag-handle"><I.Drag s={14}/></div>
                           <button style={{background:'none',border:'none',cursor:'pointer',padding:'2px 3px',lineHeight:1,color:o.isCP?'var(--cor)':'var(--dim)',flexShrink:0,display:'flex',alignItems:'center'}} onClick={()=>setLocalObs(obs=>obs.map((x,i)=>i===idx?{...x,isCP:!x.isCP}:x))} title={o.isCP?'CP aktiv':'Kein CP'}>{o.isCP?<I.Target s={14} c="var(--cor)"/>:<I.Target s={14} c="rgba(255,255,255,.2)"/>}</button>
@@ -584,7 +584,7 @@ const handleDeleteAth=async(a)=>{
                     onDragStart={e=>{if(!e.target.closest('.drag-handle')||!newObsName.trim()){e.preventDefault();return;}e.dataTransfer.setData('dnd-obs-ext',newObsName.trim());e.dataTransfer.effectAllowed='copy';}}>
                     <div className="drag-handle" title={lang==='de'?'Ziehen zum Einfügen':'Drag to insert'} style={{opacity:newObsName.trim()?1:0.3,cursor:newObsName.trim()?'grab':'default'}}><I.Drag s={14}/></div>
                     <input value={newObsName} onChange={e=>setNewObsName(e.target.value)} placeholder={lang==='de'?'Neues Hindernis…':'New obstacle…'} style={{flex:1,padding:'6px 10px',fontSize:12,borderRadius:8}} onKeyDown={e=>{if(e.key==='Enter')addLocalObs();}}/>
-                    <button className="btn btn-ghost" style={{padding:'6px 11px',fontSize:12,gap:4,flexShrink:0}} onClick={addLocalObs}><I.Plus s={12}/>{lang==='de'?'Hinzu':'Add'}</button><button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12,gap:3,flexShrink:0}} onClick={()=>setLocalObs(lo=>[...lo,{id:'sec'+Date.now(),name:lang==='de'?'Plattform':'Platform',type:'section',isCP:false,order:lo.length,restTime:30}])}>🏁 {lang==='de'?'Plattform':'Platform'}</button>
+                    <button className="btn btn-ghost" style={{padding:'6px 11px',fontSize:12,gap:4,flexShrink:0}} onClick={addLocalObs}><I.Plus s={12}/>{lang==='de'?'Hinzu':'Add'}</button><button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:12,gap:3,flexShrink:0}} onClick={()=>setLocalObs(lo=>[...lo,{id:'sec'+Date.now(),name:lang==='de'?'Plattform':'Platform',type:'section',isCP:false,order:lo.length,restTime:30}])}> {lang==='de'?'Plattform':'Platform'}</button>
                   </div>
                   <div style={{display:'flex',gap:6}}>
                     <button className="btn btn-coral" style={{flex:1,padding:'10px',fontSize:13,gap:6}} onClick={saveObsEdit}><I.Check s={13}/>{lang==='de'?'Speichern':'Save'}</button>
@@ -607,7 +607,7 @@ const handleDeleteAth=async(a)=>{
         </button>
         {showAddAth&&(
           <div className="scale-in" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:14,display:'flex',flexDirection:'column',gap:8}}>
-            <div style={{fontSize:12,color:'var(--muted)',marginBottom:2}}>💡 {lang==='de'?'Athlete wird sofort in alle Stages eingetragen':'Athlete is added to all stages immediately'}</div>
+            <div style={{fontSize:12,color:'var(--muted)',marginBottom:2}}>{lang==='de'?'Athlete wird sofort in alle Stages eingetragen':'Athlete is added to all stages immediately'}</div>
             <div style={{display:'flex',gap:8}}>
               <input value={quickAth.num} onChange={e=>setQuickAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
               <input value={quickAth.name} onChange={e=>setQuickAth(a=>({...a,name:e.target.value}))} placeholder={lang==='de'?'Name':'Name'} onKeyDown={e=>{if(e.key==='Enter')handleQuickAddAth();}} autoFocus/>

@@ -88,7 +88,7 @@ const CompEmoji=({emoji,logo,s=40})=>logo?<img src={logo} style={{width:s,height
 
 const TopBar=({title,sub,onBack,right,logo=true})=>(
   <div className="topbar">
-    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div className="topbar-logo" style={{background:"transparent",boxShadow:"none"}}><img src={OG_LOGO_URI} width={30} height={30} alt="OG Comps" style={{borderRadius:"6px"}}/></div>}
+    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div className="topbar-logo" style={{background:"transparent",boxShadow:"none"}}><img src={OG_LOGO_URI} width={44} height={44} alt="OG Comps" style={{borderRadius:"8px"}}/></div>}
     <div style={{flex:1}}><div className="topbar-title">{title}</div>{sub&&<div className="topbar-sub">{sub}</div>}</div>
     {right}
   </div>

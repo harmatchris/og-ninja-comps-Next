@@ -36,11 +36,11 @@ const Regelwerk=()=>{
           <input value={query} onChange={e=>setQuery(e.target.value)}
             placeholder={lang==='de'?'Regelwerk durchsuchen…':'Search rulebook…'}
             style={{paddingLeft:36,borderRadius:10,fontSize:13}}/>
-          <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:14,opacity:.5}}>🔍</span>
+          <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:14,opacity:.5}}></span>
           {query&&<button onClick={()=>setQuery('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,opacity:.5,color:'var(--text)',padding:'0 2px'}}>✕</button>}
         </div>
         {q&&<div style={{marginTop:8,display:'flex',gap:6,alignItems:'center'}}>
-          <span className="rw-match-badge">🔍 {totalMatches} {lang==='de'?'Treffer':'matches'} · {visible.length} {lang==='de'?'Kapitel':'chapters'}</span>
+          <span className="rw-match-badge"> {totalMatches} {lang==='de'?'Treffer':'matches'} · {visible.length} {lang==='de'?'Kapitel':'chapters'}</span>
           {visible.length===0&&<span style={{fontSize:11,color:'var(--muted)'}}>{lang==='de'?'Keine Ergebnisse':'No results'}</span>}
         </div>}
       </div>
@@ -199,7 +199,7 @@ const ResultsView=({compId,athletes})=>{
         r.forEach((run,i)=>{
           const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
           const ergebnis=run.status==='complete'?'Buzzer':run.fellAt?.name?`Failed @ ${run.fellAt.name}`:(run.status||'DNF');
-          rows.push([i+1,`"${a.num}"`,`"${a.name}"`,`"${a.team||''}"`,`"${a.country||''}"`,`"${catName(c)}"`,run.doneCP?.length||0,run.status==='complete'?fmtMs(run.finalTime):'',`"${ergebnis}"`,run.protested?'🚩':'']);
+          rows.push([i+1,`"${a.num}"`,`"${a.name}"`,`"${a.team||''}"`,`"${a.country||''}"`,`"${catName(c)}"`,run.doneCP?.length||0,run.status==='complete'?fmtMs(run.finalTime):'',`"${ergebnis}"`,run.protested?'':'']);
         });
       });
       const csv=rows.map(r=>r.join(',')).join('\n');
@@ -210,9 +210,9 @@ const ResultsView=({compId,athletes})=>{
     } else {
       // Text share fallback
       const lines=['OG Ninja Comp · Ergebnisse',new Date().toLocaleDateString(),''];
-      catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}${run.protested?' 🚩':''}`);});});
+      catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}${run.protested?' ':''}`);});});
       const text=lines.join('\n');
-      if(navigator.share)navigator.share({title:'OG Ninja Results',text});else if(navigator.clipboard){navigator.clipboard.writeText(text);alert('📋 In Zwischenablage kopiert');}
+      if(navigator.share)navigator.share({title:'OG Ninja Results',text});else if(navigator.clipboard){navigator.clipboard.writeText(text);alert('In Zwischenablage kopiert');}
       SFX.complete();
     }
   };

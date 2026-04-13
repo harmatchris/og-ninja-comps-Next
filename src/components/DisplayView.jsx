@@ -615,7 +615,7 @@ const StageRecoveryBanner=({compId,onJoin,lang})=>{
       <div style={{height:48,flexShrink:0}}/>
       <div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,background:'rgba(18,18,20,.97)',padding:'8px 16px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',borderBottom:'2px solid rgba(255,160,0,.55)'}}>
         <span style={{fontSize:12,color:'rgba(255,195,40,1)',flex:1}}>
-          {lang==='de'?'⚡ Aktive Stage gefunden — Handy ausgefallen?':'⚡ Active stage found — phone died?'}
+          {lang==='de'?'Aktive Stage gefunden — Handy ausgefallen?':'Active stage found — phone died?'}
         </span>
         {stages.map(s=>(
           <button key={s} className="btn btn-ghost" style={{padding:'5px 12px',fontSize:12,borderColor:'rgba(255,160,0,.55)',color:'rgba(255,195,40,1)',minWidth:0}} onClick={()=>onJoin(parseInt(s,10)||s)}>

@@ -148,7 +148,7 @@ const SkillSelfEntryView=({compId})=>{
                       </div>
                       <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>
                         {score.completed?(
-                          <span style={{color:score.flashed?'var(--gold)':'var(--green)'}}>{score.flashed?'⚡ Flash':`✓ Top · 2+ ${lang==='de'?'Versuche':'attempts'}`}</span>
+                          <span style={{color:score.flashed?'var(--gold)':'var(--green)'}}>{score.flashed?'Flash':`✓ Top · 2+ ${lang==='de'?'Versuche':'attempts'}`}</span>
                         ):(
                           score.attempts>0?<span style={{color:'var(--red)'}}>{score.attempts}× Failed</span>
                           :<span style={{color:'var(--muted)'}}>{lang==='de'?'Noch offen':'Not attempted'}</span>
@@ -169,7 +169,7 @@ const SkillSelfEntryView=({compId})=>{
                         const path=`ogn/${compId}/skillScores/${selAth.id}/${sk.id}`;
                         fbSet(path,{attempts:1,completed:true,flashed:true,poolScore:1000});SFX.checkpoint();
                       }}>
-                        <span style={{fontSize:28}}>⚡</span>
+                        <span style={{fontSize:18,fontWeight:700,color:'var(--gold)'}}>FLASH</span>
                         <span style={{fontWeight:800}}>Flash</span>
                       </button>
                       <button className="btn" style={{flex:1,padding:'18px 12px',fontSize:15,gap:6,flexDirection:'column',background:'rgba(52,199,89,.15)',border:'2px solid rgba(52,199,89,.4)',color:'var(--green)',minHeight:80,borderRadius:14}} onClick={()=>{

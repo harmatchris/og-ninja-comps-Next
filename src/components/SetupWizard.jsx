@@ -281,7 +281,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             </label>
             {/* Emoji button (popup trigger) – #2 */}
             <button onClick={()=>setShowEmojiPicker(!showEmojiPicker)} style={{width:44,height:44,borderRadius:10,border:'1.5px solid var(--border)',background:info.emoji?'rgba(255,94,58,.1)':'rgba(255,255,255,.03)',cursor:'pointer',fontSize:20,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>
-              {info.emoji||'😀'}
+              {info.emoji||''}
             </button>
             <div style={{flex:1}}>
               <div style={{fontSize:11,fontWeight:700,color:'var(--text)'}}>{lang==='de'?'Logo oder Emoji':'Logo or Emoji'}</div>
@@ -295,7 +295,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:18,padding:20,maxWidth:300}} onClick={e=>e.stopPropagation()}>
                 <div style={{fontSize:14,fontWeight:700,marginBottom:12,textAlign:'center'}}>{lang==='de'?'Emoji wählen':'Pick Emoji'}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:5,justifyContent:'center'}}>
-                  {['🥷','🏆','🥇','🎯','🪂','🥊','⚡','🔥','🏅','🤸','🧗','🦸','🏋','✊️','🎯','🦅','🦊','🥈','🌟','🏔️'].map(e=>(
+                  {['N','T','1st','X','P','B','Z','F','M','G','C','H','W','K','X','E','R','2nd','S','Mt'].map(e=>(
                     <button key={e} onClick={()=>{sI('emoji',e);setShowEmojiPicker(false);SFX.click();}} style={{width:42,height:42,fontSize:22,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'transparent'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.05)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{e}</button>
                   ))}
                 </div>
@@ -330,7 +330,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 {hasSkill&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>⚡ Skill Phase</div>
+                <div style={{fontWeight:700}}>Skill Phase</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Vorqualifikation mit Skills':'Pre-qualification with skills'}</div>
               </div>
             </button>
@@ -338,7 +338,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             {hasSkill&&(
               <div style={{marginLeft:28,display:'flex',flexDirection:'column',gap:8,paddingBottom:4}}>
                 <div style={{display:'flex',gap:6}}>
-                  {[{id:'oldschool',icon:'🥋',lbl:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)'},{id:'boulderstyle',icon:'🧱',lbl:'Boulderstyle'}].map(m=>(
+                  {[{id:'oldschool',icon:'',lbl:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)'},{id:'boulderstyle',icon:'',lbl:'Boulderstyle'}].map(m=>(
                     <button key={m.id} onClick={()=>{sI('skillPhase',{...(info.skillPhase||{}),type:m.id});SFX.hover();}}
                       style={{...chipStyle((info.skillPhase?.type||'oldschool')===m.id,'#34C759'),flex:1,justifyContent:'center',padding:'8px 10px'}}>
                       <span>{m.icon}</span> {m.lbl}
@@ -369,7 +369,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 {hasClassic&&<span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>🏆 Classic Stage</div>
+                <div style={{fontWeight:700}}>Classic Stage</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Klassischer Ninja Parcours':'Classic ninja course'}</div>
               </div>
             </button>
@@ -380,7 +380,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 {hasLives&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>❤️ Extra Life Stage</div>
+                <div style={{fontWeight:700}}>Extra Life Stage</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Parcours mit Lebenssystem':'Course with lives system'}</div>
               </div>
             </button>
@@ -391,18 +391,18 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{marginTop:14,background:'rgba(200,168,75,.07)',border:`1px solid ${chRankingUnlocked&&info.chRankingEnabled?'rgba(200,168,75,.5)':'rgba(200,168,75,.2)'}`,borderRadius:12,padding:'12px 14px'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:18}}>🇨🇭</span>
+                <span style={{fontSize:13,fontWeight:700}}>CH</span>
                 <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
               </div>
-              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔒</button>
-              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓</button>}
+              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>Lock</button>
+              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>Unlock</button>}
             </div>
             {chRankingUnlocked&&<div style={{marginTop:8}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}</label>
-              {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>🏆 {lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
+              {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
             </div>}
             {chRankingPwPrompt&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget){setChRankingPwPrompt(false);setChRankingPwInput('');}}}>
               <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,padding:24,width:280,display:'flex',flexDirection:'column',gap:12}}>
-                <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>🇨🇭 Freischalten</div>
+                <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>CH Freischalten</div>
                 <input autoFocus type="password" value={chRankingPwInput} onChange={e=>setChRankingPwInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryUnlock()} placeholder="Passwort" style={{padding:'10px 14px',borderRadius:10}}/>
                 <div style={{display:'flex',gap:8}}>
                   <button onClick={()=>{setChRankingPwPrompt(false);setChRankingPwInput('');}} style={{flex:1,padding:9,borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',cursor:'pointer',fontSize:13}}>{lang==='de'?'Abbrechen':'Cancel'}</button>
@@ -486,7 +486,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
                 {/* Mode per stage */}
                 <div style={{display:'flex',gap:4,marginBottom:8}}>
-                  {(hasClassic?[{id:'classic',lbl:'🏆 Classic'}]:[]).concat(hasLives?[{id:'lives',lbl:'❤️ Extra Life'}]:[]).concat(!hasClassic&&!hasLives?[{id:'classic',lbl:'🏆 Classic'},{id:'lives',lbl:'❤️ Extra Life'}]:[]).map(m=>(
+                  {(hasClassic?[{id:'classic',lbl:'Classic'}]:[]).concat(hasLives?[{id:'lives',lbl:'Extra Life'}]:[]).concat(!hasClassic&&!hasLives?[{id:'classic',lbl:'Classic'},{id:'lives',lbl:'Extra Life'}]:[]).map(m=>(
                     <button key={m.id} style={{...chipStyle(stgMode===m.id,frameColor),flex:1,justifyContent:'center',fontSize:11}} onClick={()=>updateStage(mainStg.id,'mode',m.id)}>{m.lbl}</button>
                   ))}
                 </div>
@@ -517,7 +517,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   </div>
                   {/* Quali % – #8 starts at 50, 1% steps */}
                   <div>
-                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>🏅 Quali %</div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Quali %</div>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
                       <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.max(0,(mainStg.qualiPercent||50)-1))}>−</button>
                       <input type="number" min={0} max={100} value={mainStg.qualiPercent??50} onChange={e=>updateStage(mainStg.id,'qualiPercent',Math.min(100,Math.max(0,Number(e.target.value)||0)))} style={{width:48,textAlign:'center',fontSize:13,fontWeight:700,padding:'4px 2px',fontFamily:'JetBrains Mono'}}/>
@@ -530,7 +530,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 {/* Extra Life config – #9 lives per section 1-5, total to infinity */}
                 {stgMode==='lives'&&(
                   <div style={{...cardStyle,marginBottom:8}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>❤️ Extra Life</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>Extra Life</div>
                     <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
                       <div>
                         <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Leben pro Sektion':'Lives per section'}</div>
