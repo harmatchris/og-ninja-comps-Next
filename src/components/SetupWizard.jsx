@@ -6,20 +6,20 @@ import { SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { AutocompleteInput, TopBar, EmptyState, DragList, TimePicker } from './shared.jsx';
 
-/* ââ colour palette for main-stage frames ââ */
+/* ── colour palette for main-stage frames ── */
 const FRAME_COLORS=['#FF5E3A','#5E9CFF','#34C759','#FF9F0A','#BF5AF2','#FF375F','#30D158','#64D2FF'];
 
 const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
 
-  /* ââ info state ââ */
+  /* ── info state ── */
   const [info,setInfo]=useState(initialInfo||{
     name:'',date:today(),location:'',
-    modes:[],                           // NEW: array of 'skill','classic','lives'
-    mode:'classic',                     // kept for backward compat
-    pipelineEnabled:true,               // always stagebuilder now
-    pipeline:[],                        // main stages + continuations
+    modes:[],
+    mode:'classic',
+    pipelineEnabled:true,
+    pipeline:[],
     numStations:0,
     lives:3,timeLimit:0,
     stageLimits:{},stageLivesOverrides:{},livesPerSection:false,stageTotalLives:0,stageExtraLife:{},
@@ -29,7 +29,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     skillPhase:{enabled:false,type:'oldschool',skills:[],timerMin:0,seedingMode:'inverted',skillCategories:'all'}
   });
 
-  /* ââ migrate old data ââ */
+  /* ── migrate old data ── */
   useEffect(()=>{
     if(initialInfo&&!initialInfo.modes){
       const m=[];
@@ -64,14 +64,14 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const [showEmojiPicker,setShowEmojiPicker]=useState(false);
   const sI=(k,v)=>setInfo(i=>({...i,[k]:v}));
 
-  /* ââ CH Ranking ââ */
+  /* ── CH Ranking ── */
   const [chRankingUnlocked,setChRankingUnlocked]=useState(!!(initialInfo?.chRankingEnabled));
   const [chRankingPwPrompt,setChRankingPwPrompt]=useState(false);
   const [chRankingPwInput,setChRankingPwInput]=useState('');
   const CH_RANKING_PW='CH2026';
   const tryUnlock=()=>{if(chRankingPwInput===CH_RANKING_PW){setChRankingUnlocked(true);setChRankingPwPrompt(false);setChRankingPwInput('');}else{setChRankingPwInput('');alert(lang==='de'?'Falsches Passwort':'Wrong password');}};
 
-  /* ââ derived ââ */
+  /* ── derived ── */
   const modes=info.modes||[];
   const hasSkill=modes.includes('skill');
   const hasClassic=modes.includes('classic');
@@ -81,11 +81,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const numSt=pipeline.length;
   const catsWithAths=[...new Set((stageAths||[]).flat().map(a=>a.cat))];
 
-  /* ââ step flow ââ */
-  // step 0: basic info + modes
-  // step 1: skill config (if skill enabled)
-  // step 2: stage builder + obstacles (if any stage mode)
-  // step 3: athletes
+  /* ── step flow ── */
   const steps=[];
   steps.push('info');
   if(hasSkill)steps.push('skills');
@@ -96,7 +92,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
   const resizePhoto=resizePhotoUtil;
 
-  /* ââ obstacle helpers ââ */
+  /* ── obstacle helpers ── */
   const si=Math.min(obsStage,Math.max(numSt-1,0));
   const curObs=stageObs[si]||[];
   const addObs=()=>{
@@ -112,7 +108,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const removeObs=(idx,id)=>{setStageObs(s=>{const n=[...s];n[idx]=n[idx].filter(o=>o.id!==id);return n;});};
   const toggleObsCP=(idx,id)=>{setStageObs(s=>{const n=[...s];n[idx]=n[idx].map(o=>o.id===id?{...o,isCP:!o.isCP}:o);return n;});};
 
-  /* ââ athlete helpers ââ */
+  /* ── athlete helpers ── */
   const asi=Math.min(athStage,Math.max(numSt-1,0));
   const curAths=stageAths[asi]||[];
   const addAth=()=>{
@@ -130,7 +126,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const removeAth=(idx,id)=>{setStageAths(a=>{const n=[...a];n[idx]=n[idx].filter(x=>x.id!==id);return n;});};
   const reorderAth=(idx,arr)=>{setStageAths(a=>{const na=[...a];na[idx]=arr;return na;});};
 
-  /* ââ CSV import ââ */
+  /* ── CSV import ── */
   const normalizeGender=raw=>{const g=(raw||'').trim().toLowerCase();if(['m','male'].includes(g))return 'm';if(['w','f','female'].includes(g))return 'w';if(['d','div','diverse'].includes(g))return 'd';return 'm';};
   const importCSV=(idx,text)=>{
     setCsvError('');
@@ -139,7 +135,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const results=[];
     for(const line of lines.slice(start)){
       const parts=line.split(/[,;\t]/).map(s=>s.trim().replace(/^["']|["']$/g,''));
-      if(parts.length<2){setCsvError(`UngÃ¼ltige Zeile: ${line}`);return;}
+      if(parts.length<2){setCsvError(`Ungültige Zeile: ${line}`);return;}
       const [num,name,catRaw='',genderRaw='',countryRaw='',teamRaw='']=parts;
       const catLow=catRaw.toLowerCase();
       const cat=IGN_CATS.find(c=>c.id===catLow||c.name.de.toLowerCase().includes(catLow)||c.name.en.toLowerCase().includes(catLow))||IGN_CATS[9];
@@ -152,7 +148,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const downloadCsvTemplate=()=>{const rows=['Startnr,Name,Kategorie-ID,Geschlecht,Land,Team','1,Max Muster,am1,M,CH,','2,Laura Beispiel,aw1,W,AT,Team Ninja'];const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='athleten-vorlage.csv';a.click();URL.revokeObjectURL(url);SFX.click();};
   const handleFileImport=(idx,file)=>{if(!file)return;const r=new FileReader();r.onload=e=>{try{importCSV(idx,e.target.result);}catch(err){setCsvError(err.message);}};r.readAsText(file);};
 
-  /* ââ divisions used by main stages ââ */
+  /* ── divisions used by main stages ── */
   const getDivsUsedByOtherMains=(excludeId)=>{
     const used=new Set();
     pipeline.filter(s=>s.isMain&&s.id!==excludeId).forEach(s=>{
@@ -162,12 +158,12 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     return used;
   };
 
-  /* ââ stage helpers ââ */
+  /* ── stage helpers ── */
   const addMainStage=()=>{
     const pl=info.pipeline||[];
     const letter=STAGE_LETTERS[pl.filter(s=>s.isMain).length]||`S${pl.length+1}`;
     const defaultMode=hasLives?'lives':'classic';
-    sI('pipeline',[...pl,{id:uid(),name:`Main Stage ${letter}`,mode:defaultMode,categories:[],isMain:true,continuations:[],qualiPercent:0,minPerDivision:3,order:pl.length,timeLimit:0}]);
+    sI('pipeline',[...pl,{id:uid(),name:`Main Stage ${letter}`,mode:defaultMode,categories:[],isMain:true,continuations:[],qualiPercent:50,minPerDivision:3,order:pl.length,timeLimit:0}]);
     SFX.click();
   };
   const addContinuation=(mainId)=>{
@@ -177,7 +173,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const main=pl[mainIdx];
     const contCount=(main.continuations||[]).length;
     const contId=uid();
-    const cont={id:contId,name:`${main.name} â Runde ${contCount+2}`,mode:main.mode,qualiPercent:50,minPerDivision:3,timeLimit:0,isMain:false};
+    const cont={id:contId,name:`${main.name} – Runde ${contCount+2}`,mode:main.mode,qualiPercent:50,minPerDivision:3,timeLimit:0,isMain:false};
     pl[mainIdx]={...main,continuations:[...(main.continuations||[]),cont]};
     sI('pipeline',pl);
     SFX.click();
@@ -185,7 +181,6 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const updateStage=(stageId,key,val)=>{
     sI('pipeline',(info.pipeline||[]).map(s=>{
       if(s.id===stageId)return{...s,[key]:val};
-      // check continuations
       if(s.continuations?.length){
         const newConts=s.continuations.map(c=>c.id===stageId?{...c,[key]:val}:c);
         if(newConts!==s.continuations)return{...s,continuations:newConts};
@@ -200,11 +195,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     sI('pipeline',pl);SFX.click();
   };
 
-  /* ââ get flat list of all stages for obs/ath indexing ââ */
+  /* ── get flat list of all stages for obs/ath indexing ── */
   const flatStages=[];
   pipeline.forEach(s=>{flatStages.push(s);(s.continuations||[]).forEach(c=>flatStages.push(c));});
 
-  /* ââ StageTabs ââ */
+  /* ── StageTabs ── */
   const StageTabs=({active,onChange})=>(
     <div style={{display:'flex',gap:4,overflowX:'auto',padding:'0 0 6px'}}>
       {flatStages.map((s,i)=>(
@@ -217,11 +212,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     </div>
   );
 
-  /* ââ save ââ */
+  /* ── save ── */
   const save=async()=>{
     if(!info.name.trim())return;setSaving(true);
     const id=existingId||uid();
-    // build backward-compat mode field
     const primaryMode=hasLives?'lives':'classic';
     const stagesData={};
     flatStages.forEach((stg,i)=>{
@@ -246,7 +240,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     setSaving(false);SFX.complete();onDone(id);
   };
 
-  /* ââ shared styles ââ */
+  /* ── shared styles ── */
   const chipStyle=(active,color)=>({
     padding:'6px 14px',fontSize:12,fontWeight:600,borderRadius:10,cursor:'pointer',
     border:`1.5px solid ${active?(color||'var(--cor)'):'var(--border)'}`,
@@ -256,8 +250,15 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   });
   const cardStyle={background:'rgba(255,255,255,.03)',borderRadius:12,padding:'12px 14px',border:'1px solid var(--border)'};
   const lblStyle={fontSize:12,fontWeight:700,color:'var(--muted)',marginBottom:6,letterSpacing:'.03em'};
+  const fancyBtnStyle=(bg='linear-gradient(135deg,var(--cor),var(--cor2))',shadow='rgba(255,94,58,.3)')=>({
+    width:'100%',padding:'13px 16px',fontSize:14,fontWeight:700,borderRadius:14,border:'none',
+    background:bg,color:'#fff',cursor:'pointer',
+    display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+    boxShadow:`0 4px 18px ${shadow}`,transition:'all .18s ease',
+    position:'relative',overflow:'hidden'
+  });
 
-  /* ââââââââââââ RENDER ââââââââââââ */
+  /* ──────────── RENDER ──────────── */
   return(
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
       <TopBar title={stepLabel[steps[step]]||'Setup'} logo={false}
@@ -268,34 +269,34 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
         {steps.map((_,i)=><div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=step?'var(--cor)':'var(--border)',transition:'background .3s'}}/>)}
       </div>
 
-      {/* âââââââ STEP 0: INFO + MODES âââââââ */}
+      {/* ─────── STEP 0: INFO + MODES ─────── */}
       {steps[step]==='info'&&(
         <div className="section fade-up" style={{flex:1}}>
           {/* Logo + Emoji */}
           <div style={lblStyle}>Logo / Emoji</div>
           <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
-            <label style={{cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:64,height:64,borderRadius:14,border:`2px dashed ${info.logo?'rgba(255,94,58,.5)':'var(--border)'}`,background:info.logo?'transparent':'rgba(255,255,255,.03)',overflow:'hidden',flexShrink:0,position:'relative'}}>
-              {info.logo?<img src={info.logo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><I.Camera s={20} c="var(--muted)"/><span style={{fontSize:8,color:'var(--muted)',marginTop:2}}>LOGO</span></>}
+            <label style={{cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',width:56,height:56,borderRadius:12,border:`2px dashed ${info.logo?'rgba(255,94,58,.5)':'var(--border)'}`,background:info.logo?'transparent':'rgba(255,255,255,.03)',overflow:'hidden',flexShrink:0,position:'relative'}}>
+              {info.logo?<img src={info.logo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<><I.Camera s={18} c="var(--muted)"/><span style={{fontSize:7,color:'var(--muted)',marginTop:1}}>LOGO</span></>}
               <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizeLogoUtil(e.target.files[0],b64=>sI('logo',b64));e.target.value='';}}/>
             </label>
-            {/* Emoji button (popup trigger) */}
-            <button onClick={()=>setShowEmojiPicker(!showEmojiPicker)} style={{width:48,height:48,borderRadius:12,border:'1.5px solid var(--border)',background:info.emoji?'rgba(255,94,58,.1)':'rgba(255,255,255,.03)',cursor:'pointer',fontSize:22,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>
-              {info.emoji||'ð'}
+            {/* Emoji button (popup trigger) – #2 */}
+            <button onClick={()=>setShowEmojiPicker(!showEmojiPicker)} style={{width:44,height:44,borderRadius:10,border:'1.5px solid var(--border)',background:info.emoji?'rgba(255,94,58,.1)':'rgba(255,255,255,.03)',cursor:'pointer',fontSize:20,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .15s'}}>
+              {info.emoji||'😀'}
             </button>
             <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>{lang==='de'?'Logo oder Emoji':'Logo or Emoji'}</div>
-              <div style={{fontSize:10,color:'var(--muted)',lineHeight:1.4}}>{lang==='de'?'Optional â wird auf Displays angezeigt':'Optional â shown on displays'}</div>
-              {info.logo&&<button style={{marginTop:4,fontSize:10,color:'var(--red)',background:'rgba(255,59,48,.12)',border:'none',borderRadius:6,padding:'2px 7px',cursor:'pointer'}} onClick={()=>sI('logo',null)}>{lang==='de'?'Entfernen':'Remove'}</button>}
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text)'}}>{lang==='de'?'Logo oder Emoji':'Logo or Emoji'}</div>
+              <div style={{fontSize:9,color:'var(--muted)',lineHeight:1.4}}>{lang==='de'?'Optional – wird auf Displays angezeigt':'Optional – shown on displays'}</div>
+              {info.logo&&<button style={{marginTop:3,fontSize:9,color:'var(--red)',background:'rgba(255,59,48,.12)',border:'none',borderRadius:6,padding:'2px 7px',cursor:'pointer'}} onClick={()=>sI('logo',null)}>{lang==='de'?'Entfernen':'Remove'}</button>}
             </div>
           </div>
-          {/* Emoji popup */}
+          {/* Emoji popup – #2 */}
           {showEmojiPicker&&(
             <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>setShowEmojiPicker(false)}>
-              <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:18,padding:20,maxWidth:320}} onClick={e=>e.stopPropagation()}>
-                <div style={{fontSize:14,fontWeight:700,marginBottom:12,textAlign:'center'}}>{lang==='de'?'Emoji wÃ¤hlen':'Pick Emoji'}</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center'}}>
-                  {['ð¥·','ð','ð¥','ð¯','ðª','ð¥','â¡','ð','ð','ð¤¸','ð§','ð¦¸','ð','âï¸','ð¯','ð¦','ð¦','ð¥','ð','ðï¸'].map(e=>(
-                    <button key={e} onClick={()=>{sI('emoji',e);setShowEmojiPicker(false);SFX.click();}} style={{width:44,height:44,fontSize:24,borderRadius:12,border:`2px solid ${info.emoji===e?'var(--cor)':'transparent'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.05)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{e}</button>
+              <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:18,padding:20,maxWidth:300}} onClick={e=>e.stopPropagation()}>
+                <div style={{fontSize:14,fontWeight:700,marginBottom:12,textAlign:'center'}}>{lang==='de'?'Emoji wählen':'Pick Emoji'}</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:5,justifyContent:'center'}}>
+                  {['🥷','🏆','🥇','🎯','🪂','🥊','⚡','🔥','🏅','🤸','🧗','🦸','🏋','✊️','🎯','🦅','🦊','🥈','🌟','🏔️'].map(e=>(
+                    <button key={e} onClick={()=>{sI('emoji',e);setShowEmojiPicker(false);SFX.click();}} style={{width:42,height:42,fontSize:22,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'transparent'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.05)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{e}</button>
                   ))}
                 </div>
               </div>
@@ -306,38 +307,45 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={lblStyle}>{t('compName')}</div>
           <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="OG Ninja Cup 2026" autoFocus/>
 
-          {/* Date + Location (fixed overlap) */}
-          <div style={{display:'flex',gap:8}}>
-            <div style={{flex:'0 0 130px'}}><div style={lblStyle}>{t('compDate')}</div><input type="date" value={info.date} onChange={e=>sI('date',e.target.value)} style={{width:'100%',padding:'10px 8px',fontSize:13}}/></div>
-            <div style={{flex:1,minWidth:0}}><div style={lblStyle}>{t('compLocation')}</div><input value={info.location} onChange={e=>sI('location',e.target.value)} placeholder="Zurich Ninja Park" style={{width:'100%'}}/></div>
+          {/* Date + Location – #3 compact date, clear separation */}
+          <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
+            <div style={{flex:'0 0 120px'}}>
+              <div style={lblStyle}>{t('compDate')}</div>
+              <input type="date" value={info.date} onChange={e=>sI('date',e.target.value)} style={{width:'100%',padding:'8px 6px',fontSize:12}}/>
+            </div>
+            <div style={{width:1,height:36,background:'var(--border)',flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={lblStyle}>{t('compLocation')}</div>
+              <input value={info.location} onChange={e=>sI('location',e.target.value)} placeholder="Zurich Ninja Park" style={{width:'100%'}}/>
+            </div>
           </div>
 
-          {/* ââ MODE SELECTION (multi-select) ââ */}
+          {/* ── MODE SELECTION (multi-select) – #4 Skill Phase at mode ── */}
           <div style={lblStyle}>{lang==='de'?'Wettkampf-Modus':'Competition Mode'}</div>
           <div style={{display:'flex',flexDirection:'column',gap:8}}>
             {/* Skill Phase */}
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('skill');idx>=0?m.splice(idx,1):m.push('skill');sI('modes',m);sI('skillPhase',{...(info.skillPhase||{}),enabled:m.includes('skill')});SFX.hover();}}
               style={{...chipStyle(hasSkill,'#34C759'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasSkill?'#34C759':'var(--border)'}`,background:hasSkill?'#34C759':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasSkill&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
+                {hasSkill&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>â¡ Skill Phase</div>
+                <div style={{fontWeight:700}}>⚡ Skill Phase</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Vorqualifikation mit Skills':'Pre-qualification with skills'}</div>
               </div>
             </button>
-            {/* Skill sub-options */}
+            {/* Skill sub-options – #4 inline after mode */}
             {hasSkill&&(
               <div style={{marginLeft:28,display:'flex',flexDirection:'column',gap:8,paddingBottom:4}}>
                 <div style={{display:'flex',gap:6}}>
-                  {[{id:'oldschool',icon:'ð¥',lbl:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)'},{id:'boulderstyle',icon:'ð±',lbl:'Boulderstyle'}].map(m=>(
+                  {[{id:'oldschool',icon:'🥋',lbl:lang==='de'?'Oldschool (Jury)':'Oldschool (Jury)'},{id:'boulderstyle',icon:'🧱',lbl:'Boulderstyle'}].map(m=>(
                     <button key={m.id} onClick={()=>{sI('skillPhase',{...(info.skillPhase||{}),type:m.id});SFX.hover();}}
                       style={{...chipStyle((info.skillPhase?.type||'oldschool')===m.id,'#34C759'),flex:1,justifyContent:'center',padding:'8px 10px'}}>
                       <span>{m.icon}</span> {m.lbl}
                     </button>
                   ))}
                 </div>
-                {/* Skill divisions */}
+                {/* Skill divisions – #4 which divisions */}
                 <div style={{fontSize:11,fontWeight:600,color:'var(--muted)'}}>{lang==='de'?'Welche Divisionen bei Skills?':'Which divisions for skills?'}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
                   <button style={chipStyle(!(info.skillPhase?.skillCategories)||info.skillPhase?.skillCategories==='all','#34C759')} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skillCategories:'all'})}>
@@ -358,10 +366,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('classic');idx>=0?m.splice(idx,1):m.push('classic');sI('modes',m);SFX.hover();}}
               style={{...chipStyle(hasClassic,'#FF5E3A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasClassic?'#FF5E3A':'var(--border)'}`,background:hasClassic?'#FF5E3A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasClassic&&<span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
+                {hasClassic&&<span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>ð Classic Stage</div>
+                <div style={{fontWeight:700}}>🏆 Classic Stage</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Klassischer Ninja Parcours':'Classic ninja course'}</div>
               </div>
             </button>
@@ -369,32 +377,32 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('lives');idx>=0?m.splice(idx,1):m.push('lives');sI('modes',m);SFX.hover();}}
               style={{...chipStyle(hasLives,'#FFD60A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasLives?'#FFD60A':'var(--border)'}`,background:hasLives?'#FFD60A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasLives&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>â</span>}
+                {hasLives&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:'left'}}>
-                <div style={{fontWeight:700}}>â¤ï¸ Extra Life Stage</div>
+                <div style={{fontWeight:700}}>❤️ Extra Life Stage</div>
                 <div style={{fontSize:10,opacity:.7,marginTop:1}}>{lang==='de'?'Parcours mit Lebenssystem':'Course with lives system'}</div>
               </div>
             </button>
           </div>
-          {!modes.length&&<div style={{fontSize:11,color:'var(--red)',marginTop:4,textAlign:'center'}}>{lang==='de'?'Mindestens einen Modus auswÃ¤hlen':'Select at least one mode'}</div>}
+          {!modes.length&&<div style={{fontSize:11,color:'var(--red)',marginTop:4,textAlign:'center'}}>{lang==='de'?'Mindestens einen Modus auswählen':'Select at least one mode'}</div>}
 
           {/* CH Ranking */}
           <div style={{marginTop:14,background:'rgba(200,168,75,.07)',border:`1px solid ${chRankingUnlocked&&info.chRankingEnabled?'rgba(200,168,75,.5)':'rgba(200,168,75,.2)'}`,borderRadius:12,padding:'12px 14px'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:18}}>ð¨ð­</span>
+                <span style={{fontSize:18}}>🇨🇭</span>
                 <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
               </div>
-              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>ð</button>
-              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>ð</button>}
+              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔒</button>
+              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓</button>}
             </div>
             {chRankingUnlocked&&<div style={{marginTop:8}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}</label>
-              {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>ð {lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
+              {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>🏆 {lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
             </div>}
             {chRankingPwPrompt&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={e=>{if(e.target===e.currentTarget){setChRankingPwPrompt(false);setChRankingPwInput('');}}}>
               <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:16,padding:24,width:280,display:'flex',flexDirection:'column',gap:12}}>
-                <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>ð¨ð­ Freischalten</div>
+                <div style={{fontSize:15,fontWeight:700,color:'#C8A84B',textAlign:'center'}}>🇨🇭 Freischalten</div>
                 <input autoFocus type="password" value={chRankingPwInput} onChange={e=>setChRankingPwInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&tryUnlock()} placeholder="Passwort" style={{padding:'10px 14px',borderRadius:10}}/>
                 <div style={{display:'flex',gap:8}}>
                   <button onClick={()=>{setChRankingPwPrompt(false);setChRankingPwInput('');}} style={{flex:1,padding:9,borderRadius:10,border:'1px solid var(--border)',background:'transparent',color:'var(--muted)',cursor:'pointer',fontSize:13}}>{lang==='de'?'Abbrechen':'Cancel'}</button>
@@ -406,7 +414,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
         </div>
       )}
 
-      {/* âââââââ STEP: SKILLS CONFIG âââââââ */}
+      {/* ─────── STEP: SKILLS CONFIG – #5 ─────── */}
       {steps[step]==='skills'&&(
         <div className="section fade-up" style={{flex:1}}>
           <div style={lblStyle}>{lang==='de'?'Skills / Hindernisse':'Skills / Obstacles'}</div>
@@ -430,24 +438,24 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               </div>
             );
           })}
-          <button className="btn btn-ghost" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,borderRadius:12}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:[...(info.skillPhase?.skills||[]),{id:uid(),name:'',difficulty:'medium'}]})}>
-            <I.Plus s={14}/> {lang==='de'?'Skill hinzufÃ¼gen':'Add skill'}
+          <button style={{...fancyBtnStyle('rgba(255,255,255,.06)','transparent'),border:'1.5px dashed var(--border)',color:'var(--text)',boxShadow:'none',fontSize:13}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),skills:[...(info.skillPhase?.skills||[]),{id:uid(),name:'',difficulty:'medium'}]})}>
+            <I.Plus s={14}/> {lang==='de'?'Skill hinzufügen':'Add skill'}
           </button>
-          {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:6,padding:10}}>{lang==='de'?'Mindestens 1 Skill hinzufÃ¼gen':'Add at least 1 skill'}</div>}
+          {(info.skillPhase?.skills||[]).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:6,padding:10}}>{lang==='de'?'Mindestens 1 Skill hinzufügen':'Add at least 1 skill'}</div>}
 
           {/* Timer */}
           <div style={{...lblStyle,marginTop:16}}><I.Clock s={13}/> Timer (0 = {lang==='de'?'kein Limit':'no limit'})</div>
           <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
             {[0,5,10,15,20,30,45,60,90,120,180,240,300,360].map(m=>(
               <button key={m} style={chipStyle((info.skillPhase?.timerMin||0)===m)} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),timerMin:m})}>
-                {m===0?'â':m<60?`${m}m`:`${Math.floor(m/60)}h${m%60?m%60+'m':''}`}
+                {m===0?'∞':m<60?`${m}m`:`${Math.floor(m/60)}h${m%60?m%60+'m':''}`}
               </button>
             ))}
           </div>
 
           {/* Seeding */}
           {hasAnyStage&&(<>
-            <div style={{...lblStyle,marginTop:16}}>{lang==='de'?'Seeding fÃ¼r Stage':'Seeding for stage'}</div>
+            <div style={{...lblStyle,marginTop:16}}>{lang==='de'?'Seeding für Stage':'Seeding for stage'}</div>
             <div style={{display:'flex',gap:6}}>
               {[{id:'inverted',lbl:lang==='de'?'Invertiert':'Inverted'},{id:'manual',lbl:lang==='de'?'Manuell':'Manual'}].map(s=>(
                 <button key={s.id} style={{...chipStyle((info.skillPhase?.seedingMode||'inverted')===s.id),flex:1,justifyContent:'center'}} onClick={()=>sI('skillPhase',{...(info.skillPhase||{}),seedingMode:s.id})}>{s.lbl}</button>
@@ -457,10 +465,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
         </div>
       )}
 
-      {/* âââââââ STEP: STAGES (builder + obstacles) âââââââ */}
+      {/* ─────── STEP: STAGES (builder + obstacles) – #6 only stagebuilder ─────── */}
       {steps[step]==='stages'&&(
         <div className="section fade-up" style={{flex:1}}>
-          {/* Main stage groups */}
+          {/* Main stage groups – #12 visually separated */}
           {pipeline.map((mainStg,mi)=>{
             if(!mainStg.isMain)return null;
             const frameColor=FRAME_COLORS[mi%FRAME_COLORS.length];
@@ -478,12 +486,12 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
                 {/* Mode per stage */}
                 <div style={{display:'flex',gap:4,marginBottom:8}}>
-                  {[{id:'classic',lbl:'ð Classic'},{id:'lives',lbl:'â¤ï¸ Extra Life'}].map(m=>(
+                  {(hasClassic?[{id:'classic',lbl:'🏆 Classic'}]:[]).concat(hasLives?[{id:'lives',lbl:'❤️ Extra Life'}]:[]).concat(!hasClassic&&!hasLives?[{id:'classic',lbl:'🏆 Classic'},{id:'lives',lbl:'❤️ Extra Life'}]:[]).map(m=>(
                     <button key={m.id} style={{...chipStyle(stgMode===m.id,frameColor),flex:1,justifyContent:'center',fontSize:11}} onClick={()=>updateStage(mainStg.id,'mode',m.id)}>{m.lbl}</button>
                   ))}
                 </div>
 
-                {/* Divisions (exclusive) */}
+                {/* Divisions – #11 exclusive, #14 all divisions always selectable */}
                 <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Divisionen':'Divisions'}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
                   {IGN_CATS.map(cat=>{
@@ -493,44 +501,49 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                       if(blocked&&!sel)return;
                       const cur=mainStg.categories||[];
                       updateStage(mainStg.id,'categories',sel?cur.filter(c=>c!==cat.id):[...cur,cat.id]);
-                    }}>{cat.name[lang]}{blocked&&!sel?' â':''}</button>;
+                    }}>{cat.name[lang]}{blocked&&!sel?' ✗':''}</button>;
                   })}
                 </div>
 
-                {/* Time limit (10s steps) */}
+                {/* Time limit (10s steps) – #7 */}
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                   <div>
-                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>â± Time Limit</div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>⏱ Time Limit</div>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
-                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'timeLimit',Math.max(0,(mainStg.timeLimit||0)-10))}>â</button>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'timeLimit',Math.max(0,(mainStg.timeLimit||0)-10))}>−</button>
                       <div style={{fontFamily:'JetBrains Mono',fontSize:14,fontWeight:700,minWidth:50,textAlign:'center'}}>{Math.floor((mainStg.timeLimit||0)/60)}:{String((mainStg.timeLimit||0)%60).padStart(2,'0')}</div>
-                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'timeLimit',(mainStg.timeLimit||0)+10)}>+</button>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'timeLimit',(mainStg.timeLimit||0)+10)}>+</button>
                     </div>
                   </div>
-                  {/* Quali % */}
+                  {/* Quali % – #8 starts at 50, 1% steps */}
                   <div>
-                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>ð Quali %</div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>🏅 Quali %</div>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
-                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.max(0,(mainStg.qualiPercent||0)-1))}>â</button>
-                      <input type="number" min={0} max={100} value={mainStg.qualiPercent||0} onChange={e=>updateStage(mainStg.id,'qualiPercent',Math.min(100,Math.max(0,Number(e.target.value)||0)))} style={{width:48,textAlign:'center',fontSize:13,fontWeight:700,padding:'4px 2px',fontFamily:'JetBrains Mono'}}/>
-                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.min(100,(mainStg.qualiPercent||0)+1))}>+</button>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.max(0,(mainStg.qualiPercent||50)-1))}>−</button>
+                      <input type="number" min={0} max={100} value={mainStg.qualiPercent??50} onChange={e=>updateStage(mainStg.id,'qualiPercent',Math.min(100,Math.max(0,Number(e.target.value)||0)))} style={{width:48,textAlign:'center',fontSize:13,fontWeight:700,padding:'4px 2px',fontFamily:'JetBrains Mono'}}/>
+                      <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.min(100,(mainStg.qualiPercent||50)+1))}>+</button>
                       <span style={{fontSize:10,color:'var(--muted)'}}>%</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Extra Life config */}
+                {/* Extra Life config – #9 lives per section 1-5, total to infinity */}
                 {stgMode==='lives'&&(
                   <div style={{...cardStyle,marginBottom:8}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>â¤ï¸ Extra Life</div>
+                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>❤️ Extra Life</div>
                     <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
                       <div>
                         <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Leben pro Sektion':'Lives per section'}</div>
-                        <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>{n}</button>)}</div>
+                        <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{n}</button>)}</div>
                       </div>
                       <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben (0=â)':'Total lives (0=â)'}</div>
-                        <input type="number" min={0} max={99} value={mainStg.totalLives??0} onChange={e=>updateStage(mainStg.id,'totalLives',Number(e.target.value)||0)} style={{width:60,textAlign:'center',fontSize:14,fontWeight:700,padding:'6px',fontFamily:'JetBrains Mono'}}/>
+                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben (0=∞)':'Total lives (0=∞)'}</div>
+                        <div style={{display:'flex',alignItems:'center',gap:4}}>
+                          <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',Math.max(0,(mainStg.totalLives??0)-1))}>−</button>
+                          <input type="number" min={0} max={999} value={mainStg.totalLives??0} onChange={e=>updateStage(mainStg.id,'totalLives',Math.max(0,Number(e.target.value)||0))} style={{width:52,textAlign:'center',fontSize:14,fontWeight:700,padding:'6px',fontFamily:'JetBrains Mono'}}/>
+                          <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',(mainStg.totalLives??0)+1)}>+</button>
+                          <button style={{padding:'4px 10px',borderRadius:8,border:'1px solid rgba(255,214,10,.3)',background:(mainStg.totalLives===0||!mainStg.totalLives)?'rgba(255,214,10,.15)':'transparent',color:'#FFD60A',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',0)}>∞</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -553,35 +566,36 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <input value={obsStage===flatIdx?newObs:''} onChange={e=>{setObsStage(flatIdx);setNewObs(e.target.value);}} onFocus={()=>setObsStage(flatIdx)} placeholder={lang==='de'?'Hindernis...':'Obstacle...'} onKeyDown={e=>{if(e.key==='Enter'&&newObs.trim()){setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}} style={{flex:1,fontSize:12,padding:'8px 10px'}}/>
-                    <button style={{padding:'8px 14px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:14,boxShadow:'0 2px 8px rgba(255,94,58,.3)',transition:'transform .1s'}} onClick={()=>{if(!newObs.trim())return;setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}><I.Plus s={14}/></button>
+                    <button style={{padding:'8px 14px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:14,boxShadow:'0 2px 8px rgba(255,94,58,.3)',transition:'all .12s'}} onClick={()=>{if(!newObs.trim())return;setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}><I.Plus s={14}/></button>
                   </div>
                 </>)}
 
-                {/* Continuations */}
+                {/* Continuations – #11, #13 */}
                 {(mainStg.continuations||[]).map((cont,ci)=>{
                   const contFlatIdx=flatStages.findIndex(s=>s.id===cont.id);
                   return(
                     <div key={cont.id} style={{marginTop:10,paddingTop:10,borderTop:`1px dashed ${frameColor}44`}}>
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
-                        <span style={{fontSize:11,color:frameColor,fontWeight:700}}>â³ Runde {ci+2}</span>
+                        <span style={{fontSize:11,color:frameColor,fontWeight:700}}>↳ Runde {ci+2}</span>
                         <input value={cont.name} onChange={e=>updateStage(cont.id,'name',e.target.value)} style={{flex:1,padding:'4px 8px',fontSize:12}} placeholder={`Runde ${ci+2}`}/>
                         <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} onClick={()=>removeStage(cont.id)}><I.Trash s={12} c="var(--red)"/></button>
                       </div>
+                      {/* Quali – #13 */}
                       <div style={{display:'flex',gap:8,alignItems:'center'}}>
                         <div style={{fontSize:10,color:'var(--muted)'}}>Quali:</div>
                         <div style={{display:'flex',alignItems:'center',gap:3}}>
-                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.max(0,(cont.qualiPercent||50)-1))}>â</button>
-                          <input type="number" min={0} max={100} value={cont.qualiPercent||50} onChange={e=>updateStage(cont.id,'qualiPercent',Number(e.target.value)||0)} style={{width:42,textAlign:'center',fontSize:12,fontWeight:700,padding:'3px',fontFamily:'JetBrains Mono'}}/>
-                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.min(100,(cont.qualiPercent||50)+1))}>+</button>
+                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.max(1,(cont.qualiPercent||50)-1))}>−</button>
+                          <input type="number" min={1} max={100} value={cont.qualiPercent||50} onChange={e=>updateStage(cont.id,'qualiPercent',Math.min(100,Math.max(1,Number(e.target.value)||1)))} style={{width:42,textAlign:'center',fontSize:12,fontWeight:700,padding:'3px',fontFamily:'JetBrains Mono'}}/>
+                          <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'qualiPercent',Math.min(100,(cont.qualiPercent||50)+1))}>+</button>
                           <span style={{fontSize:10,color:'var(--muted)'}}>% (min 3/Div)</span>
                         </div>
                       </div>
-                      {/* Time limit for continuation */}
+                      {/* Time limit for continuation – #7 */}
                       <div style={{display:'flex',alignItems:'center',gap:4,marginTop:6}}>
-                        <span style={{fontSize:10,color:'var(--muted)'}}>â±</span>
-                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'timeLimit',Math.max(0,(cont.timeLimit||0)-10))}>â</button>
+                        <span style={{fontSize:10,color:'var(--muted)'}}>⏱</span>
+                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'timeLimit',Math.max(0,(cont.timeLimit||0)-10))}>−</button>
                         <span style={{fontFamily:'JetBrains Mono',fontSize:12,fontWeight:700,minWidth:40,textAlign:'center'}}>{Math.floor((cont.timeLimit||0)/60)}:{String((cont.timeLimit||0)%60).padStart(2,'0')}</span>
-                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(cont.id,'timeLimit',(cont.timeLimit||0)+10)}>+</button>
+                        <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'timeLimit',(cont.timeLimit||0)+10)}>+</button>
                       </div>
                       {/* Obstacles for continuation */}
                       {contFlatIdx>=0&&(<>
@@ -600,30 +614,30 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                     </div>
                   );
                 })}
-                {/* Add continuation button */}
+                {/* Add continuation button – #11 */}
                 {(mainStg.categories||[]).length>0&&(
                   <button onClick={()=>addContinuation(mainStg.id)} style={{width:'100%',marginTop:10,padding:'8px',fontSize:12,fontWeight:600,borderRadius:10,border:`1.5px dashed ${frameColor}66`,background:'transparent',color:frameColor,cursor:'pointer',transition:'all .15s',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-                    <I.Plus s={12}/> {lang==='de'?'Fortsetzung hinzufÃ¼gen':'Add continuation'}
+                    <I.Plus s={12}/> {lang==='de'?'+ Fortsetzung hinzufügen (zweite Stage...)':'+ Add continuation (second stage...)'}
                   </button>
                 )}
               </div>
             );
           })}
 
-          {/* Add Main Stage button */}
-          <button onClick={addMainStage} style={{width:'100%',padding:12,fontSize:14,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 4px 16px rgba(255,94,58,.3)',transition:'all .15s'}}>
-            <I.Plus s={16}/> {lang==='de'?'Main Stage hinzufÃ¼gen':'Add Main Stage'}
+          {/* Add Main Stage button – #10 renamed */}
+          <button onClick={addMainStage} style={fancyBtnStyle()}>
+            <I.Plus s={16}/> {lang==='de'?'Main Stage hinzufügen':'Add Main Stage'}
           </button>
-          {pipeline.filter(s=>s.isMain).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:8}}>{lang==='de'?'Mindestens eine Stage hinzufÃ¼gen':'Add at least one stage'}</div>}
+          {pipeline.filter(s=>s.isMain).length===0&&<div style={{fontSize:12,color:'var(--muted)',textAlign:'center',marginTop:8}}>{lang==='de'?'Mindestens eine Stage hinzufügen':'Add at least one stage'}</div>}
         </div>
       )}
 
-      {/* âââââââ STEP: ATHLETES âââââââ */}
+      {/* ─────── STEP: ATHLETES ─────── */}
       {steps[step]==='athletes'&&(
         <div className="section fade-up" style={{flex:1}}>
           {flatStages.length>1&&<StageTabs active={asi} onChange={setAthStage}/>}
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div style={lblStyle}>{t('athletes')} ({curAths.length}){flatStages.length>1&&<span style={{marginLeft:6,fontWeight:500}}>Â· {flatStages[asi]?.name||'Stage'}</span>}</div>
+            <div style={lblStyle}>{t('athletes')} ({curAths.length}){flatStages.length>1&&<span style={{marginLeft:6,fontWeight:500}}>· {flatStages[asi]?.name||'Stage'}</span>}</div>
             <div style={{display:'flex',gap:6}}>
               <label className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,cursor:'pointer',gap:4}}>
                 <I.Upload s={12}/> CSV
@@ -632,7 +646,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:4}} onClick={downloadCsvTemplate}><I.FileText s={12}/> {lang==='de'?'Vorlage':'Template'}</button>
             </div>
           </div>
-          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>â ï¸ {csvError}</div>}
+          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>⚠️ {csvError}</div>}
           <div style={{maxHeight:260,overflowY:'auto'}}>
             {curAths.length===0?<EmptyState icon={<I.User s={28} c="rgba(255,255,255,.3)"/>} text="Noch keine Athleten"/>:
               <DragList items={curAths} onReorder={arr=>reorderAth(asi,arr)} keyFn={a=>a.id}
@@ -643,7 +657,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                     {a.photo?<img src={a.photo} style={{width:26,height:26,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>:<div style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><I.User s={13} c="rgba(255,255,255,.35)"/></div>}
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-                      {(a.country||a.team)&&<div style={{fontSize:10,color:'var(--muted)'}}>{[a.country,a.team].filter(Boolean).join(' Â· ')}</div>}
+                      {(a.country||a.team)&&<div style={{fontSize:10,color:'var(--muted)'}}>{[a.country,a.team].filter(Boolean).join(' · ')}</div>}
                     </div>
                     <div style={{fontSize:10,padding:'2px 6px',borderRadius:8,background:`${cat?.color||'#888'}1A`,color:cat?.color||'#888',border:`1px solid ${cat?.color||'#888'}44`,fontWeight:600,flexShrink:0}}>{cat?.name[lang]||'?'}</div>
                     <button style={{background:'none',border:'none',cursor:'pointer',padding:4,flexShrink:0}} onClick={()=>removeAth(asi,a.id)}><I.Trash s={13} c="var(--red)"/></button>
@@ -665,21 +679,21 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             </div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid var(--border)'}}>
               {newAth.photo
-                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1}}>Foto â</span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}>â</button></>
+                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1}}>Foto ✓</span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}>✕</button></>
                 :<><I.Camera s={17} c="var(--muted)"/><span style={{fontSize:12,flex:1,color:'var(--muted)'}}>Foto (optional)</span></>
               }
               <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizePhoto(e.target.files[0],b64=>setNewAth(a=>({...a,photo:b64})));e.target.value='';}}/>
             </label>
-            <button style={{width:'100%',padding:11,borderRadius:12,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 3px 12px rgba(255,94,58,.3)',transition:'all .15s'}} onClick={addAth}><I.Plus s={15}/> {t('addAth')}</button>
+            <button style={fancyBtnStyle()} onClick={addAth}><I.Plus s={15}/> {t('addAth')}</button>
           </div>
         </div>
       )}
 
-      {/* âââââââ BOTTOM NAV âââââââ */}
+      {/* ─────── BOTTOM NAV – #15 fancy buttons ─────── */}
       <div style={{padding:'0 16px 36px',marginTop:'auto'}}>
         {step<maxStep
-          ?<button style={{width:'100%',padding:15,fontSize:15,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 4px 18px rgba(255,94,58,.3)',transition:'all .15s',opacity:step===0&&(!info.name.trim()||!modes.length)?.5:1}} disabled={step===0&&(!info.name.trim()||!modes.length)} onClick={()=>{SFX.click();setStep(s=>s+1);}}>{t('next')} <I.ChevR s={16}/></button>
-          :<button style={{width:'100%',padding:15,fontSize:15,fontWeight:700,borderRadius:14,border:'none',background:'linear-gradient(135deg,#34C759,#30B852)',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,boxShadow:'0 4px 18px rgba(52,199,89,.3)',transition:'all .15s'}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichernâ¦':<><I.Check s={17}/> {t('finish')}</>}</button>
+          ?<button style={{...fancyBtnStyle(),padding:15,fontSize:15,opacity:step===0&&(!info.name.trim()||!modes.length)?.5:1}} disabled={step===0&&(!info.name.trim()||!modes.length)} onClick={()=>{SFX.click();setStep(s=>s+1);}}>{t('next')} <I.ChevR s={16}/></button>
+          :<button style={{...fancyBtnStyle('linear-gradient(135deg,#34C759,#30B852)','rgba(52,199,89,.3)'),padding:15,fontSize:15}} disabled={saving} onClick={()=>{SFX.click();save();}}>{saving?'Speichern…':<><I.Check s={17}/> {t('finish')}</>}</button>
         }
       </div>
     </div>
