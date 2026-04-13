@@ -99,7 +99,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
           <div key={sn} style={{background:'rgba(48,209,88,.06)',border:'1px solid rgba(48,209,88,.25)',borderRadius:tvMode?18:12,padding:tvMode?'20px 24px':'12px 14px'}}>
             <div style={{fontWeight:800,fontSize:tvMode?17:12}}>{isPipeline?(pStage?.name||'Stage'):('Stage '+sn)}</div>
             {cat&&<div style={{fontSize:tvMode?13:10,color:'var(--muted)',marginBottom:4}}>{catName(cat)}</div>}
-            <div style={{fontSize:tvMode?15:11,color:'#30D158',fontWeight:700}}>\u2713 {lang==='de'?`Alle ${total} fertig`:`All ${total} done`}</div>
+            <div style={{fontSize:tvMode?15:11,color:'#30D158',fontWeight:700}}>✓ {lang==='de'?`Alle ${total} fertig`:`All ${total} done`}</div>
           </div>
         );
 

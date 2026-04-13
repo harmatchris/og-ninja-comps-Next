@@ -514,7 +514,7 @@ const DisplayNoComp=({onSelect})=>{
   const comps=useFbVal('ogn');const list=comps?Object.entries(comps).map(([id,v])=>({id,...v})):[];
   return(
     <div style={{background:'#000',minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:14,padding:24}}>
-      <div style={{width:64,height:64,borderRadius:18,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Bolt s={34} c="#fff"/></div><div style={{fontSize:20,fontWeight:900,color:'#fff'}}>OG Ninja Display</div>
+      <div style={{width:64,height:64,borderRadius:18,background:'linear-gradient(135deg,#FF5E3A,#FF9040)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.Bolt s={34} c="#fff"/></div><div style={{fontSize:20,fontWeight:900,color:'#fff'}}>Ninja Competition Tool</div>
       <div style={{fontSize:13,color:'rgba(255,255,255,.4)',marginBottom:6}}>Wettkampf auswählen</div>
       {list.length===0&&<Spinner/>}
       {list.map(c=>(

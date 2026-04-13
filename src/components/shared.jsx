@@ -88,7 +88,7 @@ const CompEmoji=({emoji,logo,s=40})=>logo?<img src={logo} style={{width:s,height
 
 const TopBar=({title,sub,onBack,right,logo=true})=>(
   <div className="topbar">
-    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}><img src={OG_LOGO_URI} alt="OG Comps" style={{height:52,width:'auto',borderRadius:10,objectFit:'contain',flexShrink:0}}/><span style={{fontWeight:800,fontSize:18,letterSpacing:'-0.3px',color:'#fff',whiteSpace:'nowrap',fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif"}}>OG Comps</span></div>}
+    {onBack?<button className="btn btn-ghost" style={{padding:'7px',borderRadius:10,minWidth:36}} onClick={onBack}><I.ChevL s={20}/></button>:logo&&<div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}><img src={OG_LOGO_URI} alt="Ninja Competition Tool" style={{height:52,width:'auto',borderRadius:10,objectFit:'contain',flexShrink:0}}/><span style={{fontWeight:800,fontSize:18,letterSpacing:'-0.3px',color:'#fff',whiteSpace:'nowrap',fontFamily:"'Inter','SF Pro Display',system-ui,sans-serif"}}>Ninja Competition Tool</span></div>}
     <div style={{flex:1}}><div className="topbar-title">{title}</div>{sub&&<div className="topbar-sub">{sub}</div>}</div>
     {right}
   </div>

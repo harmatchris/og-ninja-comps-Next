@@ -318,7 +318,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:18,padding:20,maxWidth:300}} onClick={e=>e.stopPropagation()}>
                 <div style={{fontSize:14,fontWeight:700,marginBottom:12,textAlign:'center'}}>{lang==='de'?'Emoji wählen':'Pick Emoji'}</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:5,justifyContent:'center'}}>
-                  {['N','T','1st','X','P','B','Z','F','M','G','C','H','W','K','X','E','R','2nd','S','Mt'].map(e=>(
+                  {['🥷','🏆','🥇','⚡','🔥','💪','🎯','🦊','🐉','🌟','🏅','🎪','🦁','👑','⚔️','🎭','🚀','🥈','🛡️','⛰️'].map(e=>(
                     <button key={e} onClick={()=>{sI('emoji',e);setShowEmojiPicker(false);SFX.click();}} style={{width:42,height:42,fontSize:22,borderRadius:10,border:`2px solid ${info.emoji===e?'var(--cor)':'transparent'}`,background:info.emoji===e?'rgba(255,94,58,.18)':'rgba(255,255,255,.05)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{e}</button>
                   ))}
                 </div>
@@ -328,7 +328,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
 
           {/* Name */}
           <div style={lblStyle}>{t('compName')}</div>
-          <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="OG Ninja Cup 2026" autoFocus/>
+          <input value={info.name} onChange={e=>sI('name',e.target.value)} placeholder="Ninja Cup 2026" autoFocus/>
 
           {/* Date + Location – #3 compact date, clear separation */}
           <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
@@ -538,8 +538,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                       <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'timeLimit',(mainStg.timeLimit||0)+10)}>+</button>
                     </div>
                   </div>
-                  {/* Quali % – #8 starts at 50, 1% steps */}
-                  <div>
+                  {/* Quali % – #8 starts at 50, 1% steps – only shown when multiple stages */}
+                  {pipeline.filter(s=>s.isMain).length>1&&<div>
                     <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>Quali %</div>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
                       <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.max(0,(mainStg.qualiPercent||50)-1))}>−</button>
@@ -547,7 +547,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                       <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'qualiPercent',Math.min(100,(mainStg.qualiPercent||50)+1))}>+</button>
                       <span style={{fontSize:10,color:'var(--muted)'}}>%</span>
                     </div>
-                  </div>
+                  </div>}
                 </div>
 
                 {/* Extra Life config – #9 lives per section 1-5, total to infinity */}
