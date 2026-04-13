@@ -160,6 +160,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const stations=useFbVal(`ogn/${compId}/stations`);
   const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+    const skillStatus=useFbVal(`ogn/${compId}/skillPhaseStatus`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const [editing,setEditing]=useState(false);
   const [showQR,setShowQR]=useState(null);
