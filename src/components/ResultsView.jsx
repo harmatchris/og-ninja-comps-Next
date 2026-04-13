@@ -207,12 +207,35 @@ const ResultsView=({compId,athletes})=>{
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download=`ninja-results-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
       SFX.complete();
+    } else if(format==='print'){
+      // HTML print window
+      let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ninja Competition Tool – Ergebnisse</title>
+<style>body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:15px;margin:18px 0 6px;color:#555;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}
+table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}
+td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;font-weight:700;}.medal-2{background:#F5F5F5;}.medal-3{background:#FDF5ED;}
+.buzzer{color:#34C759;font-weight:700;}.fall{color:#FF3B30;font-size:11px;}.protest{background:#FFFACD;}
+@media print{body{padding:0;font-size:11px;}h1{font-size:14px;}h2{font-size:12px;page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}</style></head><body>`;
+      html+=`<h1>Ninja Competition Tool – ${info?.name||'Ergebnisse'}</h1><p style="font-size:11px;color:#888;">${info?.date||new Date().toLocaleDateString()} · ${info?.location||''}</p>`;
+      catsWithRuns.forEach(c=>{
+        const r=computeRanked(runList,c.id);if(!r.length)return;
+        html+=`<h2>${catName(c)} (${r.length} Athleten)</h2><table><tr><th>#</th><th>Startnr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
+        r.forEach((run,i)=>{
+          const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
+          const cls=i===0?'medal-1':i===1?'medal-2':i===2?'medal-3':'';
+          const ergebnis=run.status==='complete'?'<span class="buzzer">Buzzer ✓</span>':run.fellAt?.name?`<span class="fall">Fall @ ${run.fellAt.name}</span>`:(run.status||'DNF');
+          html+=`<tr class="${cls}${run.protested?' protest':''}"><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${ergebnis}${run.protested?' 🚩':''}</td></tr>`;
+        });
+        html+=`</table>`;
+      });
+      html+=`</body></html>`;
+      const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),300);
+      SFX.complete();
     } else {
       // Text share fallback
-      const lines=['OG Ninja Comp · Ergebnisse',new Date().toLocaleDateString(),''];
-      catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}${run.protested?' ':''}`);});});
+      const lines=['Ninja Competition Tool · Ergebnisse',new Date().toLocaleDateString(),''];
+      catsWithRuns.forEach(c=>{const r=computeRanked(runList,c.id);if(!r.length)return;lines.push(`\n=== ${catName(c)} ===`);r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};const fall=run.fellAt?.name?` · Fall @ ${run.fellAt.name}`:'';lines.push(`${i+1}. #${a.num} ${a.name}  |  ${run.doneCP?.length||0} CPs  |  ${fmtMs(run.finalTime)}${fall}${run.protested?' 🚩':''}`);});});
       const text=lines.join('\n');
-      if(navigator.share)navigator.share({title:'OG Ninja Results',text});else if(navigator.clipboard){navigator.clipboard.writeText(text);alert('In Zwischenablage kopiert');}
+      if(navigator.share)navigator.share({title:'Ninja Competition Results',text});else if(navigator.clipboard){navigator.clipboard.writeText(text);alert('In Zwischenablage kopiert');}
       SFX.complete();
     }
   };
@@ -327,6 +350,7 @@ return(<React.Fragment key={r.athleteId}>
             </React.Fragment>);})}
             <div style={{display:'flex',gap:8}}>
               <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('csv')}><I.Download s={15}/> CSV</button>
+              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('print')}><I.FileText s={15}/> Print</button>
               <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('text')}><I.Share2 s={15}/> {lang==='de'?'Teilen':'Share'}</button>
             </div>
           </div>

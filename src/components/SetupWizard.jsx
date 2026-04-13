@@ -148,6 +148,29 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const downloadCsvTemplate=()=>{const rows=['Startnr,Name,Kategorie-ID,Geschlecht,Land,Team','1,Max Muster,am1,M,CH,','2,Laura Beispiel,aw1,W,AT,Team Ninja'];const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='athleten-vorlage.csv';a.click();URL.revokeObjectURL(url);SFX.click();};
   const handleFileImport=(idx,file)=>{if(!file)return;const r=new FileReader();r.onload=e=>{try{importCSV(idx,e.target.result);}catch(err){setCsvError(err.message);}};r.readAsText(file);};
 
+  const generateTestData=()=>{
+    const TEST_NAMES_M=['Liam','Noah','Leon','Elias','Luca','Finn','Jonas','Julian','Matteo','Samuel','Ben','David','Nico','Felix','Alexander','Maximilian','Lukas','Gabriel','Rafael','Tim','Jannik','Marcel','Tobias','Florian','Stefan','Dominik','Patrick','Simon','Fabian','Marco'];
+    const TEST_NAMES_F=['Mia','Emma','Lina','Lea','Elena','Anna','Sophie','Laura','Lara','Nina','Sarah','Julia','Lisa','Valentina','Alina','Amelie','Jana','Leonie','Nora','Paula','Marie','Kathrin','Sandra','Daniela','Andrea','Monika','Nicole','Sabine','Claudia','Martina'];
+    const TEAMS_CH=['Zürich Ninjas','Bern Warriors','Basel Climbers','Luzern Force','Ninja Park Zürich','Ninja Factory Basel','Gravity CH','Swiss Ninja Team'];
+    const TEAMS_DE=['Berlin Ninjas','München Runners','Hamburg Force','Ninja Warriors DE','Köln Climbers','Frankfurt Ninjas'];
+    const TEAMS_AT=['Wien Ninjas','Graz Warriors','Salzburg Force'];
+    const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
+    const si=curAthStage;const stageNum=si+1;const newAths=[];let num=stageAths[si].length+1;
+    IGN_CATS.forEach(cat=>{
+      const isFemale=cat.id.includes('w');
+      const names=isFemale?TEST_NAMES_F:TEST_NAMES_M;
+      for(let i=0;i<20;i++){
+        const rnd=Math.random();let country,team;
+        if(rnd<0.70){country='CH';team=pick(TEAMS_CH);}
+        else if(rnd<0.95){country='DE';team=pick(TEAMS_DE);}
+        else{country='AT';team=pick(TEAMS_AT);}
+        newAths.push({id:uid(),name:pick(names)+' '+(Math.floor(Math.random()*90)+10),num:String(num++),cat:cat.id,gender:isFemale?'f':'m',country,team,photo:null,stageNum});
+      }
+    });
+    setStageAths(a=>{const n=[...a];n[si]=[...n[si],...newAths];return n;});
+    SFX.complete();
+  };
+
   /* ── divisions used by main stages ── */
   const getDivsUsedByOtherMains=(excludeId)=>{
     const used=new Set();
@@ -644,6 +667,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 <input type="file" accept=".csv,.txt" style={{display:'none'}} onChange={e=>{if(e.target.files[0])handleFileImport(asi,e.target.files[0]);e.target.value='';}}/>
               </label>
               <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:4}} onClick={downloadCsvTemplate}><I.FileText s={12}/> {lang==='de'?'Vorlage':'Template'}</button>
+              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{if(window.confirm(lang==='de'?'20 Test-Athleten pro Division generieren?\n(70% CH, 25% DE, 5% AT)':'Generate 20 test athletes per division?\n(70% CH, 25% DE, 5% AT)'))generateTestData();}}><I.Plus s={12}/> Test</button>
             </div>
           </div>
           {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>⚠️ {csvError}</div>}

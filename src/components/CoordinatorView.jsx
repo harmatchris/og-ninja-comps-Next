@@ -550,16 +550,29 @@ const handleDeleteAth=async(a)=>{
                     <I.Edit s={11} c="var(--muted)"/>
                   </button>
               )}
-              {/* BIG START BUTTON */}
-              {occupiedStages.has(n)
-                ?<button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:14,gap:8,marginTop:2,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
-                    <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite'}}/>
-                    {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
-                  </button>
-                :info?.stageLinked&&n>1&&!stages?.[n-1]?.closed
+              {/* BIG START BUTTON with validation */}
+              {(()=>{
+                const stObs=stages?.[n]?.obstacles;
+                const hasObs=stObs?Object.keys(stObs).length>0:(obstacles?Object.keys(obstacles).length>0:false);
+                const catAths=st.cat?athList.filter(a=>a.cat===st.cat).length:0;
+                const canStart=!!st.cat&&catAths>0&&hasObs;
+                const reason=!st.cat?(lang==='de'?'Erst Kategorie wählen':'Select a category first'):catAths===0?(lang==='de'?'Keine Athleten in dieser Kategorie':'No athletes in this category'):!hasObs?(lang==='de'?'Keine Hindernisse konfiguriert':'No obstacles configured'):'';
+                return occupiedStages.has(n)
+                  ?<button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:14,gap:8,marginTop:2,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
+                      <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite'}}/>
+                      {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
+                    </button>
+                  :info?.stageLinked&&n>1&&!stages?.[n-1]?.closed
                     ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>{lang==='de'?`Stage ${n-1} zuerst abschließen`:`Complete Stage ${n-1} first`}</div>
-                    :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(n);}}><I.Play s={16}/> {info.stageNames?.[n]||`Stage ${n}`} starten</button>
-              }
+                  :!canStart
+                    ?<div style={{display:'flex',flexDirection:'column',gap:4,marginTop:2}}>
+                        <button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:15,gap:8,opacity:.4,cursor:'not-allowed'}} disabled>
+                          <I.Play s={16}/> {info.stageNames?.[n]||`Stage ${n}`} starten
+                        </button>
+                        <div style={{fontSize:11,color:'var(--dim)',textAlign:'center',padding:'0 4px'}}>{reason}</div>
+                      </div>
+                    :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(n);}}><I.Play s={16}/> {info.stageNames?.[n]||`Stage ${n}`} starten</button>;
+              })()}
               {info?.stageLinked&&!stages?.[n]?.closed&&!occupiedStages.has(n)&&n<numSt&&(<button className="btn" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,background:'var(--card2)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:10}} onClick={()=>closeStage(n)}>✔ {lang==='de'?`Stage ${n} abschließen`:`Close Stage ${n}`}</button>)}
               {/* ── Inline obstacle editor ── */}
               {editObsStage===n&&(

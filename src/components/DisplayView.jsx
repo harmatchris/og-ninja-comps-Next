@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
 import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
@@ -21,6 +21,22 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const doneStartRef=useRef({});
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
+  /* bestSplits — ski-racing style split comparison */
+  const bestSplits=useMemo(()=>{
+    const map={};
+    runList.forEach(r=>{
+      if(!r.doneCP||r.doneCP.length===0||r.status==='dsq')return;
+      r.doneCP.forEach((cp,idx)=>{
+        if(!cp.time)return;
+        const key=`${r.catId}_${r.stNum||1}_${idx}`;
+        if(!map[key]||cp.time<map[key].time){
+          const a=athMap[r.athleteId];
+          map[key]={time:cp.time,athleteName:a?.name||r.athleteName||'?'};
+        }
+      });
+    });
+    return map;
+  },[runList.length,athMap]);
   const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
   // Build active run array — filter out stale 'done' entries older than 8s (JuryApp cleanup guard)
   const activeArr=activeRuns
@@ -76,7 +92,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           )}
         </div>
         <CompEmoji emoji={info.emoji} logo={info.logo} s={40}/>
-        <div style={{flex:1}}><div style={{fontSize:11,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>OG Ninja Comp</div><div style={{fontSize:21,fontWeight:900,letterSpacing:'-.5px',marginTop:1}}>{info.name}</div></div>
+        <div style={{flex:1}}><div style={{fontSize:11,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>Ninja Competition Tool</div><div style={{fontSize:21,fontWeight:900,letterSpacing:'-.5px',marginTop:1}}>{info.name}</div></div>
         <div className="live-badge"><div className="live-dot"/>Live</div>
         {onOpenJury&&(
           <div style={{position:'relative',flexShrink:0}}>
@@ -239,15 +255,32 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       </div>
                     )}
                   </div>
-                  {/* Last checkpoint */}
-                  {lastCP&&(
-                    <div style={{marginTop:6,display:'flex',alignItems:'center',gap:7,padding:'6px 10px',background:'rgba(52,199,89,.08)',borderRadius:10,border:'1px solid rgba(52,199,89,.15)'}}>
-                      <span style={{color:'var(--green)',fontSize:14,flexShrink:0}}>✓</span>
-                      <span style={{fontSize:12,color:'rgba(255,255,255,.5)',flexShrink:0}}>CP:</span>
-                      <span style={{fontSize:13,fontWeight:700,color:'rgba(255,255,255,.85)',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lastCP.name||lastCP}</span>
-                      <span style={{fontSize:11,color:'rgba(255,255,255,.3)',flexShrink:0,fontFamily:'JetBrains Mono'}}>{run.doneCP.length}×</span>
-                    </div>
-                  )}
+                  {/* Last checkpoint with ski-racing split delta */}
+                  {lastCP&&(()=>{
+                    const cpIdx=run.doneCP.length-1;
+                    const cpTime=lastCP.time;
+                    const bestKey=`${run.catId}_${run.stNum||1}_${cpIdx}`;
+                    const best=bestSplits[bestKey];
+                    const delta=best&&typeof cpTime==='number'&&typeof best.time==='number'?(cpTime-best.time):null;
+                    return(
+                      <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:4}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7,padding:'6px 10px',background:'rgba(52,199,89,.08)',borderRadius:10,border:'1px solid rgba(52,199,89,.15)'}}>
+                          <span style={{color:'var(--green)',fontSize:14,flexShrink:0}}>✓</span>
+                          <span style={{fontSize:12,color:'rgba(255,255,255,.5)',flexShrink:0}}>CP:</span>
+                          <span style={{fontSize:13,fontWeight:700,color:'rgba(255,255,255,.85)',flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lastCP.name||lastCP}</span>
+                          <span style={{fontSize:11,color:'rgba(255,255,255,.3)',flexShrink:0,fontFamily:'JetBrains Mono'}}>{run.doneCP.length}×</span>
+                        </div>
+                        {delta!==null&&(
+                          <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 10px',borderRadius:8,background:delta<=0?'rgba(52,199,89,.08)':'rgba(255,59,48,.08)',border:`1px solid ${delta<=0?'rgba(52,199,89,.15)':'rgba(255,59,48,.15)'}`}}>
+                            <span style={{fontFamily:'JetBrains Mono',fontSize:cols===1?16:13,fontWeight:900,color:delta<=0?'var(--green)':'var(--red)',letterSpacing:'-.5px'}}>
+                              {delta<=0?'−':'+'}{fmtMs(Math.abs(delta))}
+                            </span>
+                            <span style={{fontSize:10,color:'rgba(255,255,255,.35)',flex:1}}>vs {best.athleteName}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -296,6 +329,36 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           </div>
         );
       })()}
+
+      {/* ── Multi-division overview grid (shown when no active runs, multiple cats, narrow screen) ── */}
+      {!isWide&&activeArr.length===0&&catsWithData.length>1&&(
+        <div style={{padding:'18px 20px 10px'}}>
+          <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(catsWithData.length,4)},1fr)`,gap:10}}>
+            {catsWithData.map(c=>{
+              const r=computeRanked(runList,c.id).slice(0,5);
+              return(
+                <div key={c.id} style={{background:'var(--card)',borderRadius:14,border:`1px solid ${c.color}20`,overflow:'hidden',cursor:'pointer'}} onClick={()=>{const idx=catsWithData.indexOf(c);if(idx>=0)setCatIdx(idx);}}>
+                  <div style={{padding:'8px 12px',borderBottom:`1px solid ${c.color}15`,display:'flex',alignItems:'center',gap:6,background:`${c.color}08`}}>
+                    <div style={{width:6,height:6,borderRadius:'50%',background:c.color,flexShrink:0}}/>
+                    <div style={{fontSize:11,fontWeight:700,color:c.color,flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{catName(c)}</div>
+                    <div style={{fontSize:9,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono'}}>{r.length}</div>
+                  </div>
+                  <div style={{padding:'4px 0'}}>
+                    {r.map((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?'};return(
+                      <div key={run.athleteId} style={{display:'flex',alignItems:'center',gap:5,padding:'3px 10px',fontSize:11}}>
+                        <span style={{width:16,fontWeight:800,color:i<3?medalColors[i]:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',flexShrink:0,textAlign:'center'}}>{run.status==='dsq'?'—':(i+1)}</span>
+                        <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',fontWeight:i===0?700:500,color:i===0?'#fff':'rgba(255,255,255,.5)'}}>{a.name}</span>
+                        <span style={{fontSize:9,fontFamily:'JetBrains Mono',color:run.status==='complete'?(i<3?medalColors[i]:'rgba(255,255,255,.4)'):'rgba(255,255,255,.25)',flexShrink:0}}>{run.finalTime>0?fmtMs(run.finalTime).slice(0,-4):'—'}</span>
+                      </div>
+                    );})}
+                    {r.length===0&&<div style={{padding:'12px 10px',fontSize:10,color:'rgba(255,255,255,.2)',textAlign:'center'}}>—</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Rankings ── */}
 
