@@ -17,13 +17,12 @@ const HomeView=({onOpen,lang,setLang})=>{
   const list=comps?Object.entries(comps).map(([id,v])=>({id,...v})).sort((a,b)=>(b.info?.createdAt||0)-(a.info?.createdAt||0)):[];
   return(
     <div style={{minHeight:'100vh'}}>
+      {/* #1 â Compact single-line header */}
       <TopBar title={
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <img src="/og-logo.png" style={{width:28,height:28,borderRadius:7,objectFit:'cover'}} alt="" onError={e=>{e.target.style.display='none'}}/>
-          <div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:17,fontWeight:700,letterSpacing:'-.4px',lineHeight:1.1}}>OG Comps</div>
-            <div style={{fontSize:9,color:'var(--muted)',fontWeight:500,letterSpacing:'.06em',lineHeight:1}}>Ninja Competition Tool</div>
-          </div>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <span style={{fontFamily:"'Inter',sans-serif",fontSize:15,fontWeight:800,letterSpacing:'-.3px',lineHeight:1}}>OG Comps</span>
+          <span style={{fontSize:10,color:'var(--muted)',fontWeight:500,opacity:.7}}>â</span>
+          <span style={{fontSize:11,color:'var(--muted)',fontWeight:500,letterSpacing:'.02em'}}>Ninja Competition Tool</span>
         </div>}
         right={<div style={{display:'flex',gap:6}}>
           <button className="btn btn-ghost" style={{padding:'5px 11px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>
@@ -41,11 +40,11 @@ const HomeView=({onOpen,lang,setLang})=>{
             <CompEmoji emoji={c.info?.emoji} logo={c.info?.logo} s={42}/>
             <div style={{flex:1,textAlign:'left',minWidth:0}}>
               <div style={{fontWeight:800,fontSize:14,letterSpacing:'-.2px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.info?.name||'Wettkampf'}</div>
-              <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` \u00b7 ${c.info.location}`:''}</div>
+              <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` Â· ${c.info.location}`:''}</div>
             </div>
             <div style={{fontSize:9,fontFamily:'JetBrains Mono',padding:'2px 7px',borderRadius:7,background:'rgba(255,94,58,.12)',color:'var(--cor)',letterSpacing:'.08em',flexShrink:0}}>{c.id}</div>
             <button style={{background:'none',border:'none',cursor:'pointer',padding:'5px',display:'flex',flexShrink:0,borderRadius:8}}
-              onClick={e=>{e.stopPropagation();if(window.confirm(`"${c.info?.name||c.id}" wirklich l\u00f6schen?\n\nAlle Daten werden permanent gel\u00f6scht.`)){fbRemove(`ogn/${c.id}`);SFX.fall();}}}>
+              onClick={e=>{e.stopPropagation();if(window.confirm(`"${c.info?.name||c.id}" wirklich lÃ¶schen?\n\nAlle Daten werden permanent gelÃ¶scht.`)){fbRemove(`ogn/${c.id}`);SFX.fall();}}}>
               <I.Trash s={13} c="rgba(255,59,48,.45)"/>
             </button>
           </div>
