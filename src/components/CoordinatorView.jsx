@@ -238,7 +238,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     // Also write to all stage athlete lists so they show up in JuryApp
     const updates={};
     if(info?.pipelineEnabled&&pipelineData){
-      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${id}`]=newA;});
+      Object.keys(pipelineData).forEach(stageId=>{const _st=pipelineData[stageId];const _cats=_st?.categories==='all'?null:(Array.isArray(_st?.categories)?_st.categories:null);if(!_cats||_cats.includes(newA.cat))updates[`ogn/${compId}/pipeline/${stageId}/athletes/${id}`]=newA;});
     }else{
       const numSt2=info.numStations||1;
       for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${id}`]=newA;}
@@ -256,7 +256,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     acSave(AC_KEYS.names,a.name);if(a.team)acSave(AC_KEYS.teams,a.team);if(a.country)acSave(AC_KEYS.countries,a.country);
     const updates={};
     if(info?.pipelineEnabled&&pipelineData){
-      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=a;});
+      Object.keys(pipelineData).forEach(stageId=>{const _st=pipelineData[stageId];const _cats=_st?.categories==='all'?null:(Array.isArray(_st?.categories)?_st.categories:null);if(!_cats||_cats.includes(a.cat))updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=a;});
     }else{
       const numSt2=info.numStations||1;
       for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=a;}
@@ -314,7 +314,7 @@ const handleDeleteAth=async(a)=>{
     await fbRemove(`ogn/${compId}/athletes/${a.id}`);
     const updates={};
     if(info?.pipelineEnabled&&pipelineData){
-      Object.keys(pipelineData).forEach(stageId=>{updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=null;});
+      Object.keys(pipelineData).forEach(stageId=>{const _st=pipelineData[stageId];const _cats=_st?.categories==='all'?null:(Array.isArray(_st?.categories)?_st.categories:null);if(!_cats||_cats.includes(a.cat))updates[`ogn/${compId}/pipeline/${stageId}/athletes/${a.id}`]=null;});
     }else{
       const numSt2=info.numStations||1;
       for(let s=1;s<=numSt2;s++){updates[`ogn/${compId}/stages/${s}/athletes/${a.id}`]=null;}
@@ -404,7 +404,7 @@ const handleDeleteAth=async(a)=>{
             const stageName=pStage.name||`Stage ${stageLetter}`;
             const pipelineAthletes=pipelineData?.[stageKey]?.athletes||{};
             const hasPipeAths=Object.keys(pipelineAthletes).length>0;
-            const athsInStage=hasPipeAths?Object.values(pipelineAthletes):(()=>{const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(pStage.categoriesList||[]);const _cs=new Set(_cIds);return Object.values(athletes||{}).filter(a=>_cs.has(a.cat));})();
+            const athsInStage=hasPipeAths?Object.values(pipelineAthletes):(()=>{const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage.categories)?pStage.categories:[]);const _cs=new Set(_cIds);return Object.values(athletes||{}).filter(a=>_cs.has(a.cat));})();
             const allRuns=completedRuns?Object.values(completedRuns):[];
             const stageRuns=allRuns.filter(r=>r.stageId===stageKey);
             const doneAthIds=new Set(stageRuns.map(r=>r.athleteId));
@@ -414,7 +414,7 @@ const handleDeleteAth=async(a)=>{
             const predsClosed=predecessors.length===0||predecessors.every(p=>pipelineData?.[p.id]?.closed);
             const catIds=pStage.categories==='all'
               ?[...new Set(athsInStage.map(a=>a.cat).filter(Boolean))]
-              :(pStage.categoriesList||[]);
+              :(Array.isArray(pStage.categories)?pStage.categories:[]);
             return(
               <div key={stageKey} className="sh-card fade-up" style={{padding:16,display:'flex',flexDirection:'column',gap:10,opacity:stageClosed?.6:1}}>
                 {/* Stage header */}

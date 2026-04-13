@@ -160,7 +160,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
       const pStages=Object.entries(info.pipeline).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0));
       const firstRound=pStages.filter(s=>!s.predecessorStages||s.predecessorStages.length===0);
       firstRound.forEach(stage=>{
-        const sCats=stage.categories==='all'?cats:(Array.isArray(stage.categories)?stage.categories:[]);
+        const sCats=(stage.categories==='all'?cats:(Array.isArray(stage.categories)?stage.categories:[])).filter(c=>cats.includes(c));
         const stageAths=[];
         sCats.forEach(catId=>{const ranked=getRanking(catId);const ordered=seedMode==='inverted'?[...ranked].reverse():ranked;stageAths.push(...ordered);});
         stageAths.forEach((a,i)=>{
