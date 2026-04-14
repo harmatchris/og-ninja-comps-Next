@@ -162,7 +162,7 @@ const ProgressChart=({data,catName,lang,tvMode})=>{
 };
 
 
-const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
+const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
   // Load global obstacles AND per-stage obstacles (via the stages subtree)
@@ -173,10 +173,52 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const runList=completedRuns?Object.values(completedRuns):[];
   const athList=athletesMap?Object.values(athletesMap):[];
 
-  const numStages=info?.numStations||1;
+  const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
+  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
 
-  // Determine which stages are active (have a category assigned, have at least one run, OR have a currently active runner in Firebase)
-  const activeStageNums=Array.from({length:numStages},(_,i)=>i+1).filter(sn=>{
+  // ── PIPELINE MODE: build stage data from pipeline stages ──
+  const pipelineStageDataArr=isPipeline?pipelineStages.map(pStage=>{
+    const stageKey=pStage.id;
+    const stageName=pStage.name||stageKey;
+    const stageRuns=runList.filter(r=>r.stageId===stageKey);
+    const runCatIds=[...new Set(stageRuns.map(r=>r.catId).filter(Boolean))];
+    const activeRunCatIds=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.catId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>r.catId):[];
+    const configCatIds=pStage.categories==='all'?[]:Array.isArray(pStage.categories)?pStage.categories:[];
+    const unionIds=[...new Set([...configCatIds,...runCatIds,...activeRunCatIds])];
+    const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
+    if(activeCats.length===0&&stageRuns.length===0&&!activeRuns?.[stageKey]?.athleteId)return null;
+    const obsArr=(()=>{const raw=globalObstacles;if(!raw)return DEF_OBS;return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);})();
+    const survivalData=activeCats.map(cat=>{
+      const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
+      const total=cr.length;if(!total)return null;
+      const points=[{x:-1,y:100,label:'Start'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
+      return{cat,points,total};
+    }).filter(Boolean);
+    const difficultyData=obsArr.map((obs,i)=>{
+      const reached=stageRuns.filter(r=>r.status!=='dsq'&&((r.doneCP?.length||0)>=i||r.status==='complete')).length;
+      const falls=stageRuns.filter(r=>r.fellAt?.id===obs.id).length;
+      return{obs,falls,reached,rate:reached>0?(falls/reached)*100:0};
+    }).filter(d=>d.reached>0).sort((a,b)=>b.rate-a.rate);
+    const pipelineAthletes=pipelineData?.[stageKey]?.athletes||{};
+    const progressData=activeCats.map(cat=>{
+      const stageAths=Object.values(pipelineAthletes).filter(a=>a.cat===cat.id);
+      const total=stageAths.length||athList.filter(a=>a.cat===cat.id).length;
+      const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
+      const buzzers=cr.filter(r=>r.status==='complete').length;
+      const dnf=cr.filter(r=>['fall','dnf','timeout'].includes(r.status)).length;
+      const done=cr.length;
+      return{cat,total,done,buzzers,dnf,pending:Math.max(0,total-done)};
+    });
+    const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
+      const a=athletesMap?.[r.athleteId];
+      return{id:r.athleteId,catId:r.catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
+    }):[];
+    return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
+  }).filter(Boolean):[];
+
+  // ── LEGACY MODE ──
+  const numStages=info?.numStations||1;
+  const activeStageNums=isPipeline?[]:Array.from({length:numStages},(_,i)=>i+1).filter(sn=>{
     const hasCat=allStations?.[sn]?.cat;
     const hasRuns=runList.some(r=>String(r.stNum)===String(sn));
     const hasActive=activeRuns?.[sn]?.athleteId;
@@ -192,13 +234,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   };
 
   // Build full dataset for each active stage independently
-  const stageDataArr=activeStageNums.map(sn=>{
+  const legacyStageDataArr=activeStageNums.map(sn=>{
     const catId=allStations?.[sn]?.cat||null;
     const obsArr=getStageObsArr(sn);
     // Only runs from THIS stage
     const stageRuns=runList.filter(r=>String(r.stNum)===String(sn));
     // Categories present in this stage — union of station's configured cat + all cats with runs
-    // (a stage may legitimately host multiple cats, e.g. Main Stage A with Adults M LK1 + Adults W LK1)
     const runCatIds=[...new Set(stageRuns.map(r=>r.catId).filter(Boolean))];
     const activeRunCatIds=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.catId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>r.catId):[];
     const unionIds=[...new Set([...(catId?[catId]:[]),...runCatIds,...activeRunCatIds])];
@@ -238,6 +279,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
     return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
   });
 
+  const stageDataArr=isPipeline?pipelineStageDataArr:legacyStageDataArr;
+
   const tabs=[
     {k:'survival',ic:<I.TrendUp s={12}/>,lb:lang==='de'?'Überlebensrate':'Survival'},
     {k:'difficulty',ic:<I.BarChart s={12}/>,lb:lang==='de'?'Statistik':'Stats'},
@@ -268,15 +311,15 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
         gap:16,
         height:stageDataArr.length>1?'calc(100vh - 160px)':'auto'
       }:{display:'flex',flexDirection:'column',gap:20}}>
-        {stageDataArr.map(({sn,catId,survivalData,difficultyData,progressData,liveRunners,obsArr})=>{
+        {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
-          const stageName=info?.stageNames?.[sn]||`Stage ${sn}`;
+          const stageName=pipelineStageName||(info?.stageNames?.[sn]||`Stage ${sn}`);
           return(
             <div key={sn}>
               {/* Stage header — only shown when multiple stages are active */}
               {multiStage&&(
                 <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:tvMode?14:10,paddingBottom:tvMode?8:6,borderBottom:'1px solid rgba(255,255,255,.08)'}}>
-                  <div style={{width:tvMode?34:26,height:tvMode?34:26,borderRadius:tvMode?10:7,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:tvMode?17:13,color:'#fff',flexShrink:0}}>{sn}</div>
+                  <div style={{width:tvMode?34:26,height:tvMode?34:26,borderRadius:tvMode?10:7,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:tvMode?17:13,color:'#fff',flexShrink:0}}>{typeof sn==='number'?sn:(stageName||sn).charAt(0).toUpperCase()}</div>
                   <div style={{fontSize:tvMode?17:14,fontWeight:800,color:'#fff'}}>{stageName}</div>
                   {cat&&<div style={{fontSize:tvMode?13:10,color:cat.color,fontWeight:700,background:`${cat.color}1A`,borderRadius:12,padding:'2px 10px',border:`1px solid ${cat.color}35`,flexShrink:0}}>{catName(cat)}</div>}
                   <div style={{fontSize:tvMode?11:9,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',marginLeft:'auto'}}>

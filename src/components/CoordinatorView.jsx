@@ -379,10 +379,10 @@ const handleDeleteAth=async(a)=>{
           ))}
         </div>
         {coordView==='results'&&<div style={{marginTop:8}}>
-          {info?.skillPhase?.enabled?<SkillRankingLive compId={compId} info={info} athletes={athletes}/>:<ResultsView compId={compId} athletes={athletes}/>}
+          {info?.skillPhase?.enabled&&!skillStatus?.finalized&&!skillStatus?.seedingDone?<SkillRankingLive compId={compId} info={info} athletes={athletes}/>:<ResultsView compId={compId} athletes={athletes}/>}
         </div>}
         {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
-        {coordView==='stats'&&<div style={{marginTop:8}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes}/></div>}
+        {coordView==='stats'&&<div style={{marginTop:8}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
         {coordView==='skills'&&info?.skillPhase?.enabled&&<div style={{marginTop:8}}><SkillPhaseView compId={compId} info={info} athletes={athletes}/></div>}
         {coordView==='coordinator'&&<>
         <div className="sep"/>
@@ -462,7 +462,7 @@ const handleDeleteAth=async(a)=>{
                     ?<div style={{width:'100%',padding:12,fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:7,opacity:.5,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>✔ {lang==='de'?'Abgeschlossen':'Closed'}</div>
                     :!predsClosed
                       ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>{lang==='de'?'Vorgänger-Stage(s) erst abschließen':'Complete predecessor stage(s) first'}</div>
-                      :info?.skillPhase?.enabled&&!skillStatus?.seedingDone&&!skillStatus?.finalized&&(()=>{const sc=info?.skillPhase?.skillCategories;if(!sc||sc==="all")return true;const sCats=pStage.categories==="all"?IGN_CATS.map(c=>c.id):(Array.isArray(pStage.categories)?pStage.categories:[]);return sCats.some(c=>sc.includes(c));})()
+                      :info?.skillPhase?.enabled&&!skillStatus?.seedingDone&&!skillStatus?.finalized
                         ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'rgba(52,199,89,.7)'}}>{lang==='de'?'Skill Phase muss erst abgeschlossen werden':'Complete Skill Phase first'}</div>
                         :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(0,stageKey);}}><I.Play s={16}/> {stageName} starten</button>
                 }

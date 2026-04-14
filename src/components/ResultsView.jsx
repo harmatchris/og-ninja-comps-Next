@@ -153,6 +153,39 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   );
 };
 
+const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
+  const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const [now,setNow]=useState(Date.now());
+  const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r?.startEpoch&&(r.phase==='active'||r.phase==='countdown')):[];
+  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(iv);},[liveEntries.length]);
+  if(!liveEntries.length)return null;
+  const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
+  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
+  const fmtT=ms=>{const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`;};
+  return(
+    <div style={{display:'flex',flexWrap:'wrap',gap:8,padding:'10px 16px',borderBottom:'1px solid rgba(52,199,89,.2)',background:'rgba(52,199,89,.04)'}}>
+      {liveEntries.map(([key,r])=>{
+        const a=athletes?.[r.athleteId];
+        const elapsed=r.startEpoch?now-r.startEpoch:0;
+        const stageName=isPipeline?(pipelineStages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
+        const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
+        const remaining=limitMs>0?Math.max(0,limitMs-elapsed):null;
+        const timeCritical=remaining!==null&&remaining<15000;
+        return(
+          <div key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',borderRadius:10,background:'rgba(52,199,89,.08)',border:'1px solid rgba(52,199,89,.25)'}}>
+            <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite',flexShrink:0}}/>
+            <span style={{fontSize:11,color:'rgba(255,255,255,.6)',fontWeight:600}}>{stageName}</span>
+            {a&&<span style={{fontSize:11,color:'#fff',fontWeight:700,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>}
+            <span style={{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:900,color:timeCritical?'var(--red)':remaining!==null?'var(--gold)':'var(--green)',flexShrink:0}}>
+              {remaining!==null?(timeCritical?`⚠ ${fmtT(remaining)}`:`${fmtT(remaining)} left`):fmtT(elapsed)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const ResultsView=({compId,athletes})=>{
   const {t,lang,catName}=useLang();
   const runs=useFbVal(`ogn/${compId}/completedRuns`);
@@ -241,6 +274,7 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
   };
   return(
     <div style={{paddingBottom:82,overflowX:'hidden',maxWidth:'100%'}}>
+      <LiveStageTimerBanner compId={compId} info={comp} athletes={athMap} pipelineData={pipelineData}/>
       <div style={{overflowX:'auto',padding:'12px 16px',display:'flex',gap:6,borderBottom:'1px solid var(--border)'}}>
         {catsWithRuns.map(c=>(
           <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
