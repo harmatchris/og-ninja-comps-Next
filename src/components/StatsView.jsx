@@ -175,11 +175,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
 
   const numStages=info?.numStations||1;
 
-  // Determine which stages are active (have a category assigned or have at least one run)
+  // Determine which stages are active (have a category assigned, have at least one run, OR have a currently active runner in Firebase)
   const activeStageNums=Array.from({length:numStages},(_,i)=>i+1).filter(sn=>{
     const hasCat=allStations?.[sn]?.cat;
     const hasRuns=runList.some(r=>String(r.stNum)===String(sn));
-    return hasCat||hasRuns;
+    const hasActive=activeRuns?.[sn]?.athleteId;
+    return hasCat||hasRuns||hasActive;
   });
 
   // Get the correct obstacle array for a specific stage

@@ -37,13 +37,14 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
     });
     return map;
   },[runList.length,athMap]);
-  const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
   // Build active run array — filter out stale 'done' entries older than 8s (JuryApp cleanup guard)
   const activeArr=activeRuns
     ?Object.entries(activeRuns)
       .filter(([,r])=>r?.athleteId&&!(r.phase==='done'&&r.doneAt&&(nowMs-r.doneAt)>8000))
       .map(([stNum,r])=>({stNum:parseInt(stNum,10),...r}))
     :[];
+  // Include categories that have ANY data — completed runs OR active/countdown runs — so live runner always has a chip
+  const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id)||activeArr.some(r=>r.catId===c.id));
   // Track done phase start times
   activeArr.forEach(run=>{
     if(run.phase==='done'){if(!doneStartRef.current[run.stNum])doneStartRef.current[run.stNum]=Date.now();}
