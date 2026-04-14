@@ -156,7 +156,14 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const TEAMS_AT=['Wien Ninjas','Graz Warriors','Salzburg Force'];
     const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
     const si=asi;const stageNum=si+1;const newAths=[];let num=(stageAths[si]||[]).length+1;
-    IGN_CATS.forEach(cat=>{
+    // Respect stage's selected categories: only generate test athletes for cats that will actually run this stage
+    const stageCfg=flatStages[si];
+    const stageCats=stageCfg?.categories;
+    const allowedCatIds=(!stageCats||stageCats==='all'||(Array.isArray(stageCats)&&stageCats.length===0))
+      ?IGN_CATS.map(c=>c.id)
+      :(Array.isArray(stageCats)?stageCats:[]);
+    const allowedSet=new Set(allowedCatIds);
+    IGN_CATS.filter(c=>allowedSet.has(c.id)).forEach(cat=>{
       const isFemale=cat.id.includes('w');
       const names=isFemale?TEST_NAMES_F:TEST_NAMES_M;
       for(let i=0;i<20;i++){
@@ -254,7 +261,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       const pipelineData={};
       flatStages.forEach((stg,i)=>{
         const stgObs={};(stageObs[i]||[]).forEach((o,idx)=>{stgObs[o.id]={...o,order:idx};});
-        const stgAths={};(stageAths[i]||[]).forEach(a=>{stgAths[a.id]=a;});
+        // Filter athletes by stage's allowed categories — "all"/empty = everyone, array = only those cats
+        const stgCats=stg.categories;
+        const allowAll=!stgCats||stgCats==='all'||(Array.isArray(stgCats)&&stgCats.length===0);
+        const allowedStgSet=allowAll?null:new Set(Array.isArray(stgCats)?stgCats:[]);
+        const stgAths={};(stageAths[i]||[]).forEach(a=>{if(allowAll||allowedStgSet.has(a.cat))stgAths[a.id]=a;});
         pipelineData[stg.id]={...stg,order:i,obstacles:Object.keys(stgObs).length?stgObs:null,athletes:Object.keys(stgAths).length?stgAths:null};
       });
       data.pipeline=pipelineData;
