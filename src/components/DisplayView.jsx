@@ -405,9 +405,30 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     );})()}
                     {catStageNums.map((stN,si)=>{
                       const stRanked=computeRankedStage(runList,cat.id,stN);
+                      const liveRun=activeArr.find(r=>r.stNum===stN&&r.catId===cat.id&&(r.phase==='active'||r.phase==='countdown'));
+                      const liveAth=liveRun?athMap[liveRun.athleteId]:null;
                       return(
                         <div key={stN} style={{borderRight:si<catStageNums.length-1?'1px solid rgba(255,255,255,.05)':'none'}}>
                           <div style={{padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.04)',fontSize:10,fontWeight:700,color:'rgba(255,255,255,.35)',letterSpacing:'.06em'}}>{info.stageNames?.[stN]||`S${stN}`}</div>
+                          {liveRun&&liveAth&&(()=>{
+                            const elapsed=liveRun.phase==='countdown'?0:(nowMs-(liveRun.startEpoch||nowMs));
+                            const lastCP=liveRun.doneCP?.[liveRun.doneCP.length-1];
+                            const cpIdx=(liveRun.doneCP?.length||0)-1;
+                            const bestKey=`${cat.id}_${stN}_${cpIdx}`;
+                            const best=bestSplits[bestKey];
+                            const delta=(lastCP&&best)?(lastCP.time-best.time):null;
+                            return(
+                              <div style={{display:'flex',alignItems:'center',gap:6,padding:'6px 10px',background:'linear-gradient(90deg,rgba(48,209,88,.18),rgba(48,209,88,.05))',borderBottom:'2px solid rgba(48,209,88,.4)',animation:'pulse 1.5s ease-in-out infinite'}}>
+                                <div style={{fontSize:8,fontWeight:900,color:'#30D158',width:16,textAlign:'center',flexShrink:0,letterSpacing:'.04em'}}>●</div>
+                                {liveAth.photo?<img src={liveAth.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'1.5px solid #30D158'}}/>:null}
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:11,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:'#30D158'}}>{liveAth.name}</div>
+                                  {lastCP&&<div style={{fontSize:8,color:'rgba(255,255,255,.5)',marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lastCP.name||`CP${cpIdx+1}`}{delta!=null&&<span style={{marginLeft:4,fontWeight:800,color:delta<=0?'#30D158':'#FF3B6B',fontFamily:'JetBrains Mono'}}>{delta<=0?'−':'+'}{fmtMs(Math.abs(delta))}</span>}</div>}
+                                </div>
+                                <div style={{fontFamily:'JetBrains Mono',fontSize:11,fontWeight:800,color:'#30D158',flexShrink:0}}>{liveRun.phase==='countdown'?'…':fmtMs(elapsed)}</div>
+                              </div>
+                            );
+                          })()}
                           <AutoScrollList itemCount={stRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 250px)">
                             {stRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
                               <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.5:1}}>
@@ -422,7 +443,18 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       );
                     })}
                   </div>
-                ):(
+                ):(<>
+                  {(()=>{const liveRun=activeArr.find(r=>r.catId===cat.id&&(r.phase==='active'||r.phase==='countdown'));const liveAth=liveRun?athMap[liveRun.athleteId]:null;if(!liveRun||!liveAth)return null;const elapsed=liveRun.phase==='countdown'?0:(nowMs-(liveRun.startEpoch||nowMs));const lastCP=liveRun.doneCP?.[liveRun.doneCP.length-1];const cpIdx=(liveRun.doneCP?.length||0)-1;const bestKey=`${cat.id}_${liveRun.stNum||1}_${cpIdx}`;const best=bestSplits[bestKey];const delta=(lastCP&&best)?(lastCP.time-best.time):null;return(
+                    <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'linear-gradient(90deg,rgba(48,209,88,.18),rgba(48,209,88,.05))',borderBottom:'2px solid rgba(48,209,88,.4)'}}>
+                      <div style={{fontSize:10,fontWeight:900,color:'#30D158',width:22,textAlign:'center',flexShrink:0,letterSpacing:'.04em'}}>● LIVE</div>
+                      {liveAth.photo?<img src={liveAth.photo} style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'2px solid #30D158'}}/>:null}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:16,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:'#30D158'}}>{liveAth.name}</div>
+                        {lastCP&&<div style={{fontSize:10,color:'rgba(255,255,255,.55)',marginTop:2}}>{lastCP.name||`CP${cpIdx+1}`}{delta!=null&&<span style={{marginLeft:6,fontWeight:800,color:delta<=0?'#30D158':'#FF3B6B',fontFamily:'JetBrains Mono'}}>{delta<=0?'−':'+'}{fmtMs(Math.abs(delta))}</span>}</div>}
+                      </div>
+                      <div style={{fontFamily:'JetBrains Mono',fontSize:16,fontWeight:800,color:'#30D158',flexShrink:0}}>{liveRun.phase==='countdown'?'…':fmtMs(elapsed)}</div>
+                    </div>
+                  );})()}
                   <AutoScrollList itemCount={catRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 200px)">
                     {catRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
                       <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:10,padding:i<3?'10px 16px':'7px 14px',borderBottom:'1px solid rgba(255,255,255,.03)',background:i===0?`${cat.color}09`:i<3?`${cat.color}04`:'transparent',opacity:isDsqR?.6:1}}>
@@ -439,7 +471,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       </div>
                     );})}
                   </AutoScrollList>
-                )}
+                </>)}
               </div>
             );
           })}

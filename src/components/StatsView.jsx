@@ -14,7 +14,33 @@ import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState } from './shared.jsx';
 
-const SurvivalChart=({data,tvMode})=>{
+// Little ninja SVG that "runs" in place (bobbing + leg swing)
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
+  return(
+    <g transform={`translate(${x-size/2},${y-size})`} style={{animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
+      <style>{`@keyframes ninjaBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}`}</style>
+      {/* head */}
+      <circle cx={size/2} cy={size*0.28} r={size*0.18} fill={color}/>
+      {/* mask band */}
+      <rect x={size*0.3} y={size*0.24} width={size*0.4} height={size*0.06} fill="rgba(0,0,0,.55)"/>
+      {/* body */}
+      <rect x={size*0.35} y={size*0.42} width={size*0.3} height={size*0.35} rx={size*0.08} fill={color}/>
+      {/* arms */}
+      <rect x={size*0.18} y={size*0.48} width={size*0.16} height={size*0.08} rx={size*0.04} fill={color} transform={`rotate(-20 ${size*0.26} ${size*0.52})`}/>
+      <rect x={size*0.66} y={size*0.48} width={size*0.16} height={size*0.08} rx={size*0.04} fill={color} transform={`rotate(20 ${size*0.74} ${size*0.52})`}/>
+      {/* legs with running animation */}
+      <g style={{transformOrigin:`${size*0.45}px ${size*0.77}px`,animation:'legA 0.35s linear infinite'}}>
+        <rect x={size*0.38} y={size*0.75} width={size*0.1} height={size*0.22} rx={size*0.04} fill={color}/>
+      </g>
+      <g style={{transformOrigin:`${size*0.55}px ${size*0.77}px`,animation:'legB 0.35s linear infinite'}}>
+        <rect x={size*0.52} y={size*0.75} width={size*0.1} height={size*0.22} rx={size*0.04} fill={color}/>
+      </g>
+      {name&&<text x={size/2} y={-4} textAnchor="middle" fontSize={size*0.35} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+    </g>
+  );
+};
+
+const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
   const W=1000,H=tvMode?420:300;
   const ML=46,MR=16,MT=20,MB=tvMode?90:80;
@@ -59,6 +85,16 @@ const SurvivalChart=({data,tvMode})=>{
             {i===0?'Start':(p.label||'').substring(0,20)}
           </text>
         ))}
+        {/* Live ninja runners — position at X of current CP, Y at survival curve height */}
+        {liveRunners.map((lr,idx)=>{
+          const cpIdx=Math.min(lr.doneCPCount,nPts-1); // 0=Start, 1=after first obstacle, etc
+          const catData=data.find(d=>d.cat.id===lr.catId);
+          const pt=catData?.points?.[cpIdx];
+          const yVal=pt?pt.y:100;
+          const cx=xs(cpIdx);
+          const cy=ys(yVal);
+          return<NinjaRunner key={lr.id||idx} x={cx} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name}/>;
+        })}
       </svg>
     </div>
   );
@@ -133,6 +169,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
   const globalObstacles=useFbVal(`ogn/${compId}/obstacles`);
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allStagesData=useFbVal(`ogn/${compId}/stages`);
+  const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const runList=completedRuns?Object.values(completedRuns):[];
   const athList=athletesMap?Object.values(athletesMap):[];
 
@@ -189,7 +226,13 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
       return{cat,total,done,buzzers,dnf,pending:Math.max(0,total-done)};
     });
 
-    return{sn,catId,obsArr,survivalData,difficultyData,progressData};
+    // Active ninja runners for this stage
+    const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
+      const a=athletesMap?.[r.athleteId];
+      return{id:r.athleteId,catId:r.catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
+    }):[];
+
+    return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
   });
 
   const tabs=[
@@ -214,9 +257,15 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
         ))}
       </div>
 
-      {/* One section per active stage */}
-      <div style={{display:'flex',flexDirection:'column',gap:tvMode?32:20}}>
-        {stageDataArr.map(({sn,catId,survivalData,difficultyData,progressData})=>{
+      {/* One section per active stage — responsive layout: 1=full, 2=stacked, 3-4=2x2 grid (TV only) */}
+      <div style={tvMode?{
+        display:'grid',
+        gridTemplateColumns:stageDataArr.length>=3?'1fr 1fr':'1fr',
+        gridAutoRows:stageDataArr.length>=3?'minmax(0,1fr)':stageDataArr.length===2?'minmax(0,1fr)':'auto',
+        gap:16,
+        height:stageDataArr.length>1?'calc(100vh - 160px)':'auto'
+      }:{display:'flex',flexDirection:'column',gap:20}}>
+        {stageDataArr.map(({sn,catId,survivalData,difficultyData,progressData,liveRunners,obsArr})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
           const stageName=info?.stageNames?.[sn]||`Stage ${sn}`;
           return(
@@ -232,7 +281,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
                   </div>
                 </div>
               )}
-              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode}/>}
+              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr}/>}
               {chartTab==='difficulty'&&<>
                 <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
                 <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
