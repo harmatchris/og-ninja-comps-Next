@@ -25,7 +25,7 @@ const App=()=>{
     <LangCtx.Provider value={lang}>
       {view==='home'&&<HomeView onOpen={openComp} lang={lang} setLang={setLang}/>}
       {view==='coordinator'&&compId&&<CoordinatorView compId={compId} onBack={()=>{setView('home');setCompId(null);}} onStage={(n,sid)=>{setPrevView('coordinator');openStage(n,sid);}} lang={lang} setLang={setLang}/>}
-      {view==='coordinator'&&compId&&<StageRecoveryBanner compId={compId} lang={lang} onJoin={n=>{setPrevView('coordinator');setStNum(n);setView('jury');}}/>}
+      {view==='coordinator'&&compId&&<StageRecoveryBanner compId={compId} lang={lang} onJoin={n=>{setPrevView('coordinator');if(typeof n==='number'){setStageId(null);setStNum(n);}else{setStageId(n);setStNum(1);}setView('jury');}}/>}
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} stageId={stageId} onBack={()=>setView(prevView)}/>}
       {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
