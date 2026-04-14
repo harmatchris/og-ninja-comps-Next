@@ -1,7 +1,7 @@
 {
-  "name": "OG Ninja Comp",
-  "short_name": "OG COMPS",
-  "description": "OG Games Ninja Competition Tool",
+  "name": "Ninja Competition Tool",
+  "short_name": "Ninja Comp",
+  "description": "Ninja Competition Tool",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0B14",
@@ -12,13 +12,13 @@
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

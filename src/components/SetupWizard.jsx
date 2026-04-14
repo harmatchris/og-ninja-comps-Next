@@ -556,8 +556,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                     <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>Extra Life</div>
                     <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
                       <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Leben pro Sektion':'Lives per section'}</div>
-                        <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{n}</button>)}</div>
+                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,display:'flex',alignItems:'center',gap:6}}>
+                          <span>{lang==='de'?'Sektions-Leben':'Section lives'}</span>
+                          <button onClick={()=>updateStage(mainStg.id,'livesPerSection',(mainStg.livesPerSection||0)>0?0:3)} style={{padding:'2px 8px',borderRadius:10,border:`1px solid ${(mainStg.livesPerSection||0)>0?'rgba(255,214,10,.5)':'var(--border)'}`,background:(mainStg.livesPerSection||0)>0?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||0)>0?'#FFD60A':'var(--muted)',fontSize:9,fontWeight:700,cursor:'pointer'}}>{(mainStg.livesPerSection||0)>0?(lang==='de'?'AN':'ON'):(lang==='de'?'AUS':'OFF')}</button>
+                        </div>
+                        {(mainStg.livesPerSection||0)>0&&<div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{n}</button>)}</div>}
                       </div>
                       <div>
                         <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben (0=∞)':'Total lives (0=∞)'}</div>
@@ -590,6 +593,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <input value={obsStage===flatIdx?newObs:''} onChange={e=>{setObsStage(flatIdx);setNewObs(e.target.value);}} onFocus={()=>setObsStage(flatIdx)} placeholder={lang==='de'?'Hindernis...':'Obstacle...'} onKeyDown={e=>{if(e.key==='Enter'&&newObs.trim()){setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}} style={{flex:1,fontSize:12,padding:'8px 10px'}}/>
                     <button style={{padding:'8px 14px',borderRadius:10,border:'none',background:'linear-gradient(135deg,var(--cor),var(--cor2))',color:'#fff',cursor:'pointer',fontWeight:700,fontSize:14,boxShadow:'0 2px 8px rgba(255,94,58,.3)',transition:'all .12s'}} onClick={()=>{if(!newObs.trim())return;setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}><I.Plus s={14}/></button>
+                  </div>
+                  {/* #6 Section-flag quick-add buttons: Start/Land-plattform markers for extra-life refill */}
+                  <div style={{display:'flex',gap:6,marginTop:6}}>
+                    <button style={{flex:1,padding:'6px 10px',borderRadius:8,border:'1px dashed rgba(52,199,89,.4)',background:'rgba(52,199,89,.06)',color:'var(--green)',cursor:'pointer',fontSize:11,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:5}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:'Startplattform',type:'section',isCP:false,order:n[flatIdx].length,restTime:0}];return n;});SFX.click();}}>▶ {lang==='de'?'Startplattform':'Start Platform'}</button>
+                    <button style={{flex:1,padding:'6px 10px',borderRadius:8,border:'1px dashed rgba(255,214,10,.4)',background:'rgba(255,214,10,.06)',color:'var(--gold)',cursor:'pointer',fontSize:11,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center',gap:5}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:'Landeplattform',type:'section',isCP:false,order:n[flatIdx].length,restTime:30}];return n;});SFX.click();}}>⬛ {lang==='de'?'Landeplattform':'Land Platform'}</button>
                   </div>
                 </>)}
 
