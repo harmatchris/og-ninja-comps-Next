@@ -156,7 +156,7 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
 const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const [now,setNow]=useState(Date.now());
-  const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r?.startEpoch&&(r.phase==='active'||r.phase==='countdown')):[];
+  const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done'&&(r.startEpoch||r.phase==='countdown')):[];
   useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(iv);},[liveEntries.length]);
   if(!liveEntries.length)return null;
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
@@ -166,13 +166,14 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
     <div style={{display:'flex',flexDirection:'column',gap:0}}>
       {liveEntries.map(([key,r])=>{
         const a=athletes?.[r.athleteId];
-        const elapsed=r.startEpoch?now-r.startEpoch:0;
+        const isCountdown=r.phase==='countdown';
+        const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
         const stageName=isPipeline?(pipelineStages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
         const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
-        const remaining=limitMs>0?Math.max(0,limitMs-elapsed):null;
+        const remaining=(!isCountdown&&limitMs>0)?Math.max(0,limitMs-elapsed):null;
         const timeCritical=remaining!==null&&remaining<15000;
-        const timerVal=remaining!==null?remaining:elapsed;
-        const timerColor=timeCritical?'#FF3B30':remaining!==null?'#FFD60A':'#30D158';
+        const timerVal=isCountdown?0:remaining!==null?remaining:elapsed;
+        const timerColor=isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'#FFD60A':'#30D158';
         const catId=a?.cat||r.catId;
         const cat=IGN_CATS.find(c=>c.id===catId);
         return(
@@ -187,11 +188,12 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
             {/* Big timer + athlete name */}
             <div style={{display:'flex',alignItems:'center',gap:16}}>
               <div style={{fontFamily:'JetBrains Mono',fontSize:52,fontWeight:900,lineHeight:1,color:timerColor,letterSpacing:'-2px',flexShrink:0,textShadow:timeCritical?`0 0 24px rgba(255,59,48,.5)`:`0 0 24px ${timerColor}44`}}>
-                {fmtT(timerVal)}
+                {isCountdown?(r.countdown||'GO'):fmtT(timerVal)}
               </div>
               <div style={{flex:1,minWidth:0}}>
                 {a&&<div style={{fontSize:20,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-.3px'}}>{a.name}</div>}
                 {a?.team&&<div style={{fontSize:12,color:'var(--muted)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.team}</div>}
+                {r.doneCP&&<div style={{fontSize:11,color:'rgba(255,255,255,.5)',marginTop:3,fontWeight:600}}>CP {r.doneCP.length||0}{r.livesLeft!=null&&<span style={{marginLeft:8,color:'var(--coral)'}}>{'*'.repeat(r.livesLeft)} Lives</span>}</div>}
                 {remaining!==null&&<div style={{fontSize:10,color:timerColor,marginTop:4,fontWeight:700,opacity:.8}}>{remaining<=0?'ZEITLIMIT!':timeCritical?'LETZTE SEKUNDEN':'verbleibend'}</div>}
               </div>
             </div>
