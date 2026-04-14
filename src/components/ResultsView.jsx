@@ -157,13 +157,13 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const [now,setNow]=useState(Date.now());
   const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r?.startEpoch&&(r.phase==='active'||r.phase==='countdown')):[];
-  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(iv);},[liveEntries.length]);
+  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(iv);},[liveEntries.length]);
   if(!liveEntries.length)return null;
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
   const fmtT=ms=>{const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`;};
   return(
-    <div style={{display:'flex',flexWrap:'wrap',gap:8,padding:'10px 16px',borderBottom:'1px solid rgba(52,199,89,.2)',background:'rgba(52,199,89,.04)'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:0}}>
       {liveEntries.map(([key,r])=>{
         const a=athletes?.[r.athleteId];
         const elapsed=r.startEpoch?now-r.startEpoch:0;
@@ -171,14 +171,36 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
         const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
         const remaining=limitMs>0?Math.max(0,limitMs-elapsed):null;
         const timeCritical=remaining!==null&&remaining<15000;
+        const timerVal=remaining!==null?remaining:elapsed;
+        const timerColor=timeCritical?'#FF3B30':remaining!==null?'#FFD60A':'#30D158';
+        const catId=a?.cat||r.catId;
+        const cat=IGN_CATS.find(c=>c.id===catId);
         return(
-          <div key={key} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',borderRadius:10,background:'rgba(52,199,89,.08)',border:'1px solid rgba(52,199,89,.25)'}}>
-            <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite',flexShrink:0}}/>
-            <span style={{fontSize:11,color:'rgba(255,255,255,.6)',fontWeight:600}}>{stageName}</span>
-            {a&&<span style={{fontSize:11,color:'#fff',fontWeight:700,maxWidth:100,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>}
-            <span style={{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:900,color:timeCritical?'var(--red)':remaining!==null?'var(--gold)':'var(--green)',flexShrink:0}}>
-              {remaining!==null?(timeCritical?`⚠ ${fmtT(remaining)}`:`${fmtT(remaining)} left`):fmtT(elapsed)}
-            </span>
+          <div key={key} style={{padding:'16px 20px',background:timeCritical?'rgba(255,59,48,.07)':'rgba(52,199,89,.05)',borderBottom:'1px solid rgba(255,255,255,.07)'}}>
+            {/* Top row: stage + athlete name + LIVE badge */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+              <div style={{width:7,height:7,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 8px rgba(52,199,89,.9)',animation:'pulse 1.2s infinite',flexShrink:0}}/>
+              <span style={{fontSize:11,color:'rgba(255,255,255,.45)',fontWeight:700,letterSpacing:'.08em',textTransform:'uppercase'}}>{stageName}</span>
+              {cat&&<span style={{fontSize:9,padding:'1px 7px',borderRadius:5,background:`${cat.color}1A`,color:cat.color,border:`1px solid ${cat.color}44`,fontWeight:700,letterSpacing:'.06em'}}>{cat.name?.de||cat.name||catId}</span>}
+              <span style={{marginLeft:'auto',fontSize:9,fontWeight:800,color:'var(--green)',background:'rgba(52,199,89,.15)',border:'1px solid rgba(52,199,89,.3)',borderRadius:5,padding:'2px 7px',letterSpacing:'.1em'}}>LIVE</span>
+            </div>
+            {/* Big timer + athlete name */}
+            <div style={{display:'flex',alignItems:'center',gap:16}}>
+              <div style={{fontFamily:'JetBrains Mono',fontSize:52,fontWeight:900,lineHeight:1,color:timerColor,letterSpacing:'-2px',flexShrink:0,textShadow:timeCritical?`0 0 24px rgba(255,59,48,.5)`:`0 0 24px ${timerColor}44`}}>
+                {fmtT(timerVal)}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                {a&&<div style={{fontSize:20,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-.3px'}}>{a.name}</div>}
+                {a?.team&&<div style={{fontSize:12,color:'var(--muted)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.team}</div>}
+                {remaining!==null&&<div style={{fontSize:10,color:timerColor,marginTop:4,fontWeight:700,opacity:.8}}>{remaining<=0?'ZEITLIMIT!':timeCritical?'LETZTE SEKUNDEN':'verbleibend'}</div>}
+              </div>
+            </div>
+            {/* Elapsed progress bar when time limit exists */}
+            {limitMs>0&&(
+              <div style={{marginTop:10,height:4,background:'rgba(255,255,255,.08)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${Math.min(100,(elapsed/limitMs)*100)}%`,background:timerColor,borderRadius:2,transition:'width .5s linear'}}/>
+              </div>
+            )}
           </div>
         );
       })}

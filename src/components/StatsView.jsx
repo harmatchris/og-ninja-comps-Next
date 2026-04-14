@@ -211,7 +211,9 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     });
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
-      return{id:r.athleteId,catId:r.catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
+      // catId fallback: use athlete's cat from athletesMap if not stored in activeRun
+      const catId=r.catId||(a?.cat)||null;
+      return{id:r.athleteId,catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
