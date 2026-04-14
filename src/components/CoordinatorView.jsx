@@ -11,6 +11,121 @@ import { AthleteQueueView } from './QueueView.jsx';
 import { StatsView } from './StatsView.jsx';
 import { SkillPhaseView } from './SkillPhaseView.jsx';
 
+// ── LIVE RUN BANNER (shows above ranking when stage is running) ────────
+const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
+  const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+  const obstacles=useFbVal(`ogn/${compId}/obstacles`);
+  const {lang}=useLang();
+  const [now,setNow]=useState(Date.now());
+  const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done'):[];
+  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(iv);},[liveEntries.length]);
+  if(!liveEntries.length)return null;
+  const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
+  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
+  const obsArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false):[];
+  const totalCPs=obsArr.length;
+  const fmtT=ms=>{if(ms<0)ms=0;const t=Math.floor(ms/1000);const m=Math.floor(t/60);const s=t%60;const ms3=String(Math.floor((ms%1000))).padStart(3,'0');return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${ms3}`;};
+  // Find leader: best completed run (most CPs, then fastest)
+  const allRuns=completedRuns?Object.values(completedRuns):[];
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:0,marginBottom:8}}>
+      {liveEntries.map(([key,r])=>{
+        const a=athletes?.[r.athleteId];
+        const isCountdown=r.phase==='countdown';
+        const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
+        const stageName=isPipeline?(pipelineStages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
+        const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
+        const remaining=(!isCountdown&&limitMs>0)?Math.max(0,limitMs-elapsed):null;
+        const timeCritical=remaining!==null&&remaining<15000;
+        const catId=a?.cat||r.catId;
+        const cat=IGN_CATS.find(c=>c.id===catId);
+        const cpsDone=r.doneCP?.length||0;
+        const lastCPObs=cpsDone>0&&obsArr[cpsDone-1]?obsArr[cpsDone-1].name:null;
+        const hasLives=info?.mode==='lives';
+        // Leader split times for comparison
+        const leaderRun=catId?allRuns.filter(x=>x.catId===catId&&(isPipeline?x.stageId===key:true)&&x.status!=='dsq').sort((a,b)=>{const ca=(a.doneCP?.length||0),cb=(b.doneCP?.length||0);return cb-ca||(a.finalTime||Infinity)-(b.finalTime||Infinity);})[0]:null;
+        const leaderSplitAtCP=(leaderRun&&cpsDone>0)?leaderRun.doneCP?.[cpsDone-1]?.time:null;
+        const currentSplit=(cpsDone>0&&r.doneCP)?r.doneCP[cpsDone-1]?.time:null;
+        const splitDiff=leaderSplitAtCP&&currentSplit?(currentSplit-leaderSplitAtCP):null;
+        return(
+          <div key={key} className="sh-card" style={{padding:0,overflow:'hidden',border:'1px solid rgba(52,199,89,.3)'}}>
+            {/* Header: Stage + category + LIVE */}
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'rgba(0,0,0,.25)',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
+              <div style={{width:40,height:40,borderRadius:10,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <I.Bolt s={20} c="#fff"/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:800,fontSize:15}}>{stageName}</div>
+                {cat&&<div style={{fontSize:12,color:cat.color}}>{cat.name?.[lang]||cat.id}</div>}
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(255,94,58,.4)',background:'rgba(255,94,58,.1)'}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 8px rgba(255,94,58,.8)',animation:'pulse 1.2s infinite'}}/>
+                <span style={{fontSize:11,fontWeight:800,color:'var(--cor)',letterSpacing:'.1em'}}>LIVE</span>
+              </div>
+            </div>
+            {/* Body: athlete + timer */}
+            <div style={{padding:'16px 20px'}}>
+              {/* Athlete name + number */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:22,fontWeight:800,letterSpacing:'-.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.name||r.athleteName||'?'}</div>
+                  <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>#{a?.num||'?'}</div>
+                </div>
+                {hasLives&&r.livesLeft!=null&&(
+                  <div style={{textAlign:'center',flexShrink:0}}>
+                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',marginBottom:3}}>LIVES</div>
+                    <div style={{display:'flex',gap:4}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
+                      <div key={i} style={{width:14,height:14,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 6px rgba(255,94,58,.5)'}}/>
+                    ))}</div>
+                  </div>
+                )}
+              </div>
+              {/* Big timer */}
+              <div style={{textAlign:'center',marginBottom:8}}>
+                <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.15em',marginBottom:6}}>RUN TIME</div>
+                <div style={{fontFamily:'JetBrains Mono',fontSize:56,fontWeight:900,lineHeight:1,letterSpacing:'-2px',
+                  color:isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'var(--gold)':'rgba(255,180,120,.9)',
+                  textShadow:timeCritical?'0 0 30px rgba(255,59,48,.5)':'0 0 20px rgba(255,180,120,.15)'}}>
+                  {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
+                </div>
+                {/* Current obstacle + CP progress */}
+                <div style={{fontSize:13,color:'var(--muted)',marginTop:8}}>
+                  {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
+                </div>
+              </div>
+              {/* Split time comparison vs leader */}
+              {splitDiff!==null&&(
+                <div style={{textAlign:'center',marginTop:6,padding:'4px 12px',borderRadius:8,display:'inline-flex',alignItems:'center',gap:5,justifyContent:'center',width:'100%',
+                  background:splitDiff<=0?'rgba(52,199,89,.08)':'rgba(255,59,48,.08)',
+                  border:`1px solid ${splitDiff<=0?'rgba(52,199,89,.25)':'rgba(255,59,48,.25)'}`}}>
+                  <span style={{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:800,
+                    color:splitDiff<=0?'var(--green)':'var(--red)'}}>
+                    {splitDiff<=0?'-':'+'}{fmtMs(Math.abs(splitDiff))}
+                  </span>
+                  <span style={{fontSize:10,color:'var(--muted)'}}>vs {lang==='de'?'Führender':'Leader'}</span>
+                </div>
+              )}
+              {/* Progress bar */}
+              {totalCPs>0&&(
+                <div style={{marginTop:10,height:5,background:'rgba(255,255,255,.08)',borderRadius:3,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${(cpsDone/totalCPs)*100}%`,background:'linear-gradient(90deg,var(--cor),var(--cor2))',borderRadius:3,transition:'width .3s ease'}}/>
+                </div>
+              )}
+              {/* Time limit progress */}
+              {limitMs>0&&!isCountdown&&(
+                <div style={{marginTop:4,height:3,background:'rgba(255,255,255,.05)',borderRadius:2,overflow:'hidden'}}>
+                  <div style={{height:'100%',width:`${Math.min(100,(elapsed/limitMs)*100)}%`,background:timeCritical?'#FF3B30':'rgba(255,214,10,.5)',borderRadius:2,transition:'width .5s linear'}}/>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 // ── SKILL RANKING LIVE (auto-rotating categories) ────────
 const SkillRankingLive=({compId,info,athletes})=>{
   const {lang}=useLang();
@@ -379,6 +494,7 @@ const handleDeleteAth=async(a)=>{
           ))}
         </div>
         {coordView==='results'&&<div style={{marginTop:8}}>
+          <LiveRunBanner compId={compId} info={info} athletes={athletes} pipelineData={pipelineData}/>
           {info?.skillPhase?.enabled&&!skillStatus?.finalized&&!skillStatus?.seedingDone?<SkillRankingLive compId={compId} info={info} athletes={athletes}/>:<ResultsView compId={compId} athletes={athletes}/>}
         </div>}
         {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
