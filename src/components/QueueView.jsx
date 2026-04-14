@@ -115,7 +115,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
           <div key={sn} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:tvMode?18:12,overflow:'hidden'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:tvMode?'12px 18px':'8px 12px',background:'rgba(255,255,255,.03)',borderBottom:'1px solid var(--border)'}}>
               <div style={{display:'flex',alignItems:'center',gap:tvMode?12:8}}>
-                <div style={{width:tvMode?38:26,height:tvMode?38:26,borderRadius:tvMode?10:7,background:'rgba(255,94,58,.14)',border:'1px solid rgba(255,94,58,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?20:13,fontWeight:900,color:'var(--coral)',flexShrink:0}}>{sn}</div>
+                <div style={{width:tvMode?38:26,height:tvMode?38:26,borderRadius:tvMode?10:7,background:'rgba(255,94,58,.14)',border:'1px solid rgba(255,94,58,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?20:13,fontWeight:900,color:'var(--coral)',flexShrink:0}}>{isPipeline?((pStage?.name||'').trim().charAt(0).toUpperCase()||'•'):sn}</div>
                 <div>
                   <div style={{fontWeight:800,fontSize:tvMode?16:11,lineHeight:1.2}}>{isPipeline?(pStage?.name||sn):(info?.stageNames?.[sn]||`Stage ${sn}`)}</div>
                   {cat&&<div style={{fontSize:tvMode?12:9,color:'var(--muted)',marginTop:1}}>{catName(cat)}</div>}
