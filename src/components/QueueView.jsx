@@ -86,6 +86,8 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
         const doneIds=new Set(runList.filter(r=>isPipeline?(r.stageId===sn&&stageCatSet.has(r.catId)):(r.catId===catId&&r.stNum===sn)).map(r=>r.athleteId));
         const activeRun=allActiveRuns?.[sn];
         const runningId=(activeRun&&(activeRun.phase==='active'||activeRun.phase==='countdown'))?activeRun.athleteId:null;
+        // exclude currently-running athlete from queue so next-up shows at top
+        if(runningId)doneIds.add(runningId);
         const queue=athList.filter(a=>isPipeline?(stageCatSet.has(a.cat)&&!doneIds.has(a.id)):(a.cat===catId&&!doneIds.has(a.id)))
           .sort((a,b)=>{
             const aOrd=isPipeline?(a.pipelineQueueOrder?.[sn]??a.queueOrder??999):(a.queueOrder??999);

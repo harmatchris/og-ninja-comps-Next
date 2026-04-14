@@ -1,6 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLang } from '../i18n.js';
-import { IGN_CATS } from '../config.js';
+import { IGN_CATS, DEF_OBS } from '../config.js';
+
+const obsShortName=name=>{
+  const n=(name||'').toLowerCase();
+  if(/startplattform|start plattform|^start/.test(n))return '▶ Start';
+  if(/landeplattform|land plattform/.test(n))return '⬛ Land';
+  if(/endplattform|end plattform/.test(n))return '⬛ End';
+  return name;
+};
 import { fmtMs, computeRanked, computeRankedStage } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';

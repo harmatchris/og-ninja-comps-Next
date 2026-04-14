@@ -155,7 +155,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const TEAMS_DE=['Berlin Ninjas','München Runners','Hamburg Force','Ninja Warriors DE','Köln Climbers','Frankfurt Ninjas'];
     const TEAMS_AT=['Wien Ninjas','Graz Warriors','Salzburg Force'];
     const pick=arr=>arr[Math.floor(Math.random()*arr.length)];
-    const si=curAthStage;const stageNum=si+1;const newAths=[];let num=stageAths[si].length+1;
+    const si=asi;const stageNum=si+1;const newAths=[];let num=(stageAths[si]||[]).length+1;
     IGN_CATS.forEach(cat=>{
       const isFemale=cat.id.includes('w');
       const names=isFemale?TEST_NAMES_F:TEST_NAMES_M;

@@ -378,7 +378,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                   <span style={{fontSize:11,color:'rgba(255,255,255,.3)',fontFamily:'JetBrains Mono',marginLeft:'auto'}}>{catRanked.length}</span>
                 </div>
                 {catMulti?(
-                  <div style={{display:'grid',gridTemplateColumns:`minmax(200px,1.5fr) repeat(${Math.min(catStageNums.length,3)},minmax(140px,1fr))`}}>
+                  <div style={{display:'grid',gridTemplateColumns:`minmax(180px,1.3fr) repeat(${Math.min(catStageNums.length,4)},minmax(120px,1fr))`}}>
                     {/* Gesamt / Overall column */}
                     {(()=>{const msRanked=computeRankedMultiStage(runList,cat.id,catStageNums);return(
                       <div style={{borderRight:'1px solid rgba(255,255,255,.06)'}}>
