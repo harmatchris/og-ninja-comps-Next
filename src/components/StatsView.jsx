@@ -197,10 +197,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,tvMode=false})=>{
     const obsArr=getStageObsArr(sn);
     // Only runs from THIS stage
     const stageRuns=runList.filter(r=>String(r.stNum)===String(sn));
-    // Categories present in this stage
-    const activeCats=catId
-      ?[IGN_CATS.find(c=>c.id===catId)].filter(Boolean)
-      :[...new Set(stageRuns.map(r=>r.catId))].map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
+    // Categories present in this stage — union of station's configured cat + all cats with runs
+    // (a stage may legitimately host multiple cats, e.g. Main Stage A with Adults M LK1 + Adults W LK1)
+    const runCatIds=[...new Set(stageRuns.map(r=>r.catId).filter(Boolean))];
+    const activeRunCatIds=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.catId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>r.catId):[];
+    const unionIds=[...new Set([...(catId?[catId]:[]),...runCatIds,...activeRunCatIds])];
+    const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
 
     // ── Survival curve (per category for this stage) ──
     const survivalData=activeCats.map(cat=>{
