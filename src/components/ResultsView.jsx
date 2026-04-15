@@ -338,10 +338,13 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
               </div>
               {isOverall?(
                 <div style={{flexShrink:0,textAlign:'right',fontSize:8,fontFamily:'JetBrains Mono',fontWeight:700,lineHeight:1.3}}>
-                  <div style={{display:'flex',gap:2,justifyContent:'flex-end'}}>
-                    {stageList.map(sid=>{const pl=r.placements?.[sid];const nm=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||'').charAt(0):sid;return pl?<span key={sid} style={{padding:'0 3px',borderRadius:3,background:pl<=3?['rgba(255,214,10,.2)','rgba(192,192,192,.15)','rgba(205,127,50,.15)'][pl-1]:'rgba(255,255,255,.06)',color:pl<=3?['var(--gold)','#C0C0C0','#CD7F32'][pl-1]:'var(--muted)'}}>{nm}:{pl}</span>:null;})}
+                  <div style={{display:'flex',gap:2,justifyContent:'flex-end',flexWrap:'wrap'}}>
+                    {stageList.map(sid=>{const pl=r.placements?.[sid];const nm=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||'').substring(0,6):(`S${sid}`);return pl?<span key={sid} style={{padding:'0 4px',borderRadius:3,background:pl<=3?['rgba(255,214,10,.2)','rgba(192,192,192,.15)','rgba(205,127,50,.15)'][pl-1]:'rgba(255,255,255,.06)',color:pl<=3?['var(--gold)','#C0C0C0','#CD7F32'][pl-1]:'var(--muted)'}}>{nm}:P{pl}</span>:<span key={sid} style={{padding:'0 4px',borderRadius:3,background:'rgba(255,255,255,.04)',color:'rgba(255,255,255,.2)'}}>{nm}:—</span>;})}
                   </div>
-                  <div style={{color:'var(--gold)',fontSize:9,marginTop:1}}>={r.placementSum||'?'}</div>
+                  <div style={{display:'flex',gap:4,justifyContent:'flex-end',marginTop:2,alignItems:'center'}}>
+                    <span style={{color:'var(--gold)',fontSize:9}}>= P{r.placementSum||'?'}</span>
+                    {r.totalTime>0&&<span style={{color:'var(--muted)',fontSize:8}}>{fmtMs(r.totalTime)}</span>}
+                  </div>
                 </div>
               ):(
                 <div style={{fontSize:9,fontFamily:'JetBrains Mono',fontWeight:700,flexShrink:0,textAlign:'right',
@@ -436,24 +439,20 @@ const ResultsView=({compId,athletes})=>{
       const a=document.createElement('a');a.href=url;a.download=`ninja-results-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);
       SFX.complete();
     } else if(format==='print'){
-      // HTML print window
-      let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ninja Competition Tool – Ergebnisse</title>
-<style>body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:15px;margin:18px 0 6px;color:#555;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}
-table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}
-td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;font-weight:700;}.medal-2{background:#F5F5F5;}.medal-3{background:#FDF5ED;}
-.buzzer{color:#34C759;font-weight:700;}.fall{color:#FF3B30;font-size:11px;}.protest{background:#FFFACD;}
-@media print{body{padding:0;font-size:11px;}h1{font-size:14px;}h2{font-size:12px;page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}</style></head><body>`;
-      html+=`<h1>Ninja Competition Tool – ${comp?.name||'Ergebnisse'}</h1><p style="font-size:11px;color:#888;">${comp?.date||new Date().toLocaleDateString()} · ${comp?.location||''}</p>`;
+      // Print ALL divisions, ALL stages
+      const ps=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;}h2{font-size:15px;margin:18px 0 6px;color:#555;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;font-weight:700;}.medal-2{background:#F5F5F5;}.medal-3{background:#FDF5ED;}.buzzer{color:#34C759;font-weight:700;}.fall{color:#FF3B30;font-size:11px;}@media print{body{padding:0;font-size:11px;}h2{page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}`;
+      let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ergebnisse</title><style>${ps}</style></head><body>`;
+      html+=`<h1>${comp?.name||'Wettkampf'}</h1><p style="font-size:11px;color:#888;">${comp?.date||new Date().toLocaleDateString()} · ${comp?.location||''}</p>`;
+      const stages=isPipeline?stageIds:stageNums;
       catsWithRuns.forEach(c=>{
-        const r=computeRanked(runList,c.id);if(!r.length)return;
-        html+=`<h2>${catName(c)} (${r.length} Athleten)</h2><table><tr><th>#</th><th>Startnr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
-        r.forEach((run,i)=>{
-          const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
-          const cls=i===0?'medal-1':i===1?'medal-2':i===2?'medal-3':'';
-          const ergebnis=run.status==='complete'?'<span class="buzzer">Buzzer ✓</span>':run.fellAt?.name?`<span class="fall">Fall @ ${run.fellAt.name}</span>`:(run.status||'DNF');
-          html+=`<tr class="${cls}${run.protested?' protest':''}"><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${ergebnis}${run.protested?' 🚩':''}</td></tr>`;
+        stages.forEach(sid=>{
+          const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
+          const r=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);
+          if(!r.length)return;
+          html+=`<h2>${catName(c)} — ${stgName} (${r.length})</h2><table><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
+          r.forEach((run,i)=>{const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};const cls=i<3?['medal-1','medal-2','medal-3'][i]:'';const erg=run.status==='complete'?'<span class="buzzer">Buzzer ✓</span>':run.fellAt?.name?`<span class="fall">Fall @ ${run.fellAt.name}</span>`:(run.status||'DNF');html+=`<tr class="${cls}"><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${erg}</td></tr>`;});
+          html+=`</table>`;
         });
-        html+=`</table>`;
       });
       html+=`</body></html>`;
       const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),300);
@@ -599,11 +598,6 @@ return(<React.Fragment key={r.athleteId}>
                 </div>
               </div>
             </React.Fragment>);})}
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('csv')}><I.Download s={15}/> CSV</button>
-              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('print')}><I.FileText s={15}/> Print</button>
-              <button className="btn btn-ghost" style={{flex:1,padding:12,gap:7}} onClick={()=>exportAll('text')}><I.Share2 s={15}/> {lang==='de'?'Teilen':'Share'}</button>
-            </div>
           </div>
         );
       })()}
