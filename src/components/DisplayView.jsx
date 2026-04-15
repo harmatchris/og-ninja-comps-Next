@@ -251,9 +251,12 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     <div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?36:28,fontWeight:700,color:'#FF5E3A',letterSpacing:'-1px'}}>{fmtMs(elapsed)}</div>
                     {run.livesLeft!=null&&run.livesLeft>0&&(
                       <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
-                        {Array.from({length:run.livesLeft}).map((_,i)=>(
-                          <div key={i} style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.6)'}}/>
-                        ))}
+                        {run.livesLeft>=999
+                          ?<div style={{fontSize:18,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
+                          :Array.from({length:run.livesLeft}).map((_,i)=>(
+                            <div key={i} style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.6)'}}/>
+                          ))
+                        }
                       </div>
                     )}
                   </div>

@@ -230,7 +230,7 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
               <div style={{flex:1,minWidth:0}}>
                 {a&&<div style={{fontSize:20,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',letterSpacing:'-.3px'}}>{a.name}</div>}
                 {a?.team&&<div style={{fontSize:12,color:'var(--muted)',marginTop:2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.team}</div>}
-                {r.doneCP&&<div style={{fontSize:11,color:'rgba(255,255,255,.5)',marginTop:3,fontWeight:600}}>CP {r.doneCP.length||0}{r.livesLeft!=null&&<span style={{marginLeft:8,color:'var(--coral)'}}>{'*'.repeat(r.livesLeft)} Lives</span>}</div>}
+                {r.doneCP&&<div style={{fontSize:11,color:'rgba(255,255,255,.5)',marginTop:3,fontWeight:600}}>CP {r.doneCP.length||0}{r.livesLeft!=null&&<span style={{marginLeft:8,color:'var(--coral)'}}>{r.livesLeft>=999?'∞':r.livesLeft} Lives</span>}</div>}
                 {remaining!==null&&<div style={{fontSize:10,color:timerColor,marginTop:4,fontWeight:700,opacity:.8}}>{remaining<=0?'ZEITLIMIT!':timeCritical?'LETZTE SEKUNDEN':'verbleibend'}</div>}
               </div>
             </div>

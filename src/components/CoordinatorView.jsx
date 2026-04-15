@@ -232,9 +232,12 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                 <div style={{fontSize:14,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.name||r.athleteName||'?'}</div>
                 <div style={{fontSize:10,color:'var(--muted)'}}>#{a?.num||'?'}</div>
               </div>
-              {hasLives&&r.livesLeft!=null&&<div style={{display:'flex',gap:3,flexShrink:0}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
-                <div key={i} style={{width:10,height:10,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 4px rgba(255,94,58,.4)'}}/>
-              ))}</div>}
+              {hasLives&&r.livesLeft!=null&&(r.livesLeft>=999
+                ?<div style={{fontSize:16,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
+                :r.livesLeft>0&&<div style={{display:'flex',gap:3,flexShrink:0}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
+                  <div key={i} style={{width:10,height:10,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 4px rgba(255,94,58,.4)'}}/>
+                ))}</div>
+              )}
             </div>
             {/* Big timer */}
             <div style={{textAlign:'center'}}>

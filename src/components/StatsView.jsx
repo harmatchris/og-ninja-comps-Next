@@ -94,11 +94,14 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         <rect x={size*.52} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color}/>
       </g>
       {/* Hearts for lives */}
-      {(livesLeft+livesUsed)>0&&Array.from({length:livesLeft+livesUsed}).map((_,i)=>{
-        const alive=i<livesLeft;
-        const hx=size/2+(i-(livesLeft+livesUsed-1)/2)*9;
-        return<g key={i} transform={`translate(${hx-6},${-8}) scale(0.7)`} opacity={alive?1:.2}><path d={heartD} fill={alive?'#FF3B60':'#555'} stroke={alive?'#FF1744':'#333'} strokeWidth=".5"/></g>;
-      })}
+      {livesLeft>=999
+        ?<text x={size/2} y={-4} textAnchor="middle" fontSize={size*.5} fontWeight="900" fill="#FF3B60" fontFamily="JetBrains Mono" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:2}} transform={`rotate(90,${size/2},-4)`}>8</text>
+        :(livesLeft+livesUsed)>0&&Array.from({length:livesLeft+livesUsed}).map((_,i)=>{
+          const alive=i<livesLeft;
+          const hx=size/2+(i-(livesLeft+livesUsed-1)/2)*9;
+          return<g key={i} transform={`translate(${hx-6},${-8}) scale(0.7)`} opacity={alive?1:.2}><path d={heartD} fill={alive?'#FF3B60':'#555'} stroke={alive?'#FF1744':'#333'} strokeWidth=".5"/></g>;
+        })
+      }
       {/* Name */}
       {name&&<text x={size/2} y={-16} textAnchor="middle" fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
       {/* Reset countdown — big number over ninja */}
