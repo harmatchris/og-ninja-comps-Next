@@ -295,7 +295,7 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
 const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[],isPipeline=false,pipelineStages=[]})=>{
   const ref=useRef(null);
   useEffect(()=>{
-    const el=ref.current;if(!el||items.length<=6)return;
+    const el=ref.current;if(!el||!items?.length||items.length<=6)return;
     let raf,paused=true,pauseStart=performance.now();
     const tick=()=>{
       const now=performance.now();
@@ -312,6 +312,7 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
     raf=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(raf);
   },[items.length]);
+  if(!items||!items.length)return<div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:16,color:'var(--muted)',fontSize:11}}>—</div>;
   return(
     <div ref={ref} style={{flex:1,overflowY:'auto',overflowX:'hidden',scrollbarWidth:'none'}}>
       <style>{`.autoscroll-wrap::-webkit-scrollbar{display:none}`}</style>
