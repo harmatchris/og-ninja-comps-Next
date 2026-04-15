@@ -291,15 +291,37 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
       <div className="autoscroll-wrap">
         {items.map((r,i)=>{
           const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
+          const medalC=i<3?['var(--gold)','#C0C0C0','#CD7F32'][i]:null;
+          const result=isOverall?null:r.status==='complete'?'Buzzer':r.status==='dsq'?'DSQ':r.fellAt?.name||'DNF';
+          const flag=a.country?toFlag(a.country):null;
           return(
-            <div key={r.athleteId} style={{padding:'5px 8px',display:'flex',alignItems:'center',gap:6,borderBottom:'1px solid rgba(255,255,255,.04)',opacity:r.status==='dsq'?.5:1}}>
-              <div style={{width:18,textAlign:'center',fontSize:10,fontWeight:800,color:i<3?['var(--gold)','#C0C0C0','#CD7F32'][i]:'var(--muted)',fontFamily:'JetBrains Mono'}}>{i+1}</div>
-              {a.photo?<img src={a.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
-                :<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,94,58,.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800,color:'var(--cor)',flexShrink:0}}>{(a.name||'?')[0]}</div>}
-              <div style={{flex:1,minWidth:0,fontSize:11,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-              <div style={{fontSize:10,fontFamily:'JetBrains Mono',color:isOverall?'var(--gold)':r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)',fontWeight:700,flexShrink:0}}>
-                {isOverall?`Σ${r.placementSum||'?'}`:(r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—')}
+            <div key={r.athleteId} style={{padding:'4px 6px',display:'flex',alignItems:'center',gap:5,borderBottom:'1px solid rgba(255,255,255,.04)',opacity:r.status==='dsq'?.5:1}}>
+              <div style={{width:16,textAlign:'center',fontSize:10,fontWeight:800,color:medalC||'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{i+1}</div>
+              {a.photo?<img src={a.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:medalC?`1.5px solid ${medalC}`:'1px solid rgba(255,255,255,.08)'}}/>
+                :<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,.06)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,border:medalC?`1.5px solid ${medalC}`:'1px solid rgba(255,255,255,.08)'}}>
+                  <I.User s={12} c={medalC||'var(--muted)'}/>
+                </div>}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{flag&&<span style={{marginRight:3}}>{flag}</span>}{a.name}</div>
+                <div style={{fontSize:8,color:'var(--muted)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>
+                  {a.team&&<span style={{color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}
+                  {a.team&&result&&' · '}
+                  {!isOverall&&<span style={{color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)'}}>{result}</span>}
+                </div>
               </div>
+              {isOverall?(
+                <div style={{flexShrink:0,textAlign:'right',fontSize:8,fontFamily:'JetBrains Mono',fontWeight:700,lineHeight:1.3}}>
+                  <div style={{display:'flex',gap:2,justifyContent:'flex-end'}}>
+                    {stageList.map(sid=>{const pl=r.placements?.[sid];const nm=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||'').charAt(0):sid;return pl?<span key={sid} style={{padding:'0 3px',borderRadius:3,background:pl<=3?['rgba(255,214,10,.2)','rgba(192,192,192,.15)','rgba(205,127,50,.15)'][pl-1]:'rgba(255,255,255,.06)',color:pl<=3?['var(--gold)','#C0C0C0','#CD7F32'][pl-1]:'var(--muted)'}}>{nm}:{pl}</span>:null;})}
+                  </div>
+                  <div style={{color:'var(--gold)',fontSize:9,marginTop:1}}>={r.placementSum||'?'}</div>
+                </div>
+              ):(
+                <div style={{fontSize:9,fontFamily:'JetBrains Mono',fontWeight:700,flexShrink:0,textAlign:'right',
+                  color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)'}}>
+                  {r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}
+                </div>
+              )}
             </div>
           );
         })}
