@@ -15,38 +15,55 @@ import { I } from '../icons.jsx';
 import { Spinner, EmptyState } from './shared.jsx';
 
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
-const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
-  const filterId=`glow-${name||'n'}`.replace(/\s/g,'');
+// Tricks: each CP triggers a different trick animation
+const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0})=>{
+  const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
+  const trick=TRICKS[doneCPCount%TRICKS.length];
+  // Heart SVG path (tiny)
+  const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
   return(
-    <g transform={`translate(${x-size/2},${y-size})`} style={{transition:'transform 0.8s ease-in-out'}}>
-    <g style={{animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
-      <style>{`@keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}@keyframes ninjaGlow{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}@keyframes ninjaPulse{0%{r:${size*0.55}}50%{r:${size*0.7}}100%{r:${size*0.55}}}`}</style>
-      <defs>
-        <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      {/* glow pulse behind ninja */}
-      <circle cx={size/2} cy={size*0.5} r={size*0.6} fill="none" stroke={color} strokeWidth="2" opacity=".35" style={{animation:'ninjaGlow 1.2s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
-      <circle cx={size/2} cy={size*0.5} r={size*0.4} fill={color} opacity=".15" style={{animation:'ninjaGlow 1.2s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
+    <g transform={`translate(${x-size/2},${fallen?y+200:y-size})`} style={{transition:'transform 0.8s ease-in-out'}}>
+    <g style={{animation:fallen?'ninjaFall 1s ease-in forwards':(doneCPCount>0?`${trick} 0.6s ease-out`:'ninjaBob 0.45s ease-in-out infinite alternate')}}>
+      <style>{`
+        @keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}
+        @keyframes ninjaFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(${size*8}px) rotate(720deg);opacity:0}}
+        @keyframes ninjaFlip{0%{transform:rotate(0)}30%{transform:translateY(-${size*.6}px) rotate(-180deg)}60%{transform:translateY(-${size*.3}px) rotate(-360deg)}100%{transform:rotate(-360deg)}}
+        @keyframes ninjaSpinKick{0%{transform:rotate(0) scale(1)}40%{transform:translateY(-${size*.5}px) rotate(180deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
+        @keyframes ninjaSplit{0%{transform:scaleX(1)}30%{transform:translateY(-${size*.4}px) scaleX(1.4) scaleY(.7)}60%{transform:scaleX(1.2) scaleY(.9)}100%{transform:scaleX(1) scaleY(1)}}
+        @keyframes ninjaBackflip{0%{transform:translateY(0) rotate(0)}50%{transform:translateY(-${size*.8}px) rotate(180deg)}100%{transform:translateY(0) rotate(360deg)}}
+        @keyframes ninjaStarJump{0%{transform:scale(1)}30%{transform:translateY(-${size*.5}px) scale(1.3)}60%{transform:scale(.9)}100%{transform:scale(1)}}
+        @keyframes ninjaWallRun{0%{transform:translateX(0)}25%{transform:translateX(${size*.3}px) translateY(-${size*.5}px)}75%{transform:translateX(-${size*.3}px) translateY(-${size*.3}px)}100%{transform:translateX(0)}}
+        @keyframes ninjaGlow{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
+        @keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}
+        @keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}
+      `}</style>
+      <defs><filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      {/* glow */}
+      <circle cx={size/2} cy={size*.5} r={size*.6} fill="none" stroke={color} strokeWidth="2.5" opacity=".3" style={{animation:'ninjaGlow 1s ease-in-out infinite'}} filter={`url(#${fid})`}/>
+      <circle cx={size/2} cy={size*.5} r={size*.35} fill={color} opacity=".12" filter={`url(#${fid})`}/>
       {/* head */}
-      <circle cx={size/2} cy={size*0.28} r={size*0.18} fill={color}/>
-      {/* mask band */}
-      <rect x={size*0.3} y={size*0.24} width={size*0.4} height={size*0.06} fill="rgba(0,0,0,.55)"/>
+      <circle cx={size/2} cy={size*.28} r={size*.18} fill={color}/>
+      <rect x={size*.3} y={size*.24} width={size*.4} height={size*.06} fill="rgba(0,0,0,.55)"/>
       {/* body */}
-      <rect x={size*0.35} y={size*0.42} width={size*0.3} height={size*0.35} rx={size*0.08} fill={color}/>
+      <rect x={size*.35} y={size*.42} width={size*.3} height={size*.35} rx={size*.08} fill={color}/>
       {/* arms */}
-      <rect x={size*0.18} y={size*0.48} width={size*0.16} height={size*0.08} rx={size*0.04} fill={color} transform={`rotate(-20 ${size*0.26} ${size*0.52})`}/>
-      <rect x={size*0.66} y={size*0.48} width={size*0.16} height={size*0.08} rx={size*0.04} fill={color} transform={`rotate(20 ${size*0.74} ${size*0.52})`}/>
-      {/* legs with running animation */}
-      <g style={{transformOrigin:`${size*0.45}px ${size*0.77}px`,animation:'legA 0.35s linear infinite'}}>
-        <rect x={size*0.38} y={size*0.75} width={size*0.1} height={size*0.22} rx={size*0.04} fill={color}/>
+      <rect x={size*.18} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(-20 ${size*.26} ${size*.52})`}/>
+      <rect x={size*.66} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(20 ${size*.74} ${size*.52})`}/>
+      {/* legs */}
+      <g style={{transformOrigin:`${size*.45}px ${size*.77}px`,animation:fallen?'none':'legA 0.35s linear infinite'}}>
+        <rect x={size*.38} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color}/>
       </g>
-      <g style={{transformOrigin:`${size*0.55}px ${size*0.77}px`,animation:'legB 0.35s linear infinite'}}>
-        <rect x={size*0.52} y={size*0.75} width={size*0.1} height={size*0.22} rx={size*0.04} fill={color}/>
+      <g style={{transformOrigin:`${size*.55}px ${size*.77}px`,animation:fallen?'none':'legB 0.35s linear infinite'}}>
+        <rect x={size*.52} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color}/>
       </g>
-      {name&&<text x={size/2} y={-4} textAnchor="middle" fontSize={size*0.35} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+      {/* Hearts for lives */}
+      {livesLeft!=null&&Array.from({length:livesLeft+livesUsed}).map((_,i)=>{
+        const alive=i<livesLeft;
+        const hx=size/2+(i-(livesLeft+livesUsed-1)/2)*9;
+        return<g key={i} transform={`translate(${hx-6},${-8}) scale(0.7)`} opacity={alive?1:.25}><path d={heartD} fill={alive?'#FF3B60':'#555'} stroke={alive?'#FF1744':'#333'} strokeWidth=".5"/></g>;
+      })}
+      {name&&<text x={size/2} y={-16} textAnchor="middle" fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
     </g>
     </g>
   );
@@ -97,15 +114,13 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
             {i===0?'Start':(p.label||'').substring(0,20)}
           </text>
         ))}
-        {/* Live ninja runners — position at X of current CP, Y at survival curve height */}
+        {/* Live ninja runners — run along top (y=100%), fall down when eliminated */}
         {liveRunners.map((lr,idx)=>{
-          const cpIdx=Math.min(lr.doneCPCount,nPts-1); // 0=Start, 1=after first obstacle, etc
+          const cpIdx=Math.min(lr.doneCPCount,nPts-1);
           const catData=data.find(d=>d.cat.id===lr.catId);
-          const pt=catData?.points?.[cpIdx];
-          const yVal=pt?pt.y:100;
           const cx=xs(cpIdx);
-          const cy=ys(yVal);
-          return<NinjaRunner key={lr.id||idx} x={cx} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name}/>;
+          const cy=ys(100); // always run on top line
+          return<NinjaRunner key={lr.id||idx} x={cx} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount}/>;
         })}
       </svg>
     </div>
@@ -224,9 +239,11 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
       const catId=r.catId||(a?.cat)||null;
-      // Use explicit doneCPCount field (integer), fallback to array/object length
       const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
-      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||''};
+      const totalLives=info?.lives||3;
+      const livesLeft=r.livesLeft!=null?r.livesLeft:totalLives;
+      const livesUsed=totalLives-livesLeft;
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:r.phase==='done'};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
@@ -289,7 +306,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
       const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
-      return{id:r.athleteId,catId:r.catId||(a?.cat)||null,doneCPCount,name:a?.name?.split(' ')[0]||''};
+      const totalLives=info?.lives||3;const livesLeft=r.livesLeft!=null?r.livesLeft:totalLives;
+      return{id:r.athleteId,catId:r.catId||(a?.cat)||null,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:totalLives-livesLeft,totalLives,fallen:r.phase==='done'};
     }):[];
 
     return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
