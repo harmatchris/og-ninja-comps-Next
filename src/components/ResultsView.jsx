@@ -210,6 +210,60 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
   );
 };
 
+// Floating export button — always visible, opens in new window so Jury can continue
+const ExportFAB=({exportAll,lang,catName,selCat,catsWithRuns,runList,athMap,comp,isPipeline,pipelineStages,fmtMs,computeRanked,computeRankedPipeline,stageIds})=>{
+  const [open,setOpen]=useState(false);
+  const exportDivision=(catId)=>{
+    const c=IGN_CATS.find(x=>x.id===catId);if(!c)return;
+    const ranked=computeRanked(runList,catId);if(!ranked.length)return;
+    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${catName(c)} — Ergebnisse</title>
+<style>body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:12px 0 6px;color:#555;}
+table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#f5f5f5;text-align:left;padding:6px 8px;font-weight:700;border-bottom:2px solid #ddd;}
+td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;font-weight:700;}.medal-2{background:#F5F5F5;}.medal-3{background:#FDF5ED;}
+.buzzer{color:#34C759;font-weight:700;}.fall{color:#FF3B30;}
+@media print{body{padding:10px;font-size:11px;}}</style></head><body>`;
+    html+=`<h1>${comp?.name||'Wettkampf'}</h1><p style="font-size:11px;color:#888;">${comp?.date||new Date().toLocaleDateString()} · ${comp?.location||''}</p>`;
+    html+=`<h2 style="color:${c.color};border-bottom:2px solid ${c.color};padding-bottom:4px;">${catName(c)} (${ranked.length} Athleten)</h2>`;
+    html+=`<table><tr><th>#</th><th>Startnr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
+    ranked.forEach((run,i)=>{
+      const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
+      const cls=i===0?'medal-1':i===1?'medal-2':i===2?'medal-3':'';
+      const ergebnis=run.status==='complete'?'<span class="buzzer">Buzzer ✓</span>':run.fellAt?.name?`<span class="fall">Fall @ ${run.fellAt.name}</span>`:(run.status||'DNF');
+      html+=`<tr class="${cls}"><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${ergebnis}</td></tr>`;
+    });
+    html+=`</table><p style="font-size:9px;color:#aaa;margin-top:20px;">OG Comps · ${new Date().toLocaleString()}</p></body></html>`;
+    const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+  };
+  return(
+    <>
+      {open&&<div style={{position:'fixed',inset:0,zIndex:998}} onClick={()=>setOpen(false)}/>}
+      <div style={{position:'fixed',bottom:20,right:20,zIndex:999,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
+        {open&&(
+          <div className="scale-in" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:10,minWidth:200,boxShadow:'0 8px 32px rgba(0,0,0,.5)'}}>
+            <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',padding:'4px 8px'}}>EXPORT / DRUCK</div>
+            <button style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:600,textAlign:'left'}} onClick={()=>{exportAll('csv');setOpen(false);}}>
+              <I.Download s={14} c="var(--cor)"/> CSV (alle Divisionen)
+            </button>
+            <button style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:600,textAlign:'left'}} onClick={()=>{exportAll('print');setOpen(false);}}>
+              <I.FileText s={14} c="var(--cor)"/> Drucken (alle)
+            </button>
+            <div style={{height:1,background:'var(--border)',margin:'4px 0'}}/>
+            <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',padding:'4px 8px'}}>PRO DIVISION</div>
+            {catsWithRuns.map(c=>(
+              <button key={c.id} style={{width:'100%',padding:'6px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:600,textAlign:'left'}} onClick={()=>{exportDivision(c.id);setOpen(false);}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:c.color,flexShrink:0}}/> {c.name[lang]} drucken
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={()=>setOpen(!open)} style={{width:48,height:48,borderRadius:'50%',background:'linear-gradient(135deg,var(--cor),var(--cor2))',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 16px rgba(255,94,58,.4)',transition:'transform .15s',transform:open?'rotate(45deg)':'none'}}>
+          {open?<I.X s={20} c="#fff"/>:<I.FileText s={20} c="#fff"/>}
+        </button>
+      </div>
+    </>
+  );
+};
+
 // Auto-scrolling ranking list: pauses at top 2s, scrolls slowly down, resets
 const AutoScrollRanking=({items,athMap,fmtMs,lang,t})=>{
   const ref=useRef(null);
@@ -501,6 +555,8 @@ return(<React.Fragment key={r.athleteId}>
         </div>
       )}
       {editRun&&<EditRunModal run={editRun.run} runKey={editRun.key} compId={compId} onClose={()=>setEditRun(null)}/>}
+      {/* Floating export FAB — always accessible */}
+      <ExportFAB exportAll={exportAll} lang={lang} catName={catName} selCat={selCat} catsWithRuns={catsWithRuns} runList={runList} athMap={athMap} comp={comp} isPipeline={isPipeline} pipelineStages={pipelineStages} fmtMs={fmtMs} computeRanked={computeRanked} computeRankedPipeline={computeRankedPipeline} stageIds={stageIds}/>
     </div>
   );
 };
