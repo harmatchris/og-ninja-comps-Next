@@ -106,8 +106,8 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         <text x={size/2} y={-22} textAnchor="middle" fontSize={size*.8} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill={resetSec<=3?'#FF3B30':'#FF9500'} style={{animation:'countPulse .6s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3}}>{resetSec}</text>
         <text x={size/2} y={size+14} textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="system-ui" fill="rgba(255,149,0,.8)">RESET</text>
       </>}
-      {/* Split time flash below ninja */}
-      {!resetting&&lastCPTime&&<text x={size/2} y={size+14} textAnchor="middle" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono,monospace" fill={color} style={{animation:'splitFlash 3s ease-out forwards'}}>{fmtSplit(lastCPTime)}</text>}
+      {/* Split time below ninja — always visible when there's a CP */}
+      {!resetting&&lastCPTime&&<text x={size/2} y={size+14} textAnchor="middle" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono,monospace" fill={color} opacity=".8">{fmtSplit(lastCPTime)}</text>}
       {/* Time remaining (small) */}
       {timeRemaining!=null&&!resetting&&<text x={size/2} y={size+24} textAnchor="middle" fontSize="8" fontWeight="600" fontFamily="JetBrains Mono,monospace" fill={timeRemaining<15000?'#FF3B30':'rgba(255,214,10,.7)'}>{fmtSplit(timeRemaining)}</text>}
     </g>

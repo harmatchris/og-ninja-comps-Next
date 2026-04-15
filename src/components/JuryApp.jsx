@@ -256,11 +256,22 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
   const el=frozenAt!=null?frozenAt:elRaw;
   const [flash,setFlash]=useState(false);
   const hasLives=info.mode==='lives';
-  // Per-stage time limit overrides the global default
-  const effectiveLimit=info.stageLimits?.[stNum]!=null?info.stageLimits[stNum]:(info.timeLimit||0);
+  // Per-stage time limit overrides the global default (use activeRunKey for pipeline stages)
+  const effectiveLimit=info.stageLimits?.[activeRunKey]!=null?info.stageLimits[activeRunKey]:(info.stageLimits?.[stNum]!=null?info.stageLimits[stNum]:(info.timeLimit||0));
   const timeLimitMs=effectiveLimit*1000;
   const remaining=timeLimitMs>0?Math.max(0,timeLimitMs-el):null;
   const timeCritical=remaining!==null&&remaining<15000;
+  // Acoustic countdown in last 10 seconds — escalating beeps
+  const lastBeepRef=useRef(0);
+  useEffect(()=>{
+    if(remaining===null||remaining>10000||frozenAt!=null)return;
+    const sec=Math.ceil(remaining/1000);
+    if(sec!==lastBeepRef.current&&sec>0&&sec<=10){
+      lastBeepRef.current=sec;
+      // Escalating: slow beeps 10-4s, fast beeps 3-1s
+      if(sec<=3)SFX.fall();else SFX.hover();
+    }
+  },[remaining]);
 
   useEffect(()=>{
     fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives});

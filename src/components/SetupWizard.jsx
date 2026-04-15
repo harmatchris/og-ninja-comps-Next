@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLang } from '../i18n.js';
-import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, fbSet } from '../config.js';
+import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, db, fbSet } from '../config.js';
 import { uid, today, storage, toFlag, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil } from '../utils.js';
 import { SFX } from '../hooks.js';
 import { I } from '../icons.jsx';

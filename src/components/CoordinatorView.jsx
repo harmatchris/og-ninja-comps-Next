@@ -217,12 +217,17 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                 </div>
               ):(
                 <div>
-                  <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timerColor,
+                  <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timeCritical?'#FF3B30':'rgba(255,180,120,.9)',
                     textShadow:timeCritical?'0 0 20px rgba(255,59,48,.4)':'none'}}>
-                    {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
+                    {isCountdown?(r.countdown||'GO'):fmtT(elapsed)}
                   </div>
-                  <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
-                    {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginTop:4}}>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>
+                      {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
+                    </span>
+                    {remaining!==null&&<span style={{fontSize:9,fontFamily:'JetBrains Mono',fontWeight:700,color:timeCritical?'#FF3B30':'var(--gold)'}}>
+                      {timeCritical?'⚠ ':''}{fmtT(remaining)} left
+                    </span>}
                   </div>
                 </div>
               )}
