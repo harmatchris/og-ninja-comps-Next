@@ -311,6 +311,77 @@ const ProgressChart=({data,catName,lang,tvMode})=>{
 };
 
 
+// ── SKILL STATS PANEL ──────────────────────────────────────
+const SkillStatsPanel=({compId,info,athletesMap,tvMode=false})=>{
+  const {lang}=useLang();
+  const skillScores=useFbVal(`ogn/${compId}/skillScores`);
+  const skillPhase=info?.skillPhase||{};
+  const skills=skillPhase.skills||[];
+  const isOldschool=(skillPhase.type||'oldschool')==='oldschool';
+  const athList=athletesMap?Object.values(athletesMap):[];
+  const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
+  if(!skills.length)return null;
+  // Per-skill stats
+  const skillStats=skills.map(sk=>{
+    const diffCol={easy:'#30D158',medium:'#FF9F0A',hard:'#FF3B30'}[sk.difficulty||'medium'];
+    let passed=0,failed=0,flash=0,pending=0,totalPts=0;
+    athList.forEach(a=>{
+      const s=skillScores?.[a.id]?.[sk.id];
+      if(!s){pending++;return;}
+      const mult=DIFF_MULT[sk.difficulty||'medium']||1;
+      if(isOldschool){
+        if(s.a1===true){passed++;flash++;totalPts+=100*mult;}
+        else if(s.a2===true){passed++;totalPts+=50*mult;}
+        else if(s.a3===true){passed++;totalPts+=20*mult;}
+        else if(s.a1===false||s.a2===false||s.a3===false){failed++;}
+        else{pending++;}
+      }else{
+        if(s.completed&&s.flashed){passed++;flash++;totalPts+=(s.poolScore||0)*1.2*mult;}
+        else if(s.completed){passed++;totalPts+=(s.poolScore||0)*mult;}
+        else if(s.attempts>0){failed++;}
+        else{pending++;}
+      }
+    });
+    const total=passed+failed+pending;
+    return{sk,diffCol,passed,failed,flash,pending,total,totalPts:Math.round(totalPts),rate:total>0?(passed/total)*100:0};
+  }).sort((a,b)=>b.rate-a.rate);
+  const totalAllPts=skillStats.reduce((s,x)=>s+x.totalPts,0);
+  const barH=tvMode?28:20;
+  return(
+    <div style={{background:'rgba(255,255,255,.03)',borderRadius:14,padding:tvMode?16:12,border:'1px solid var(--border)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:tvMode?14:10}}>
+        <svg width={tvMode?16:13} height={tvMode?16:13} viewBox="0 0 24 24" fill="none" stroke="var(--cor)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg>
+        <span style={{fontSize:tvMode?15:11,fontWeight:700,color:'rgba(255,255,255,.5)',letterSpacing:'.06em',textTransform:'uppercase'}}>Skill Phase</span>
+        <span style={{marginLeft:'auto',fontFamily:'JetBrains Mono',fontSize:tvMode?14:11,fontWeight:900,color:'var(--gold)'}}>{totalAllPts} pts</span>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:tvMode?6:4}}>
+        {skillStats.map(({sk,diffCol,passed,failed,flash,pending,total,totalPts,rate})=>(
+          <div key={sk.id} style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{width:tvMode?130:90,fontSize:tvMode?12:10,color:'rgba(255,255,255,.65)',textAlign:'right',flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4,justifyContent:'flex-end'}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background:diffCol,flexShrink:0}}/>
+              {sk.name||'Skill'}
+            </div>
+            <div style={{flex:1,height:barH,background:'rgba(255,255,255,.06)',borderRadius:barH/2,overflow:'hidden',display:'flex'}}>
+              {flash>0&&<div style={{width:`${(flash/total)*100}%`,height:'100%',background:'linear-gradient(90deg,#FFD60A,#FF9500)',transition:'width .5s'}}/>}
+              {(passed-flash)>0&&<div style={{width:`${((passed-flash)/total)*100}%`,height:'100%',background:'#30D158',transition:'width .5s'}}/>}
+              {failed>0&&<div style={{width:`${(failed/total)*100}%`,height:'100%',background:'rgba(255,59,48,.6)',transition:'width .5s'}}/>}
+            </div>
+            <div style={{width:tvMode?70:50,fontSize:tvMode?11:9,color:'var(--muted)',flexShrink:0,textAlign:'right',fontFamily:'JetBrains Mono'}}>
+              {passed}/{total} <span style={{color:'var(--gold)',fontWeight:700}}>{totalPts}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:tvMode?16:10,marginTop:tvMode?12:8,fontSize:tvMode?11:9}}>
+        <span style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:8,height:8,borderRadius:2,background:'linear-gradient(90deg,#FFD60A,#FF9500)'}}/>Flash</span>
+        <span style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:8,height:8,borderRadius:2,background:'#30D158'}}/>Passed</span>
+        <span style={{display:'flex',alignItems:'center',gap:4}}><div style={{width:8,height:8,borderRadius:2,background:'rgba(255,59,48,.6)'}}/>Failed</span>
+        <span style={{display:'flex',alignItems:'center',gap:4,color:'var(--muted)'}}><div style={{width:8,height:8,borderRadius:2,background:'rgba(255,255,255,.1)'}}/>Pending</span>
+      </div>
+    </div>
+  );
+};
+
 const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
@@ -319,6 +390,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allStagesData=useFbVal(`ogn/${compId}/stages`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const skillStatus=useFbVal(`ogn/${compId}/skillPhaseStatus`);
   const runList=completedRuns?Object.values(completedRuns):[];
   const athList=athletesMap?Object.values(athletesMap):[];
 
@@ -460,7 +532,11 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     {k:'difficulty',ic:<I.BarChart s={12}/>,lb:lang==='de'?'Statistik':'Stats'},
   ];
 
-  if(stageDataArr.length===0)return(
+  const hasSkills=!!info?.skillPhase?.enabled&&(info?.skillPhase?.skills||[]).length>0;
+  const skillsActive=hasSkills&&!skillStatus?.finalized&&!skillStatus?.seedingDone;
+  const skillsDone=hasSkills&&(skillStatus?.finalized||skillStatus?.seedingDone);
+
+  if(stageDataArr.length===0&&!hasSkills)return(
     <div style={{padding:'40px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>
       {lang==='de'?'Noch keine aktiven Stages':'No active stages yet'}
     </div>
@@ -470,6 +546,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
 
   return(
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
+      {/* Skill stats — TOP when skills are active */}
+      {skillsActive&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
       {/* Chart type selector (applies to all stage sections) */}
       <div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
         {tabs.map(({k,ic,lb})=>(
@@ -509,6 +587,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
           );
         })}
       </div>
+      {/* Skill stats — BOTTOM when skills are done */}
+      {skillsDone&&<div style={{marginTop:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
     </div>
   );
 };
