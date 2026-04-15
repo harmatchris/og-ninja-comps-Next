@@ -73,7 +73,8 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   const stObstRaw=useFbVal(run.stNum?`ogn/${compId}/stages/${run.stNum}/obstacles`:null);
   const globObstRaw=useFbVal(`ogn/${compId}/obstacles`);
   const obstArr=Object.values(stObstRaw||globObstRaw||{}).sort((a,b)=>a.order-b.order);
-  const doneCP=run.doneCP||[];
+  // Firebase may return doneCP as object — normalize to array
+  const doneCP=Array.isArray(run.doneCP)?run.doneCP:(run.doneCP&&typeof run.doneCP==='object'?Object.values(run.doneCP):[]);
   const [status,setStatus]=useState(run.status||'fall');
   const [selCpIdx,setSelCpIdx]=useState(doneCP.length>0?doneCP.length-1:-1);
   const [fellAtId,setFellAtId]=useState(run.fellAt?.id||null);
@@ -87,12 +88,14 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   const lastCpOrder=selCpIdx>=0?(doneCP[selCpIdx]?.order??-1):-1;
   const candidateObst=obstArr.filter(o=>(o.order??999)>lastCpOrder);
   const handleSave=async()=>{
-    setSaving(true);
-    const updated={...run,status,finalTime:selectedTime,doneCP:newDoneCP,
-      fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,
-      corrected:true,correctedAt:Date.now()};
-    await fbSet(`ogn/${compId}/completedRuns/${runKey}`,updated);
-    setSaving(false);SFX.complete();onClose();
+    try{
+      setSaving(true);
+      const updated={...run,status,finalTime:selectedTime,doneCP:newDoneCP,
+        fellAt:(status==='complete'||status==='dsq')?null:(fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null),
+        corrected:true,correctedAt:Date.now()};
+      await fbSet(`ogn/${compId}/completedRuns/${runKey}`,updated);
+      setSaving(false);SFX.complete();onClose();
+    }catch(err){setSaving(false);window.alert('Error: '+err.message);}
   };
   const handleRerun=async()=>{
     if(!window.confirm(lang==='de'?`Re-Run für ${run.athleteName} genehmigen?\n\nDer aktuelle Lauf wird gelöscht und der Athlet kann erneut starten.`:`Grant re-run for ${run.athleteName}?\n\nCurrent run will be deleted and athlete can start again.`))return;
