@@ -803,12 +803,17 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     setFallModal(null);
     setLives(l=>l-1);
     if(totalLivesLeft!==null)setTotalLivesLeft(t=>t-1);
-    if(info.mode==='lives')setResetActive(true);
+    if(info.mode==='lives'){
+      setResetActive(true);
+      // Broadcast resetting phase to Firebase so Stats/LiveBanner can show countdown
+      fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:lives-1});
+    }
   };
   const handleResetDone=()=>{
     setGoTime(performance.now()-fallFreezeTime);
     setFallFreezeTime(null);
     setResetActive(false);
+    fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:null,resetUntil:null});
   };
   const handleRefillLives=(sectionLives)=>{const refill=sectionLives!=null?sectionLives:effectiveLives;const capped=totalLivesLeft!=null?Math.min(refill,totalLivesLeft):refill;setLives(capped);};
   // Confirm DNF

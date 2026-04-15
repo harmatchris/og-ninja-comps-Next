@@ -79,7 +79,9 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
         const lastCPObs=cpsDone>0&&obsArr[cpsDone-1]?obsArr[cpsDone-1].name:null;
         const hasLives=info?.mode==='lives';
         const activeFlash=flashSplit?.key===key?flashSplit:null;
-        const timerColor=isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'var(--gold)':'rgba(255,180,120,.9)';
+        const isResetting=!!r.resetting;
+        const resetSec=isResetting&&r.resetUntil?Math.max(0,Math.ceil((r.resetUntil-now)/1000)):0;
+        const timerColor=isResetting?'#FF9500':isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'var(--gold)':'rgba(255,180,120,.9)';
         return(
           <div key={key} className="sh-card" style={{padding:'10px 12px',overflow:'hidden',border:'1px solid rgba(52,199,89,.3)'}}>
             {/* Row 1: Stage + LIVE dot */}
@@ -104,13 +106,26 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
             </div>
             {/* Big timer */}
             <div style={{textAlign:'center'}}>
-              <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timerColor,
-                textShadow:timeCritical?'0 0 20px rgba(255,59,48,.4)':'none'}}>
-                {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
-              </div>
-              <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
-                {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
-              </div>
+              {isResetting?(
+                <div>
+                  <div style={{fontSize:9,fontWeight:700,color:'#FF9500',letterSpacing:'.12em',marginBottom:4}}>OBSTACLE RESET</div>
+                  <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:resetSec<=3?'#FF3B30':'#FF9500',
+                    textShadow:`0 0 16px rgba(255,149,0,.4)`}}>
+                    {resetSec>0?resetSec:'GO'}
+                  </div>
+                  <div style={{fontSize:9,color:'rgba(255,149,0,.6)',marginTop:4}}>{lang==='de'?'Athlet setzt zurück zum Hindernis':'Athlete resetting to obstacle'}</div>
+                </div>
+              ):(
+                <div>
+                  <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timerColor,
+                    textShadow:timeCritical?'0 0 20px rgba(255,59,48,.4)':'none'}}>
+                    {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
+                  </div>
+                  <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
+                    {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
+                  </div>
+                </div>
+              )}
             </div>
             {/* Split flash */}
             {activeFlash&&(

@@ -282,6 +282,7 @@ const ResultsView=({compId,athletes})=>{
   const stageNums=!isPipeline&&selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
   const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
   const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
+  const allStagesView=selStage==='all';
   const isOverall=selStage==='overall';
   const isMultiOverall=false;
   const ranked=selCat&&!allStagesView?(isOverall
@@ -356,7 +357,6 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
   useEffect(()=>{
     if(autoRotateCat&&catsWithRuns.length>1&&catsWithRuns[catRotateIdx])setSelCat(catsWithRuns[catRotateIdx].id);
   },[catRotateIdx,autoRotateCat]);
-  const allStagesView=selStage==='all';
   const stageList=isPipeline?pipelineStages.map(s=>s.id):stageNums;
   // Auto-select first stage if none selected
   useEffect(()=>{if(selStage===null&&stageList.length>0)setSelStage(multiStage?'all':stageList[0]);},[stageList.length]);

@@ -17,15 +17,23 @@ import { Spinner, EmptyState } from './shared.jsx';
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
 // Tricks: each CP triggers a different trick animation
 const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
-const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null})=>{
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null})=>{
   const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
   const trick=TRICKS[doneCPCount%TRICKS.length];
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
   const allDead=livesLeft<=0&&livesUsed>0;
+  // Reset countdown
+  const [resetSec,setResetSec]=useState(0);
+  useEffect(()=>{
+    if(!resetting||!resetUntil)return;
+    const tick=()=>{const left=Math.max(0,Math.ceil((resetUntil-Date.now())/1000));setResetSec(left);};
+    tick();const iv=setInterval(tick,200);return()=>clearInterval(iv);
+  },[resetting,resetUntil]);
   const stumbling=livesUsed>0&&!allDead;
-  // Choose animation: all dead → fall out, lost life → drop+hang+pullup+standup, CP → trick, idle → bob
+  // Choose animation: all dead → fall out, resetting → hang+recover, CP → trick, idle → bob
   const anim=allDead?'ninjaFallOut 1.2s ease-in forwards'
-    :stumbling?`ninjaHangRecover 3.5s ease-in-out`
+    :resetting?'ninjaHangRecover 3.5s ease-in-out'
+    :stumbling&&!resetting?`ninjaHangRecover 3.5s ease-in-out`
     :doneCPCount>0?`${trick} 0.6s ease-out`
     :'ninjaBob 0.45s ease-in-out infinite alternate';
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
@@ -93,10 +101,15 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
       })}
       {/* Name */}
       {name&&<text x={size/2} y={-16} textAnchor="middle" fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+      {/* Reset countdown — big number over ninja */}
+      {resetting&&resetSec>0&&<>
+        <text x={size/2} y={-22} textAnchor="middle" fontSize={size*.8} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill={resetSec<=3?'#FF3B30':'#FF9500'} style={{animation:'countPulse .6s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3}}>{resetSec}</text>
+        <text x={size/2} y={size+14} textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="system-ui" fill="rgba(255,149,0,.8)">RESET</text>
+      </>}
       {/* Split time flash below ninja */}
-      {lastCPTime&&<text x={size/2} y={size+14} textAnchor="middle" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono,monospace" fill={color} style={{animation:'splitFlash 3s ease-out forwards'}}>{fmtSplit(lastCPTime)}</text>}
+      {!resetting&&lastCPTime&&<text x={size/2} y={size+14} textAnchor="middle" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono,monospace" fill={color} style={{animation:'splitFlash 3s ease-out forwards'}}>{fmtSplit(lastCPTime)}</text>}
       {/* Time remaining (small) */}
-      {timeRemaining!=null&&<text x={size/2} y={size+24} textAnchor="middle" fontSize="8" fontWeight="600" fontFamily="JetBrains Mono,monospace" fill={timeRemaining<15000?'#FF3B30':'rgba(255,214,10,.7)'}>{fmtSplit(timeRemaining)}</text>}
+      {timeRemaining!=null&&!resetting&&<text x={size/2} y={size+24} textAnchor="middle" fontSize="8" fontWeight="600" fontFamily="JetBrains Mono,monospace" fill={timeRemaining<15000?'#FF3B30':'rgba(255,214,10,.7)'}>{fmtSplit(timeRemaining)}</text>}
     </g>
     </g>
   );
@@ -192,7 +205,7 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   const countdownNum=isCountdown?(lr.countdown||3):0;
   return<>
     {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads}/>}
-    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil}/>
     {/* Big countdown number above ninja */}
     {isCountdown&&(
       <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
@@ -454,7 +467,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((a,b)=>(Array.isArray(b.doneCP)?b.doneCP.length:Object.keys(b.doneCP||{}).length)-(Array.isArray(a.doneCP)?a.doneCP.length:Object.keys(a.doneCP||{}).length)||(a.finalTime||Infinity)-(b.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown};
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
@@ -527,7 +540,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===_catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((x,y)=>(Array.isArray(y.doneCP)?y.doneCP.length:Object.keys(y.doneCP||{}).length)-(Array.isArray(x.doneCP)?x.doneCP.length:Object.keys(x.doneCP||{}).length)||(x.finalTime||Infinity)-(y.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:totalLives-livesLeft,totalLives,fallen:livesLeft<=0&&(totalLives-livesLeft)>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown};
+      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:totalLives-livesLeft,totalLives,fallen:livesLeft<=0&&(totalLives-livesLeft)>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
 
     return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
