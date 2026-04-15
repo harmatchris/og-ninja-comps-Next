@@ -12,12 +12,18 @@ import { StatsView } from './StatsView.jsx';
 import { SkillPhaseView } from './SkillPhaseView.jsx';
 
 // ── LIVE RUN BANNER (shows above ranking when stage is running) ────────
+// Firebase may return arrays as objects — normalize doneCP to array
+const normCP=cp=>{if(!cp)return[];if(Array.isArray(cp))return cp;return Object.values(cp);};
+const cpLen=cp=>normCP(cp).length;
+
 const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const obstacles=useFbVal(`ogn/${compId}/obstacles`);
   const {lang}=useLang();
   const [now,setNow]=useState(Date.now());
+  const [flashSplit,setFlashSplit]=useState(null); // {key, cpIdx, diff, at}
+  const prevCPRef=useRef({});
   const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done'):[];
   useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(iv);},[liveEntries.length]);
   if(!liveEntries.length)return null;
@@ -26,8 +32,36 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
   const obsArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false):[];
   const totalCPs=obsArr.length;
   const fmtT=ms=>{if(ms<0)ms=0;const t=Math.floor(ms/1000);const m=Math.floor(t/60);const s=t%60;const ms3=String(Math.floor((ms%1000))).padStart(3,'0');return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${ms3}`;};
-  // Find leader: best completed run (most CPs, then fastest)
   const allRuns=completedRuns?Object.values(completedRuns):[];
+  // Best splits per CP for ski-racing comparison (per category+stage)
+  const bestSplits=useRef({});
+  useEffect(()=>{
+    const map={};
+    allRuns.forEach(r=>{
+      const cp=normCP(r.doneCP);if(!cp.length||r.status==='dsq')return;
+      cp.forEach((c,i)=>{if(!c?.time)return;const k=`${r.catId}_${r.stageId||r.stNum||1}_${i}`;if(!map[k]||c.time<map[k].time)map[k]={time:c.time,name:(athletes?.[r.athleteId]?.name||r.athleteName||'?').split(' ')[0]};});
+    });
+    bestSplits.current=map;
+  },[allRuns.length]);
+  // Detect new CP → flash split
+  useEffect(()=>{
+    liveEntries.forEach(([key,r])=>{
+      const cpArr=normCP(r.doneCP);const cnt=cpArr.length;
+      const prev=prevCPRef.current[key]||0;
+      if(cnt>prev&&cnt>0){
+        const catId=athletes?.[r.athleteId]?.cat||r.catId;
+        const stageKey=isPipeline?key:(r.stNum||1);
+        const bestKey=`${catId}_${stageKey}_${cnt-1}`;
+        const best=bestSplits.current[bestKey];
+        const curTime=cpArr[cnt-1]?.time;
+        const diff=(best&&curTime)?(curTime-best.time):null;
+        setFlashSplit({key,cpIdx:cnt-1,diff,bestName:best?.name||null,obsName:obsArr[cnt-1]?.name||`CP ${cnt}`,at:Date.now()});
+      }
+      prevCPRef.current[key]=cnt;
+    });
+  },[liveEntries.map(([k,r])=>`${k}:${cpLen(r.doneCP)}`).join(',')]);
+  // Auto-hide split flash after 4s
+  useEffect(()=>{if(!flashSplit)return;const t=setTimeout(()=>setFlashSplit(null),4000);return()=>clearTimeout(t);},[flashSplit?.at]);
   return(
     <div style={{display:'flex',flexDirection:'column',gap:0,marginBottom:8}}>
       {liveEntries.map(([key,r])=>{
@@ -40,14 +74,10 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
         const timeCritical=remaining!==null&&remaining<15000;
         const catId=a?.cat||r.catId;
         const cat=IGN_CATS.find(c=>c.id===catId);
-        const cpsDone=r.doneCP?.length||0;
+        const cpsDone=cpLen(r.doneCP);
         const lastCPObs=cpsDone>0&&obsArr[cpsDone-1]?obsArr[cpsDone-1].name:null;
         const hasLives=info?.mode==='lives';
-        // Leader split times for comparison
-        const leaderRun=catId?allRuns.filter(x=>x.catId===catId&&(isPipeline?x.stageId===key:true)&&x.status!=='dsq').sort((a,b)=>{const ca=(a.doneCP?.length||0),cb=(b.doneCP?.length||0);return cb-ca||(a.finalTime||Infinity)-(b.finalTime||Infinity);})[0]:null;
-        const leaderSplitAtCP=(leaderRun&&cpsDone>0)?leaderRun.doneCP?.[cpsDone-1]?.time:null;
-        const currentSplit=(cpsDone>0&&r.doneCP)?r.doneCP[cpsDone-1]?.time:null;
-        const splitDiff=leaderSplitAtCP&&currentSplit?(currentSplit-leaderSplitAtCP):null;
+        const activeFlash=flashSplit?.key===key?flashSplit:null;
         return(
           <div key={key} className="sh-card" style={{padding:0,overflow:'hidden',border:'1px solid rgba(52,199,89,.3)'}}>
             {/* Header: Stage + category + LIVE */}
@@ -64,17 +94,21 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                 <span style={{fontSize:11,fontWeight:800,color:'var(--cor)',letterSpacing:'.1em'}}>LIVE</span>
               </div>
             </div>
-            {/* Body: athlete + timer */}
+            {/* Body */}
             <div style={{padding:'16px 20px'}}>
-              {/* Athlete name + number */}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                <div style={{minWidth:0}}>
+              {/* Athlete row: photo + name + lives */}
+              <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:14}}>
+                {a?.photo
+                  ?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,94,58,.4)',flexShrink:0}}/>
+                  :<div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,rgba(255,94,58,.22),rgba(255,94,58,.08))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'var(--cor)',border:'2px solid rgba(255,94,58,.2)',flexShrink:0}}>{(a?.name||'?')[0].toUpperCase()}</div>
+                }
+                <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:22,fontWeight:800,letterSpacing:'-.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.name||r.athleteName||'?'}</div>
-                  <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>#{a?.num||'?'}</div>
+                  <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>#{a?.num||'?'}{a?.team&&<span style={{marginLeft:8,color:'var(--cor2)'}}>{a.team}</span>}</div>
                 </div>
                 {hasLives&&r.livesLeft!=null&&(
                   <div style={{textAlign:'center',flexShrink:0}}>
-                    <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',marginBottom:3}}>LIVES</div>
+                    <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',marginBottom:3}}>LIVES</div>
                     <div style={{display:'flex',gap:4}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
                       <div key={i} style={{width:14,height:14,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 6px rgba(255,94,58,.5)'}}/>
                     ))}</div>
@@ -89,21 +123,30 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                   textShadow:timeCritical?'0 0 30px rgba(255,59,48,.5)':'0 0 20px rgba(255,180,120,.15)'}}>
                   {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
                 </div>
-                {/* Current obstacle + CP progress */}
                 <div style={{fontSize:13,color:'var(--muted)',marginTop:8}}>
                   {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
                 </div>
               </div>
-              {/* Split time comparison vs leader */}
-              {splitDiff!==null&&(
-                <div style={{textAlign:'center',marginTop:6,padding:'4px 12px',borderRadius:8,display:'inline-flex',alignItems:'center',gap:5,justifyContent:'center',width:'100%',
-                  background:splitDiff<=0?'rgba(52,199,89,.08)':'rgba(255,59,48,.08)',
-                  border:`1px solid ${splitDiff<=0?'rgba(52,199,89,.25)':'rgba(255,59,48,.25)'}`}}>
-                  <span style={{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:800,
-                    color:splitDiff<=0?'var(--green)':'var(--red)'}}>
-                    {splitDiff<=0?'-':'+'}{fmtMs(Math.abs(splitDiff))}
-                  </span>
-                  <span style={{fontSize:10,color:'var(--muted)'}}>vs {lang==='de'?'Führender':'Leader'}</span>
+              {/* Ski-racing split flash — appears for 4s after each CP */}
+              {activeFlash&&(
+                <div className="scale-in" style={{textAlign:'center',margin:'8px 0',padding:'10px 16px',borderRadius:12,
+                  background:activeFlash.diff===null?'rgba(255,255,255,.06)':activeFlash.diff<=0?'rgba(52,199,89,.1)':'rgba(255,59,48,.1)',
+                  border:`1px solid ${activeFlash.diff===null?'rgba(255,255,255,.12)':activeFlash.diff<=0?'rgba(52,199,89,.35)':'rgba(255,59,48,.35)'}`,
+                  animation:'fadeUp .3s ease'}}>
+                  <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,marginBottom:4}}>{activeFlash.obsName}</div>
+                  {activeFlash.diff!==null?(
+                    <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,
+                      color:activeFlash.diff<=0?'var(--green)':'var(--red)'}}>
+                      {activeFlash.diff<=0?'-':'+'}{fmtMs(Math.abs(activeFlash.diff))}
+                    </div>
+                  ):(
+                    <div style={{fontFamily:'JetBrains Mono',fontSize:22,fontWeight:800,color:'var(--gold)'}}>
+                      {lang==='de'?'Neue Bestzeit!':'New best!'}
+                    </div>
+                  )}
+                  {activeFlash.bestName&&activeFlash.diff!==null&&(
+                    <div style={{fontSize:10,color:'var(--muted)',marginTop:3}}>vs {activeFlash.bestName}</div>
+                  )}
                 </div>
               )}
               {/* Progress bar */}
@@ -112,7 +155,6 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                   <div style={{height:'100%',width:`${(cpsDone/totalCPs)*100}%`,background:'linear-gradient(90deg,var(--cor),var(--cor2))',borderRadius:3,transition:'width .3s ease'}}/>
                 </div>
               )}
-              {/* Time limit progress */}
               {limitMs>0&&!isCountdown&&(
                 <div style={{marginTop:4,height:3,background:'rgba(255,255,255,.05)',borderRadius:2,overflow:'hidden'}}>
                   <div style={{height:'100%',width:`${Math.min(100,(elapsed/limitMs)*100)}%`,background:timeCritical?'#FF3B30':'rgba(255,214,10,.5)',borderRadius:2,transition:'width .5s linear'}}/>

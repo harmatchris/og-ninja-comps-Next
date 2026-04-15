@@ -220,9 +220,11 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     });
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
-      // catId fallback: use athlete's cat from athletesMap if not stored in activeRun
       const catId=r.catId||(a?.cat)||null;
-      return{id:r.athleteId,catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
+      // Firebase may return arrays as objects — normalize doneCP length
+      const cpRaw=r.doneCP;
+      const doneCPCount=Array.isArray(cpRaw)?cpRaw.length:(cpRaw&&typeof cpRaw==='object'?Object.keys(cpRaw).length:0);
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||''};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
@@ -284,7 +286,9 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     // Active ninja runners for this stage
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
-      return{id:r.athleteId,catId:r.catId,doneCPCount:(r.doneCP?.length||0),name:a?.name?.split(' ')[0]||''};
+      const cpRaw=r.doneCP;
+      const doneCPCount=Array.isArray(cpRaw)?cpRaw.length:(cpRaw&&typeof cpRaw==='object'?Object.keys(cpRaw).length:0);
+      return{id:r.athleteId,catId:r.catId||(a?.cat)||null,doneCPCount,name:a?.name?.split(' ')[0]||''};
     }):[];
 
     return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
