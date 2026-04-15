@@ -270,22 +270,40 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       });
       data.pipeline=pipelineData;
     }
-    if(existingId){
-      // Existing comp: merge-update only config fields, preserve completedRuns/activeRuns/skillScores
-      const updates={};
-      updates[`ogn/${id}/info`]=data.info;
-      updates[`ogn/${id}/obstacles`]=data.obstacles;
-      if(data.athletes)updates[`ogn/${id}/athletes`]=data.athletes;
-      if(data.pipeline)updates[`ogn/${id}/pipeline`]=data.pipeline;
-      if(data.stages)Object.entries(data.stages).forEach(([k,v])=>{
-        if(v.obstacles)updates[`ogn/${id}/stages/${k}/obstacles`]=v.obstacles;
-        if(v.athletes)updates[`ogn/${id}/stages/${k}/athletes`]=v.athletes;
-      });
-      await db.ref().update(updates);
-    }else{
-      await fbSet(`ogn/${id}`,data);
+    try{
+      if(existingId){
+        // Existing comp: merge-update only config fields, preserve completedRuns/activeRuns/skillScores
+        const updates={};
+        updates[`ogn/${id}/info`]=data.info;
+        updates[`ogn/${id}/obstacles`]=data.obstacles;
+        // Always write athletes (even if empty from stageAths, use global initialAthletes as fallback)
+        const athToWrite=data.athletes||(initialAthletes?{...initialAthletes}:null);
+        if(athToWrite)updates[`ogn/${id}/athletes`]=athToWrite;
+        if(data.pipeline){
+          // Merge pipeline: preserve existing athletes/closed state, update config
+          Object.entries(data.pipeline).forEach(([sid,stg])=>{
+            updates[`ogn/${id}/pipeline/${sid}/name`]=stg.name||null;
+            updates[`ogn/${id}/pipeline/${sid}/categories`]=stg.categories||'all';
+            updates[`ogn/${id}/pipeline/${sid}/order`]=stg.order;
+            updates[`ogn/${id}/pipeline/${sid}/mode`]=stg.mode||null;
+            updates[`ogn/${id}/pipeline/${sid}/qualiPercent`]=stg.qualiPercent||0;
+            if(stg.obstacles)updates[`ogn/${id}/pipeline/${sid}/obstacles`]=stg.obstacles;
+            updates[`ogn/${id}/pipeline/${sid}/isMain`]=stg.isMain||null;
+            updates[`ogn/${id}/pipeline/${sid}/predecessorStages`]=stg.predecessorStages||null;
+            updates[`ogn/${id}/pipeline/${sid}/continuations`]=stg.continuations||null;
+            updates[`ogn/${id}/pipeline/${sid}/timeLimit`]=stg.timeLimit||null;
+          });
+        }
+        await db.ref().update(updates);
+      }else{
+        await fbSet(`ogn/${id}`,data);
+      }
+      setSaving(false);SFX.complete();onDone(id);
+    }catch(err){
+      console.error('Save error:',err);
+      setSaving(false);
+      window.alert((lang==='de'?'Fehler beim Speichern: ':'Save error: ')+err.message);
     }
-    setSaving(false);SFX.complete();onDone(id);
   };
 
   /* ── shared styles ── */
