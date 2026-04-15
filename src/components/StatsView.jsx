@@ -64,6 +64,7 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}
         @keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}
         @keyframes splitFlash{0%{opacity:0;transform:translateY(4px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1}100%{opacity:0;transform:translateY(-4px)}}
+        @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
       `}</style>
       <defs><filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       {/* glow */}
@@ -136,6 +137,7 @@ const GhostNinja=({x,y,size=24,name='',ahead=false})=>{
 // Smooth ninja: interpolates X between CPs with easeOut (decelerating approach)
 // Also renders a ghost ninja for the best run comparison
 const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
+  const isCountdown=lr.phase==='countdown';
   const cpIdx=Math.min(lr.doneCPCount,nPts-1);
   const nextIdx=Math.min(cpIdx+1,nPts-1);
   const fromX=xs(cpIdx);
@@ -152,7 +154,8 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   // Animate forward from current CP toward next CP, decelerating
   // Also animate ghost ninja based on best run's CP times
   useEffect(()=>{
-    if(cpIdx>=nPts-1||lr.fallen)return;
+    // Don't animate during countdown — ninja waits at start
+    if(isCountdown||cpIdx>=nPts-1||lr.fallen)return;
     const segDuration=12000;
     let raf;
     const tick=()=>{
@@ -165,7 +168,6 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
       // Ghost: compute position based on elapsed real time vs best run CP times
       if(lr.bestRunCPs?.length>0&&lr.startEpoch){
         const realElapsed=Date.now()-lr.startEpoch;
-        // Find which CP the ghost has reached based on time
         let ghostCP=0;
         for(let i=0;i<lr.bestRunCPs.length;i++){
           if(lr.bestRunCPs[i]?.time&&realElapsed>=lr.bestRunCPs[i].time)ghostCP=i+1;
@@ -173,7 +175,6 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
         }
         const ghostCpIdx=Math.min(ghostCP,nPts-1);
         const ghostNextIdx=Math.min(ghostCpIdx+1,nPts-1);
-        // Interpolate within current ghost segment
         const ghostFromTime=ghostCpIdx>0?lr.bestRunCPs[ghostCpIdx-1]?.time||0:0;
         const ghostToTime=lr.bestRunCPs[ghostCpIdx]?.time||ghostFromTime+segDuration;
         const ghostSegT=Math.min(Math.max(0,(realElapsed-ghostFromTime)/(ghostToTime-ghostFromTime)),0.98);
@@ -184,13 +185,20 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
     };
     raf=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(raf);
-  },[cpIdx,fromX,toX,lr.fallen,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
+  },[isCountdown,cpIdx,fromX,toX,lr.fallen,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
   const runnerLeads=animX>=ghostX;
   // Leader is green, trailer is red — applies to BOTH ninjas
   const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
+  const countdownNum=isCountdown?(lr.countdown||3):0;
   return<>
-    {lr.bestRunCPs?.length>0&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads}/>}
-    <NinjaRunner x={animX} y={cy} size={tvMode?36:24} color={runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
+    {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads}/>}
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
+    {/* Big countdown number above ninja */}
+    {isCountdown&&(
+      <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
+        {countdownNum}
+      </text>
+    )}
   </>;
 };
 
@@ -446,7 +454,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((a,b)=>(Array.isArray(b.doneCP)?b.doneCP.length:Object.keys(b.doneCP||{}).length)-(Array.isArray(a.doneCP)?a.doneCP.length:Object.keys(a.doneCP||{}).length)||(a.finalTime||Infinity)-(b.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName};
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
@@ -519,7 +527,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===_catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((x,y)=>(Array.isArray(y.doneCP)?y.doneCP.length:Object.keys(y.doneCP||{}).length)-(Array.isArray(x.doneCP)?x.doneCP.length:Object.keys(x.doneCP||{}).length)||(x.finalTime||Infinity)-(y.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:totalLives-livesLeft,totalLives,fallen:livesLeft<=0&&(totalLives-livesLeft)>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName};
+      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:totalLives-livesLeft,totalLives,fallen:livesLeft<=0&&(totalLives-livesLeft)>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown};
     }):[];
 
     return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
