@@ -352,20 +352,39 @@ const ResultsView=({compId,athletes})=>{
   const qualCount=qualRule?.enabled&&ranked.length>0?Math.max(qualRule.minimum||1,Math.ceil(ranked.filter(r=>r.status!=='dsq').length*(qualRule.percent||50)/100)):null;
   const exportAll=(format='csv')=>{
     if(format==='csv'){
-      const rows=[['Platz','#','Name','Team','Land','Kategorie','CPs','Zeit','Ergebnis','Reklamation']];
+      // Excel-compatible HTML with one worksheet per division + stage info
+      let xls=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>`;
+      catsWithRuns.forEach(c=>{xls+=`<x:ExcelWorksheet><x:Name>${(catName(c)).substring(0,31)}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;});
+      xls+=`</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
       catsWithRuns.forEach(c=>{
-        const r=computeRanked(runList,c.id);
-        if(!r.length)return;
-        r.forEach((run,i)=>{
-          const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
-          const ergebnis=run.status==='complete'?'Buzzer':run.fellAt?.name?`Failed @ ${run.fellAt.name}`:(run.status||'DNF');
-          rows.push([i+1,`"${a.num}"`,`"${a.name}"`,`"${a.team||''}"`,`"${a.country||''}"`,`"${catName(c)}"`,run.doneCP?.length||0,run.status==='complete'?fmtMs(run.finalTime):'',`"${ergebnis}"`,run.protested?'':'']);
+        const stgRuns={};
+        if(isPipeline){stageIds.forEach(sid=>{stgRuns[sid]=computeRankedPipeline(runList,c.id,sid);});}
+        else{stageNums.forEach(sn=>{stgRuns[sn]=computeRankedStage(runList,c.id,sn);});}
+        const allRanked=computeRanked(runList,c.id);
+        xls+=`<table><tr><td colspan="9" style="font-size:16px;font-weight:bold;">${comp?.name||''} — ${catName(c)}</td></tr>`;
+        xls+=`<tr><td colspan="9" style="color:#888;">${comp?.date||new Date().toLocaleDateString()} · ${comp?.location||''}</td></tr><tr></tr>`;
+        // Per stage tables
+        const stages=isPipeline?stageIds:stageNums;
+        stages.forEach(sid=>{
+          const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
+          const ranked=stgRuns[sid]||[];
+          if(!ranked.length)return;
+          xls+=`<tr><td colspan="9" style="font-weight:bold;background:#f5f5f5;border-bottom:2px solid #FF5E3A;">${stgName} (${ranked.length})</td></tr>`;
+          xls+=`<tr style="font-weight:bold;background:#eee;"><td>Platz</td><td>Startnr</td><td>Name</td><td>Team</td><td>Land</td><td>Stage</td><td>CPs</td><td>Zeit</td><td>Ergebnis</td></tr>`;
+          ranked.forEach((run,i)=>{
+            const a=athMap[run.athleteId]||{name:run.athleteName||'?',num:'?'};
+            const ergebnis=run.status==='complete'?'Buzzer':run.fellAt?.name?`Fall @ ${run.fellAt.name}`:(run.status||'DNF');
+            xls+=`<tr${i<3?` style="background:${['#FFF8DC','#F5F5F5','#FDF5ED'][i]}"`:''}><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${stgName}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${ergebnis}</td></tr>`;
+          });
+          xls+=`<tr></tr>`;
         });
+        xls+=`</table>`;
       });
-      const csv=rows.map(r=>r.join(',')).join('\n');
-      const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+      xls+=`</body></html>`;
+      const blob=new Blob(['\uFEFF'+xls],{type:'application/vnd.ms-excel;charset=utf-8'});
       const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download=`ninja-results-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(url);
+      const a=document.createElement('a');a.href=url;a.download=`ninja-results-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);
       SFX.complete();
     } else if(format==='print'){
       // HTML print window
@@ -375,7 +394,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px;}th{
 td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;font-weight:700;}.medal-2{background:#F5F5F5;}.medal-3{background:#FDF5ED;}
 .buzzer{color:#34C759;font-weight:700;}.fall{color:#FF3B30;font-size:11px;}.protest{background:#FFFACD;}
 @media print{body{padding:0;font-size:11px;}h1{font-size:14px;}h2{font-size:12px;page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}</style></head><body>`;
-      html+=`<h1>Ninja Competition Tool – ${info?.name||'Ergebnisse'}</h1><p style="font-size:11px;color:#888;">${info?.date||new Date().toLocaleDateString()} · ${info?.location||''}</p>`;
+      html+=`<h1>Ninja Competition Tool – ${comp?.name||'Ergebnisse'}</h1><p style="font-size:11px;color:#888;">${comp?.date||new Date().toLocaleDateString()} · ${comp?.location||''}</p>`;
       catsWithRuns.forEach(c=>{
         const r=computeRanked(runList,c.id);if(!r.length)return;
         html+=`<h2>${catName(c)} (${r.length} Athleten)</h2><table><tr><th>#</th><th>Startnr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
