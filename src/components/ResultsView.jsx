@@ -305,27 +305,27 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
             onClick={()=>{setSelCat(c.id);SFX.hover();}}>{c.name[lang]}</button>
         ))}
       </div>
-      {/* Stage selector — only shown when multiple stages have runs */}
+      {/* Stage selector — only shown when multiple stages have runs (no "Gesamt") */}
       {multiStage&&(
-        <div style={{overflowX:'auto',padding:'8px 16px',display:'flex',gap:6,borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
-          <button className={`chip${selStage===null?' active':''}`} style={{flexShrink:0,fontSize:11,padding:'3px 12px'}}
-            onClick={()=>{setSelStage(null);SFX.hover();}}>
-            {lang==='de'?'Gesamt':'Overall'}
-          </button>
-          {(isPipeline?pipelineStages:[]).map(stg=>(
-            <button key={stg.id} className={`chip${selStage===stg.id?' active':''}`}
-              style={{flexShrink:0,fontSize:11,padding:'3px 12px',...(selStage===stg.id?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+        <div style={{overflowX:'auto',padding:'6px 16px',display:'flex',gap:5,borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
+          {(isPipeline?pipelineStages:[]).map((stg,si)=>{
+            const sel=selStage===stg.id||(selStage===null&&si===0);
+            if(selStage===null&&si===0)setTimeout(()=>setSelStage(stg.id),0);
+            return(<button key={stg.id} className={`chip${sel?' active':''}`}
+              style={{flexShrink:0,fontSize:10,padding:'2px 10px',...(sel?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
               onClick={()=>{setSelStage(stg.id);SFX.hover();}}>
               {stg.name||stg.id}
-            </button>
-          ))}
-          {(!isPipeline?stageNums:[]).map(n=>(
-            <button key={n} className={`chip${selStage===n?' active':''}`}
-              style={{flexShrink:0,fontSize:11,padding:'3px 12px',...(selStage===n?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+            </button>);
+          })}
+          {(!isPipeline?stageNums:[]).map((n,si)=>{
+            const sel=selStage===n||(selStage===null&&si===0);
+            if(selStage===null&&si===0)setTimeout(()=>setSelStage(n),0);
+            return(<button key={n} className={`chip${sel?' active':''}`}
+              style={{flexShrink:0,fontSize:10,padding:'2px 10px',...(sel?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
               onClick={()=>{setSelStage(n);SFX.hover();}}>
               Stage {n}
-            </button>
-          ))}
+            </button>);
+          })}
         </div>
       )}
       {catsWithRuns.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
@@ -335,29 +335,21 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
             {ranked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const initials=(a.name||'?')[0].toUpperCase();const isFirstNonQual=qualCount!=null&&i===qualCount;
 return(<React.Fragment key={r.athleteId}>
 {isFirstNonQual&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'3px 4px'}}><div style={{flex:1,height:1,background:'linear-gradient(to right,rgba(52,199,89,.5),transparent)'}}/><span style={{fontSize:9,color:'rgba(52,199,89,.8)',fontWeight:700,letterSpacing:'.1em',padding:'2px 8px',background:'rgba(52,199,89,.1)',borderRadius:8,border:'1px solid rgba(52,199,89,.25)',flexShrink:0}}>{lang==='de'?'▽ NICHT QUALIFIZIERT':'▽ NOT QUALIFIED'}</span><div style={{flex:1,height:1,background:'linear-gradient(to left,rgba(52,199,89,.5),transparent)'}}/></div>}
-              <div key={r.athleteId} className="sh-card fade-up" style={{padding:'11px 14px',display:'flex',alignItems:'center',gap:10,animationDelay:`${(i+1)*.04}s`,opacity:r.status==='dsq'?.6:1}}>
-                <div style={{flexShrink:0}}>{r.status==='dsq'?<div style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:900,color:'#FF3B6B',letterSpacing:'.02em'}}>DSQ</div>:i<3?<MedalBadge pos={i+1} s={26}/>:<div style={{width:26,height:26,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'var(--muted)'}}>{i+1}</div>}</div>
+              <div key={r.athleteId} className="sh-card fade-up" style={{padding:'6px 10px',display:'flex',alignItems:'center',gap:8,animationDelay:`${(i+1)*.03}s`,opacity:r.status==='dsq'?.6:1}}>
+                <div style={{flexShrink:0}}>{r.status==='dsq'?<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:900,color:'#FF3B6B'}}>DSQ</div>:i<3?<MedalBadge pos={i+1} s={22}/>:<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'var(--muted)'}}>{i+1}</div>}</div>
                 {a.photo
-                  ?<img src={a.photo} style={{width:38,height:38,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'1.5px solid rgba(255,255,255,.12)'}}/>
-                  :<div style={{width:38,height:38,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,rgba(255,94,58,.22),rgba(255,94,58,.08))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:800,color:'var(--cor)',border:'1.5px solid rgba(255,94,58,.18)'}}>{initials}</div>
+                  ?<img src={a.photo} style={{width:30,height:30,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>
+                  :<div style={{width:30,height:30,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,rgba(255,94,58,.2),rgba(255,94,58,.06))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'var(--cor)',border:'1px solid rgba(255,94,58,.15)'}}>{initials}</div>
                 }
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:700,fontSize:14,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:5}}>
-                    {a.name}{r.protested&&<I.Flag s={11} c="var(--gold)"/>}
+                  <div style={{fontWeight:700,fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:4}}>
+                    {a.name}{r.protested&&<I.Flag s={10} c="var(--gold)"/>}
+                    <span style={{fontSize:9,fontFamily:'JetBrains Mono',color:'var(--muted)',marginLeft:2}}>#{a.num}</span>
                   </div>
-                  <div style={{display:'flex',gap:5,alignItems:'center',marginTop:2,flexWrap:'wrap'}}>
-                    <span style={{fontSize:10,fontFamily:'JetBrains Mono',color:'var(--muted)'}}>#{a.num}</span>
-                    {!isMultiOverall&&r.stNum&&<span style={{fontSize:9,color:'var(--cor)',fontWeight:700,background:'rgba(255,94,58,.1)',borderRadius:5,padding:'1px 5px',letterSpacing:'.03em'}}>S{r.stNum}</span>}
-                    {a.team&&<span style={{fontSize:10,color:'var(--cor2)',fontWeight:700,background:'rgba(255,144,64,.13)',borderRadius:5,padding:'1px 5px'}}>{a.team}</span>}
-                    {a.country&&<span style={{fontSize:10,color:'var(--muted)'}}>{toFlag(a.country)} {a.country}</span>}
+                  <div style={{display:'flex',gap:4,alignItems:'center',marginTop:1,fontSize:9}}>
+                    <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)'}}>{rCPs(r)}/{r.totalCPs||'?'} CP</span>
+                    {a.team&&<span style={{color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}
                   </div>
-                  <div style={{marginTop:5,display:'flex',alignItems:'center',gap:5}}>
-                    <div style={{flex:1,height:3,background:'rgba(255,255,255,.08)',borderRadius:2,overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${(()=>{const done=rCPs(r);const tot=rMaxCPs(r);return(done/tot)*100;})()}%`,background:r.status==='complete'?'var(--green)':'var(--cor)',borderRadius:2}}/>
-                    </div>
-                    <span style={{fontSize:9,color:'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{rCPs(r)}{isMultiOverall?`/${rMaxCPs(r)}`:(r.totalCPs?`/${r.totalCPs}`:'')}</span>
-                  </div>
-                  <StageBreakdown r={r} compact={true}/>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>

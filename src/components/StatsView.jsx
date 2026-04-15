@@ -337,14 +337,13 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         ))}
       </div>
 
-      {/* One section per active stage — responsive layout: 1=full, 2=stacked, 3-4=2x2 grid (TV only) */}
-      <div style={tvMode?{
+      {/* One section per active stage — side by side when 2+ stages */}
+      <div style={stageDataArr.length>=2?{
         display:'grid',
-        gridTemplateColumns:stageDataArr.length>=3?'1fr 1fr':'1fr',
-        gridAutoRows:stageDataArr.length>=3?'minmax(0,1fr)':stageDataArr.length===2?'minmax(0,1fr)':'auto',
-        gap:16,
-        height:stageDataArr.length>1?'calc(100vh - 160px)':'auto'
-      }:{display:'flex',flexDirection:'column',gap:20}}>
+        gridTemplateColumns:stageDataArr.length>=3?'1fr 1fr':`repeat(${Math.min(stageDataArr.length,2)},1fr)`,
+        gap:tvMode?16:10,
+        height:tvMode&&stageDataArr.length>1?'calc(100vh - 160px)':'auto'
+      }:{display:'flex',flexDirection:'column',gap:tvMode?20:12}}>
         {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
           const stageName=pipelineStageName||(info?.stageNames?.[sn]||`Stage ${sn}`);
