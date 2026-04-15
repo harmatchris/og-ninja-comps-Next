@@ -530,12 +530,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:8}}>
                   {IGN_CATS.map(cat=>{
                     const sel=(mainStg.categories||[]).includes(cat.id);
-                    const blocked=usedByOthers.has(cat.id);
-                    return <button key={cat.id} disabled={blocked&&!sel} style={{...chipStyle(sel,cat.color),fontSize:9,padding:'3px 7px',opacity:blocked&&!sel?.35:1,cursor:blocked&&!sel?'not-allowed':'pointer'}} onClick={()=>{
-                      if(blocked&&!sel)return;
+                    const shared=usedByOthers.has(cat.id);
+                    return <button key={cat.id} style={{...chipStyle(sel,cat.color),fontSize:9,padding:'3px 7px'}} onClick={()=>{
                       const cur=mainStg.categories||[];
                       updateStage(mainStg.id,'categories',sel?cur.filter(c=>c!==cat.id):[...cur,cat.id]);
-                    }}>{cat.name[lang]}{blocked&&!sel?' ✗':''}</button>;
+                    }}>{cat.name[lang]}{shared&&sel?' ⇆':''}</button>;
                   })}
                 </div>
 

@@ -270,6 +270,21 @@ const SkillPhaseView=({compId,info,athletes})=>{
         )}
       </div>
 
+      {/* Quick action bar — Seeding/Finalize at the top for fast access */}
+      {(()=>{
+        const hasStages=(info?.numStations||0)>0||!!(info?.pipelineEnabled);
+        return !skillStatus?.finalized?(
+          <div style={{display:'flex',gap:6}}>
+            {hasStages&&<button className="btn btn-coral" style={{flex:1,padding:'9px',fontSize:12,gap:5}} onClick={generateSeeding}>
+              <I.Sort s={13}/> {seedingAlreadyDone?(lang==='de'?'Seeding ✓ (erneut)':'Seeding ✓ (redo)'):(lang==='de'?'Seeding generieren':'Generate Seeding')}
+            </button>}
+            <button className={`btn ${hasStages?'btn-ghost':'btn-coral'}`} style={{flex:hasStages?0:1,padding:'9px 14px',fontSize:12,gap:5,...(hasStages?{borderColor:'rgba(200,168,75,.35)',color:'var(--gold)'}:{})}} onClick={openSiegerehrung}>
+              <I.Trophy s={13}/> {lang==='de'?'Abschließen':'Finalize'}
+            </button>
+          </div>
+        ):null;
+      })()}
+
       {/* 10-second countdown overlay */}
       {countdown!==null&&(
         <div style={{position:'fixed',inset:0,zIndex:9999,background:'rgba(0,0,0,.92)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:16}}>
