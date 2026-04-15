@@ -296,16 +296,19 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
   const ref=useRef(null);
   useEffect(()=>{
     const el=ref.current;if(!el||!items?.length||items.length<=6)return;
-    let raf,paused=true,pauseStart=performance.now();
+    let raf,phase='pauseTop',phaseStart=performance.now(); // pauseTop → scrollDown → pauseBottom → scrollUp
     const tick=()=>{
-      const now=performance.now();
-      if(paused){
-        if(now-pauseStart>2000){paused=false;}
-      }else{
-        el.scrollTop+=0.5; // slow scroll
-        if(el.scrollTop>=el.scrollHeight-el.clientHeight){
-          el.scrollTop=0;paused=true;pauseStart=now;
-        }
+      const now=performance.now();const dt=now-phaseStart;
+      if(phase==='pauseTop'){
+        if(dt>3000){phase='scrollDown';phaseStart=now;}
+      }else if(phase==='scrollDown'){
+        el.scrollTop+=0.5;
+        if(el.scrollTop>=el.scrollHeight-el.clientHeight){phase='pauseBottom';phaseStart=now;}
+      }else if(phase==='pauseBottom'){
+        if(dt>3000){phase='scrollUp';phaseStart=now;}
+      }else if(phase==='scrollUp'){
+        el.scrollTop=Math.max(0,el.scrollTop-2); // scroll up faster
+        if(el.scrollTop<=0){phase='pauseTop';phaseStart=now;}
       }
       raf=requestAnimationFrame(tick);
     };
