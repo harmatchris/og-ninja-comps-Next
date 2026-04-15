@@ -18,7 +18,7 @@ import { Spinner, EmptyState } from './shared.jsx';
 const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
   const filterId=`glow-${name||'n'}`.replace(/\s/g,'');
   return(
-    <g transform={`translate(${x-size/2},${y-size})`} style={{animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
+    <g style={{transform:`translate(${x-size/2}px,${y-size}px)`,transition:'transform 0.8s ease-in-out',animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
       <style>{`@keyframes ninjaBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}@keyframes ninjaGlow{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}`}</style>
       <defs>
         <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
@@ -221,9 +221,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
       const catId=r.catId||(a?.cat)||null;
-      // Firebase may return arrays as objects — normalize doneCP length
-      const cpRaw=r.doneCP;
-      const doneCPCount=Array.isArray(cpRaw)?cpRaw.length:(cpRaw&&typeof cpRaw==='object'?Object.keys(cpRaw).length:0);
+      // Use explicit doneCPCount field (integer), fallback to array/object length
+      const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
       return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||''};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
@@ -286,8 +285,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     // Active ninja runners for this stage
     const liveRunners=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>String(snKey)===String(sn)&&r?.athleteId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>{
       const a=athletesMap?.[r.athleteId];
-      const cpRaw=r.doneCP;
-      const doneCPCount=Array.isArray(cpRaw)?cpRaw.length:(cpRaw&&typeof cpRaw==='object'?Object.keys(cpRaw).length:0);
+      const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
       return{id:r.athleteId,catId:r.catId||(a?.cat)||null,doneCPCount,name:a?.name?.split(' ')[0]||''};
     }):[];
 

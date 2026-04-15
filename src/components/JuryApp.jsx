@@ -197,7 +197,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
     fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives});
     return()=>fbRemove(`ogn/${compId}/activeRuns/${activeRunKey}`);
   },[]);
-  useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,livesLeft:lives});},[doneCP,lives]);
+  useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives});},[doneCP,lives]);
 
   // Auto-stop when time limit expires
   useEffect(()=>{
