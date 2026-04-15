@@ -292,6 +292,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             updates[`ogn/${id}/pipeline/${sid}/predecessorStages`]=stg.predecessorStages||null;
             updates[`ogn/${id}/pipeline/${sid}/continuations`]=stg.continuations||null;
             updates[`ogn/${id}/pipeline/${sid}/timeLimit`]=stg.timeLimit||null;
+            updates[`ogn/${id}/pipeline/${sid}/lives`]=stg.livesPerSection||null;
+            updates[`ogn/${id}/pipeline/${sid}/totalLives`]=stg.totalLives??null;
           });
         }
         await db.ref().update(updates);

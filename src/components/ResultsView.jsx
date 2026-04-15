@@ -6,6 +6,16 @@ import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
 
+// Obstacle label — renders icon version for Start/Land platforms
+const ObsLabel=({obs,size=10})=>{
+  const n=(obs.name||'').toLowerCase();
+  const isStart=/startplattform/.test(n);
+  const isLand=/landeplattform|endplattform/.test(n);
+  if(isStart)return<span style={{display:'inline-flex',alignItems:'center',gap:3}}><I.Play s={size} c="rgba(160,160,255,.9)"/><span>Start</span></span>;
+  if(isLand)return<span style={{display:'inline-flex',alignItems:'center',gap:3}}><I.Flag s={size} c="rgba(52,199,89,.9)"/><span>Land</span></span>;
+  return<span>{obs.name}</span>;
+};
+
 const Regelwerk=()=>{
   const {lang}=useLang();
   const rw=lang==='en'?REGELWERK_EN:REGELWERK_DE;
@@ -71,8 +81,9 @@ const Regelwerk=()=>{
 const EditRunModal=({run,runKey,compId,onClose})=>{
   const {lang}=useLang();
   const stObstRaw=useFbVal(run.stNum?`ogn/${compId}/stages/${run.stNum}/obstacles`:null);
+  const pipeObstRaw=useFbVal(run.stageId?`ogn/${compId}/pipeline/${run.stageId}/obstacles`:null);
   const globObstRaw=useFbVal(`ogn/${compId}/obstacles`);
-  const obstArr=Object.values(stObstRaw||globObstRaw||{}).sort((a,b)=>a.order-b.order);
+  const obstArr=Object.values(pipeObstRaw||stObstRaw||globObstRaw||{}).sort((a,b)=>a.order-b.order);
   // Firebase may return doneCP as object — normalize to array
   const doneCP=Array.isArray(run.doneCP)?run.doneCP:(run.doneCP&&typeof run.doneCP==='object'?Object.values(run.doneCP):[]);
   const [status,setStatus]=useState(run.status||'fall');
@@ -87,12 +98,14 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   const fellAtObst=obstArr.find(o=>o.id===fellAtId)||null;
   const lastCpOrder=selCpIdx>=0?(doneCP[selCpIdx]?.order??-1):-1;
   const candidateObst=obstArr.filter(o=>(o.order??999)>lastCpOrder);
+  // Strip undefined values so Firebase never rejects
+  const clean=o=>{if(o===undefined)return null;if(o===null||typeof o!=='object')return o;if(Array.isArray(o))return o.map(clean);const r={};for(const[k,v]of Object.entries(o)){const c=clean(v);if(c!==undefined)r[k]=c;}return r;};
   const handleSave=async()=>{
     try{
       setSaving(true);
-      const updated={...run,status,finalTime:selectedTime,doneCP:newDoneCP,
+      const updated=clean({...run,status,finalTime:selectedTime,doneCP:newDoneCP,
         fellAt:(status==='complete'||status==='dsq')?null:(fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null),
-        corrected:true,correctedAt:Date.now()};
+        corrected:true,correctedAt:Date.now()});
       await fbSet(`ogn/${compId}/completedRuns/${runKey}`,updated);
       setSaving(false);SFX.complete();onClose();
     }catch(err){setSaving(false);window.alert('Error: '+err.message);}

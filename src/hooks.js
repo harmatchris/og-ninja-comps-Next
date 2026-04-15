@@ -46,6 +46,9 @@ export const SFX = {
   fall: () => { vib(100); tone(180, 0.2, 0.2, 'sawtooth'); tone(120, 0.3, 0.15, 'sawtooth', 0.15); },
   checkpoint: () => { vib(30); tone(880, 0.06, 0.12); tone(1100, 0.08, 0.15, 'sine', 0.06); },
   complete: () => { vib(200); tone(523, 0.08, 0.18); tone(659, 0.08, 0.16, 'sine', 0.1); tone(784, 0.1, 0.18, 'sine', 0.2); tone(1047, 0.35, 0.2, 'sine', 0.32); },
+  resetTick: () => { vib(15); tone(660, 0.06, 0.1); },
+  resetReady: () => { vib(40); tone(880, 0.08, 0.15); tone(1100, 0.1, 0.18, 'sine', 0.08); },
+  resetGo: () => { vib(100); tone(784, 0.08, 0.2); tone(1047, 0.1, 0.22, 'sine', 0.1); tone(1319, 0.15, 0.25, 'sine', 0.22); },
   countdown: (cb) => {
     vib(50); tone(440, 0.12, 0.2);
     setTimeout(() => { vib(50); tone(440, 0.12, 0.2); }, 1000);
