@@ -361,7 +361,7 @@ return(<React.Fragment key={r.athleteId}>
                     :r.status==='dsq'
                       ?<div style={{fontSize:10,color:'#FF3B6B',fontWeight:600}}>{lang==='de'?'Disqualifiziert':'Disqualified'}</div>
                     :!isMultiOverall&&r.fellAt?.name
-                      ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
+                      ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,textAlign:'right'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
                       :!isMultiOverall?<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>:null
                   }
                   <LifeDots run={r} size={7}/>
