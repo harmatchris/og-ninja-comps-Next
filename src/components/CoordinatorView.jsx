@@ -150,17 +150,6 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                   )}
                 </div>
               )}
-              {/* Progress bar */}
-              {totalCPs>0&&(
-                <div style={{marginTop:10,height:5,background:'rgba(255,255,255,.08)',borderRadius:3,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${(cpsDone/totalCPs)*100}%`,background:'linear-gradient(90deg,var(--cor),var(--cor2))',borderRadius:3,transition:'width .3s ease'}}/>
-                </div>
-              )}
-              {limitMs>0&&!isCountdown&&(
-                <div style={{marginTop:4,height:3,background:'rgba(255,255,255,.05)',borderRadius:2,overflow:'hidden'}}>
-                  <div style={{height:'100%',width:`${Math.min(100,(elapsed/limitMs)*100)}%`,background:timeCritical?'#FF3B30':'rgba(255,214,10,.5)',borderRadius:2,transition:'width .5s linear'}}/>
-                </div>
-              )}
             </div>
           </div>
         );
