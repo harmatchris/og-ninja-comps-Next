@@ -265,7 +265,7 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
 };
 
 // Auto-scrolling ranking list: pauses at top 2s, scrolls slowly down, resets
-const AutoScrollRanking=({items,athMap,fmtMs,lang,t})=>{
+const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[],isPipeline=false,pipelineStages=[]})=>{
   const ref=useRef(null);
   useEffect(()=>{
     const el=ref.current;if(!el||items.length<=6)return;
@@ -297,8 +297,8 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t})=>{
               {a.photo?<img src={a.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
                 :<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,94,58,.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800,color:'var(--cor)',flexShrink:0}}>{(a.name||'?')[0]}</div>}
               <div style={{flex:1,minWidth:0,fontSize:11,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-              <div style={{fontSize:10,fontFamily:'JetBrains Mono',color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)',fontWeight:700,flexShrink:0}}>
-                {r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}
+              <div style={{fontSize:10,fontFamily:'JetBrains Mono',color:isOverall?'var(--gold)':r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)',fontWeight:700,flexShrink:0}}>
+                {isOverall?`Σ${r.placementSum||'?'}`:(r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—')}
               </div>
             </div>
           );
@@ -438,11 +438,6 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
               Stage {n}
             </button>
           ))}
-          <button className={`chip${selStage==='overall'?' active':''}`}
-            style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(selStage==='overall'?{background:'rgba(255,214,10,.15)',borderColor:'rgba(255,214,10,.4)',color:'var(--gold)'}:{})}}
-            onClick={()=>{setSelStage('overall');SFX.hover();}}>
-            {lang==='de'?'Gesamt':'Overall'}
-          </button>
         </div>
       )}
       {/* Division tabs — auto-rotating, smaller */}
@@ -457,26 +452,37 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
         </button>}
       </div>
       {catsWithRuns.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
-      {/* ALL STAGES side-by-side view */}
-      {allStagesView&&selCat&&(
-        <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(stageList.length,4)},1fr)`,gap:8,padding:'8px 12px'}}>
+      {/* ALL STAGES side-by-side view: each stage + overall as last column */}
+      {allStagesView&&selCat&&(()=>{
+        const cols=stageList.length+1; // stages + overall
+        const cat=IGN_CATS.find(c=>c.id===selCat);
+        const overallRanked=isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
+        return(
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},1fr)`,gap:6,padding:'6px 8px',height:'calc(100vh - 200px)'}}>
           {stageList.map(sid=>{
             const stgRanked=isPipeline?computeRankedPipeline(runList,selCat,sid):computeRankedStage(runList,selCat,sid);
             const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
-            const cat=IGN_CATS.find(c=>c.id===selCat);
             return(
-              <div key={sid} style={{border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:'calc(100vh - 240px)'}}>
-                <div style={{padding:'8px 10px',background:'rgba(255,94,58,.06)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6}}>
-                  <div style={{width:22,height:22,borderRadius:6,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:'#fff'}}>{isPipeline?(stgName||'').charAt(0).toUpperCase():sid}</div>
-                  <div style={{fontSize:12,fontWeight:800}}>{stgName}</div>
-                  {cat&&<div style={{fontSize:9,color:cat.color,marginLeft:'auto',fontWeight:700}}>{cat.name[lang]}</div>}
+              <div key={sid} style={{border:'1px solid var(--border)',borderRadius:10,overflow:'hidden',display:'flex',flexDirection:'column',minWidth:0}}>
+                <div style={{padding:'6px 8px',background:'rgba(255,94,58,.06)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+                  <div style={{width:18,height:18,borderRadius:5,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#fff',flexShrink:0}}>{isPipeline?(stgName||'').charAt(0).toUpperCase():sid}</div>
+                  <div style={{fontSize:11,fontWeight:800,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{stgName}</div>
                 </div>
                 <AutoScrollRanking items={stgRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t}/>
               </div>
             );
           })}
+          {/* Overall/Gesamt column */}
+          <div style={{border:'1px solid rgba(255,214,10,.3)',borderRadius:10,overflow:'hidden',display:'flex',flexDirection:'column',minWidth:0}}>
+            <div style={{padding:'6px 8px',background:'rgba(255,214,10,.06)',borderBottom:'1px solid rgba(255,214,10,.2)',display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+              <div style={{width:18,height:18,borderRadius:5,background:'linear-gradient(135deg,#FFD60A,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#000',flexShrink:0}}>Σ</div>
+              <div style={{fontSize:11,fontWeight:800,color:'var(--gold)'}}>{lang==='de'?'Gesamt':'Overall'}</div>
+            </div>
+            <AutoScrollRanking items={overallRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t} isOverall stageList={stageList} isPipeline={isPipeline} pipelineStages={pipelineStages}/>
+          </div>
         </div>
-      )}
+        );
+      })()}
       {/* Single stage / overall view */}
       {!allStagesView&&selCat&&ranked.length>0&&(()=>{
         return(
