@@ -185,10 +185,12 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
     raf=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(raf);
   },[cpIdx,fromX,toX,lr.fallen,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
-  const ghostAhead=ghostX>animX;
+  const runnerLeads=animX>=ghostX;
+  // Leader is green, trailer is red — applies to BOTH ninjas
+  const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
   return<>
-    {lr.bestRunCPs?.length>0&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} color="#30D158" name={lr.bestRunName||'Best'} ahead={ghostAhead}/>}
-    <NinjaRunner x={animX} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
+    {lr.bestRunCPs?.length>0&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads}/>}
+    <NinjaRunner x={animX} y={cy} size={tvMode?36:24} color={runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
   </>;
 };
 
