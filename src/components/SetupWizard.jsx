@@ -270,7 +270,21 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       });
       data.pipeline=pipelineData;
     }
-    await fbSet(`ogn/${id}`,data);
+    if(existingId){
+      // Existing comp: merge-update only config fields, preserve completedRuns/activeRuns/skillScores
+      const updates={};
+      updates[`ogn/${id}/info`]=data.info;
+      updates[`ogn/${id}/obstacles`]=data.obstacles;
+      if(data.athletes)updates[`ogn/${id}/athletes`]=data.athletes;
+      if(data.pipeline)updates[`ogn/${id}/pipeline`]=data.pipeline;
+      if(data.stages)Object.entries(data.stages).forEach(([k,v])=>{
+        if(v.obstacles)updates[`ogn/${id}/stages/${k}/obstacles`]=v.obstacles;
+        if(v.athletes)updates[`ogn/${id}/stages/${k}/athletes`]=v.athletes;
+      });
+      await db.ref().update(updates);
+    }else{
+      await fbSet(`ogn/${id}`,data);
+    }
     setSaving(false);SFX.complete();onDone(id);
   };
 
