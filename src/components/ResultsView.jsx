@@ -254,7 +254,8 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
       html+=`<tr class="${cls}"><td>${run.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${run.doneCP?.length||0}</td><td>${run.finalTime>0?fmtMs(run.finalTime):''}</td><td>${ergebnis}</td></tr>`;
     });
     html+=`</table><p style="font-size:9px;color:#aaa;margin-top:20px;">OG Comps · ${new Date().toLocaleString()}</p></body></html>`;
-    const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+    html=html.replace('</body>',`<button style="position:fixed;top:10px;right:10px;padding:10px 18px;background:#FF5E3A;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.3);" onclick="window.close();setTimeout(function(){location.href='${window.location.href}';},200);">← Zurück</button></body>`);
+    const w=window.open('','_blank');if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);}
   };
   const printCurrent=()=>{
     if(!selCat)return;
@@ -280,7 +281,8 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
         html+=`</table>`;
       });
       html+=`</body></html>`;
-      const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+      html=html.replace('</body>',`<button style="position:fixed;top:10px;right:10px;padding:10px 18px;background:#FF5E3A;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.3);" onclick="window.close();setTimeout(function(){location.href='${window.location.href}';},200);">← Zurück</button></body>`);
+    const w=window.open('','_blank');if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);}
     } else {
       // Single stage
       const stgName=isPipeline?(pipelineStages.find(s=>s.id===selStage)?.name||selStage):`Stage ${selStage}`;
@@ -483,7 +485,8 @@ const ResultsView=({compId,athletes})=>{
         });
       });
       html+=`</body></html>`;
-      const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),300);
+      html=html.replace('</body>',`<button style="position:fixed;top:10px;right:10px;padding:10px 18px;background:#FF5E3A;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.3);" onclick="window.close();setTimeout(function(){location.href='${window.location.href}';},200);">← Zurück</button></body>`);
+      const w=window.open('','_blank');if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),300);}
       SFX.complete();
     } else {
       // Text share fallback

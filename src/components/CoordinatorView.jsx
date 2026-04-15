@@ -22,7 +22,8 @@ const ExportModal=({compId,info,athletes,completedRuns,pipelineData,isPipeline,p
   const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
   const stageNums=isPipeline?[]:[...new Set(runList.filter(r=>r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b);
   const stages=isPipeline?stageIds:stageNums;
-  const ps=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:14px 0 6px;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}td{padding:4px 8px;border-bottom:1px solid #eee;}.m1{background:#FFF8DC;font-weight:700;}.m2{background:#F5F5F5;}.m3{background:#FDF5ED;}.bz{color:#34C759;font-weight:700;}.fl{color:#FF3B30;}@media print{body{padding:0;font-size:11px;}h2{page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}`;
+  const ps=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:14px 0 6px;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}td{padding:4px 8px;border-bottom:1px solid #eee;}.m1{background:#FFF8DC;font-weight:700;}.m2{background:#F5F5F5;}.m3{background:#FDF5ED;}.bz{color:#34C759;font-weight:700;}.fl{color:#FF3B30;}.back-btn{position:fixed;top:10px;right:10px;padding:10px 18px;background:#FF5E3A;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;z-index:999;box-shadow:0 2px 8px rgba(0,0,0,.3);}@media print{.back-btn{display:none;}body{padding:0;font-size:11px;}h2{page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}`;
+  const backBtn=`<button class="back-btn" onclick="window.close();setTimeout(function(){location.href='${window.location.href}';},200);">← Zurück zur App</button>`;
   const doPrint=()=>{
     const divs=selDiv==='all'?catsWithRuns:[IGN_CATS.find(c=>c.id===selDiv)].filter(Boolean);
     const stgs=selStg==='all'?stages:[selStg];
@@ -49,8 +50,8 @@ const ExportModal=({compId,info,athletes,completedRuns,pipelineData,isPipeline,p
         html+=`<span>Total: <strong>${ranked.length}</strong></span></div>`;
       });
     });
-    html+=`</body></html>`;
-    const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+    html+=`${backBtn}</body></html>`;
+    const w=window.open('','_blank');if(w){w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);}
     onClose();
   };
   const doExcel=()=>{
