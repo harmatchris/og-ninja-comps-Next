@@ -35,8 +35,14 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const timerElapsed=timerStarted?(now-timerStartedAt-pausedTotal-currentPauseDur):0;
   const timerRemaining=timerStarted?Math.max(0,timerDurationMs-timerElapsed):timerDurationMs;
   const timerExpired=timerStarted&&!timerPaused&&timerRemaining<=0;
-  // Scoring allowed = timer started AND not paused AND not expired
-  const scoringAllowed=timerStarted&&!timerPaused&&!timerExpired;
+  // Scoring allowed = timer not expired (or no timer), unlockable with code after expiry
+  const [scoringUnlocked,setScoringUnlocked]=useState(false);
+  const scoringLocked=timerExpired&&!scoringUnlocked;
+  const tryUnlockScoring=()=>{
+    const code=window.prompt(lang==='de'?'Code eingeben um Eingabe nach Zeitablauf zu entsperren:':'Enter code to unlock scoring after time expired:');
+    if(code==='2021'){setScoringUnlocked(true);SFX.complete();}
+    else if(code!==null){window.alert(lang==='de'?'Falscher Code':'Wrong code');SFX.fall();}
+  };
 
   useEffect(()=>{
     if(!timerStarted||timerExpired||timerPaused)return;
@@ -195,6 +201,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
   };
 
   const setAttempt=async(athId,skillId,attempt,success)=>{
+    if(scoringLocked){tryUnlockScoring();return;}
     await fbSet(`ogn/${compId}/skillScores/${athId}/${skillId}/a${attempt}`,success);
     SFX.checkpoint();
   };
@@ -366,6 +373,18 @@ const SkillPhaseView=({compId,info,athletes})=>{
               {lang==='de'?'Wettkampf unterbrochen — keine Eingaben möglich':'Competition paused — no entries allowed'}
             </div>
           )}
+          {scoringLocked&&(
+            <div style={{marginTop:8,padding:'10px 14px',background:'rgba(255,59,48,.08)',borderRadius:10,border:'1px solid rgba(255,59,48,.25)',display:'flex',alignItems:'center',gap:10}}>
+              <I.Lock s={16} c="var(--red)"/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:700,color:'var(--red)'}}>{lang==='de'?'Eingabe gesperrt — Zeit abgelaufen':'Scoring locked — time expired'}</div>
+                <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{lang==='de'?'Code eingeben um nachträglich zu korrigieren':'Enter code to correct after expiry'}</div>
+              </div>
+              <button className="btn btn-ghost" style={{padding:'6px 12px',fontSize:11,borderColor:'rgba(255,59,48,.35)',color:'var(--red)'}} onClick={tryUnlockScoring}>
+                <I.Unlock s={13}/> Unlock
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -466,7 +485,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:15,fontWeight:800,color:res.result==='pass'?'var(--green)':'var(--red)',fontFamily:'JetBrains Mono'}}>{res.result==='pass'?`+${res.pts}`:'0'}</div>
                       <div style={{fontSize:9,color:'var(--muted)'}}>{res.result==='pass'?`${res.tries}. Versuch`:'Nicht geschafft'}</div>
-                      <button style={{fontSize:9,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',marginTop:2,textDecoration:'underline'}} onClick={async()=>{await fbSet(`ogn/${compId}/skillScores/${a.id}/${selSkill}`,null);SFX.click();}}>Reset</button>
+                      <button style={{fontSize:9,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',marginTop:2,textDecoration:'underline'}} onClick={async()=>{if(scoringLocked){tryUnlockScoring();return;}await fbSet(`ogn/${compId}/skillScores/${a.id}/${selSkill}`,null);SFX.click();}}>Reset</button>
                     </div>
                   ):(
                     <div style={{display:'flex',gap:4,flexShrink:0}}>
