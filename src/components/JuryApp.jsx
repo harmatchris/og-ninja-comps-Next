@@ -576,6 +576,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // For pipeline mode: no stations doc, derive cat from stage config or athletes
   const stData=useFbVal(isPipeline?null:`ogn/${compId}/stations/${stNum}`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+  const existingRun=useFbVal(`ogn/${compId}/activeRuns/${activeRunKey}`);
   const [phase,setPhase]=useState('wait');
   const [currentAth,setCurrentAth]=useState(null);
   const [fallModal,setFallModal]=useState(null);   // null or fall data — timer stays running
@@ -590,7 +591,28 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const [goTime,setGoTime]=useState(null);
   const [fallFreezeTime,setFallFreezeTime]=useState(null);
   const [resetActive,setResetActive]=useState(false);
+  const [recoveryChecked,setRecoveryChecked]=useState(false);
   useEffect(()=>{if(info)setLives(info?.lives||3);},[info?.lives]);
+  // ── Stage takeover: resume existing active run if found ──
+  useEffect(()=>{
+    if(recoveryChecked||!existingRun||!globalAthletesMap||phase!=='wait')return;
+    if(existingRun.athleteId&&(existingRun.phase==='active'||existingRun.phase==='countdown')){
+      const ath=globalAthletesMap[existingRun.athleteId];
+      if(ath){
+        setCurrentAth(ath);
+        if(existingRun.livesLeft!=null)setLives(existingRun.livesLeft);
+        if(existingRun.startEpoch){
+          // Resume with approximate goTime based on startEpoch
+          const elapsed=Date.now()-existingRun.startEpoch;
+          setGoTime(performance.now()-elapsed);
+          setPhase('active');
+        }else{
+          setPhase('countdown');
+        }
+      }
+    }
+    setRecoveryChecked(true);
+  },[existingRun,globalAthletesMap,recoveryChecked]);
 
   // After run completes: keep stage card on Display for 5s showing result, then clear
   useEffect(()=>{
