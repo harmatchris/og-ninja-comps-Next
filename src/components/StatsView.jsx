@@ -18,16 +18,18 @@ import { Spinner, EmptyState } from './shared.jsx';
 const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
   const filterId=`glow-${name||'n'}`.replace(/\s/g,'');
   return(
-    <g style={{transform:`translate(${x-size/2}px,${y-size}px)`,transition:'transform 0.8s ease-in-out',animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
-      <style>{`@keyframes ninjaBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}@keyframes ninjaGlow{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}`}</style>
+    <g transform={`translate(${x-size/2},${y-size})`} style={{transition:'transform 0.8s ease-in-out'}}>
+    <g style={{animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
+      <style>{`@keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}@keyframes ninjaGlow{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}@keyframes ninjaPulse{0%{r:${size*0.55}}50%{r:${size*0.7}}100%{r:${size*0.55}}}`}</style>
       <defs>
         <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
           <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
           <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
-      {/* glow circle behind ninja */}
-      <circle cx={size/2} cy={size*0.5} r={size*0.55} fill={color} opacity=".2" style={{animation:'ninjaGlow 1.5s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
+      {/* glow pulse behind ninja */}
+      <circle cx={size/2} cy={size*0.5} r={size*0.6} fill="none" stroke={color} strokeWidth="2" opacity=".35" style={{animation:'ninjaGlow 1.2s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
+      <circle cx={size/2} cy={size*0.5} r={size*0.4} fill={color} opacity=".15" style={{animation:'ninjaGlow 1.2s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
       {/* head */}
       <circle cx={size/2} cy={size*0.28} r={size*0.18} fill={color}/>
       {/* mask band */}
@@ -45,6 +47,7 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
         <rect x={size*0.52} y={size*0.75} width={size*0.1} height={size*0.22} rx={size*0.04} fill={color}/>
       </g>
       {name&&<text x={size/2} y={-4} textAnchor="middle" fontSize={size*0.35} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+    </g>
     </g>
   );
 };
