@@ -387,7 +387,7 @@ const ResultsView=({compId,athletes})=>{
   const handlePwSubmit=()=>{if(pwInput==='2021'){setEditMode(true);setShowPwModal(false);setPwInput('');setPwError(false);SFX.complete();}else{setPwError(true);SFX.fall();}};
   const EditBtn=({r})=>editMode?<button style={{padding:'4px 8px',borderRadius:7,border:'1px solid rgba(255,200,80,.35)',background:'rgba(255,200,80,.08)',color:'var(--gold)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,fontFamily:'Inter,sans-serif'}} onClick={e=>{e.stopPropagation();openEdit(r);}}><I.Edit s={12} c="var(--gold)"/></button>:null;
   // Reset stage selection when category changes
-  useEffect(()=>{setSelStage(null);},[selCat]);
+  // Don't reset stage selection when division changes — keep "All Stages" etc.
   // Stage numbers that have runs for the selected category
   const stageNums=!isPipeline&&selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
   const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
