@@ -78,7 +78,10 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   const [selCpIdx,setSelCpIdx]=useState(doneCP.length>0?doneCP.length-1:-1);
   const [fellAtId,setFellAtId]=useState(run.fellAt?.id||null);
   const [saving,setSaving]=useState(false);
-  const selectedTime=selCpIdx>=0?(doneCP[selCpIdx]?.time||run.finalTime||0):(run.finalTime||0);
+  const [manualTime,setManualTime]=useState('');
+  const autoTime=selCpIdx>=0?(doneCP[selCpIdx]?.time||run.finalTime||0):(run.finalTime||0);
+  const parseTimeStr=s=>{const m=s.match(/^(\d+):(\d{2})\.(\d{1,3})$/);if(!m)return null;return +m[1]*60000+ +m[2]*1000+ +m[3].padEnd(3,'0');};
+  const selectedTime=manualTime?parseTimeStr(manualTime)||autoTime:autoTime;
   const newDoneCP=doneCP.slice(0,selCpIdx+1);
   const fellAtObst=obstArr.find(o=>o.id===fellAtId)||null;
   const lastCpOrder=selCpIdx>=0?(doneCP[selCpIdx]?.order??-1):-1;
@@ -89,6 +92,12 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
       fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,
       corrected:true,correctedAt:Date.now()};
     await fbSet(`ogn/${compId}/completedRuns/${runKey}`,updated);
+    setSaving(false);SFX.complete();onClose();
+  };
+  const handleRerun=async()=>{
+    if(!window.confirm(lang==='de'?`Re-Run für ${run.athleteName} genehmigen?\n\nDer aktuelle Lauf wird gelöscht und der Athlet kann erneut starten.`:`Grant re-run for ${run.athleteName}?\n\nCurrent run will be deleted and athlete can start again.`))return;
+    setSaving(true);
+    await fbRemove(`ogn/${compId}/completedRuns/${runKey}`);
     setSaving(false);SFX.complete();onClose();
   };
   const statusOpts=[['complete',lang==='de'?'Abgeschlossen / Buzzer':'Complete / Buzzer','var(--green)'],['fall',lang==='de'?'Fall':'Fall','var(--cor)'],['dnf','DNF / '+(lang==='de'?'Abgebrochen':'Stopped'),'var(--gold)'],['timeout',lang==='de'?'Zeitlimit':'Timeout','var(--gold)'],['dsq','DSQ','#FF3B6B']];
@@ -130,9 +139,15 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
               </button>
             ))}
           </div>
-          {(selCpIdx>=0||run.finalTime>0)&&<div style={{marginTop:8,padding:'6px 10px',background:'rgba(255,94,58,.08)',borderRadius:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontSize:11,color:'var(--muted)'}}>{lang==='de'?'Offizielle Zeit':'Official time'}</span>
-            <span className="timer-grad" style={{fontSize:20}}>{selectedTime>0?fmtMs(selectedTime):'—'}</span>
+          {(selCpIdx>=0||run.finalTime>0)&&<div style={{marginTop:8,padding:'8px 10px',background:'rgba(255,94,58,.08)',borderRadius:8}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+              <span style={{fontSize:11,color:'var(--muted)'}}>{lang==='de'?'Offizielle Zeit':'Official time'}</span>
+              <span className="timer-grad" style={{fontSize:20}}>{selectedTime>0?fmtMs(selectedTime):'—'}</span>
+            </div>
+            <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              <input value={manualTime} onChange={e=>setManualTime(e.target.value)} placeholder={autoTime>0?fmtMs(autoTime):'0:00.000'} style={{flex:1,fontSize:14,fontFamily:'JetBrains Mono',padding:'6px 10px',borderRadius:8,textAlign:'center',border:`1px solid ${manualTime&&!parseTimeStr(manualTime)?'var(--red)':'rgba(255,255,255,.15)'}`,background:'rgba(255,255,255,.06)',color:'#fff'}}/>
+              <span style={{fontSize:9,color:'var(--muted)',flexShrink:0}}>m:ss.ms</span>
+            </div>
           </div>}
         </div>
         {status!=='complete'&&status!=='dsq'&&candidateObst.length>0&&(
@@ -146,8 +161,14 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
             </div>
           </div>
         )}
-        <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:8}} onClick={handleSave} disabled={saving}>{saving?<I.RefreshCw s={14}/>:<I.Check s={14}/>} {lang==='de'?'Korrektur speichern':'Save correction'}</button>
-        <button className="btn btn-ghost" style={{width:'100%',padding:11}} onClick={onClose}>↩ {lang==='de'?'Abbrechen':'Cancel'}</button>
+        <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:6}} onClick={handleSave} disabled={saving}>{saving?<I.RefreshCw s={14}/>:<I.Check s={14}/>} {lang==='de'?'Korrektur speichern':'Save correction'}</button>
+        <button className="btn btn-ghost" style={{width:'100%',padding:11,marginBottom:6}} onClick={onClose}>↩ {lang==='de'?'Abbrechen':'Cancel'}</button>
+        <div style={{borderTop:'1px solid var(--border)',paddingTop:8,marginTop:4}}>
+          <button className="btn" style={{width:'100%',padding:11,gap:6,fontSize:12,background:'rgba(255,149,0,.08)',border:'1px solid rgba(255,149,0,.3)',color:'#FF9500',borderRadius:10}} onClick={handleRerun} disabled={saving}>
+            <I.RefreshCw s={13}/> {lang==='de'?'Re-Run genehmigen (Einspruch)':'Grant Re-Run (protest)'}
+          </button>
+          <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:4}}>{lang==='de'?'Löscht diesen Lauf — Athlet kann erneut starten':'Deletes this run — athlete can start again'}</div>
+        </div>
       </div>
     </div>
   );

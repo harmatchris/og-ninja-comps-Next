@@ -446,7 +446,9 @@ const ResetCountdown=({frozenTime,onDone})=>{
   const {lang}=useLang();
   const [count,setCount]=useState(10);
   useEffect(()=>{
-    if(count<=0){onDone();return;}
+    if(count<=0){SFX.complete();onDone();return;}
+    // Acoustic signal: beep every second, louder in last 3
+    if(count<=3)SFX.fall();else SFX.hover();
     const t=setTimeout(()=>setCount(c=>c-1),1000);
     return()=>clearTimeout(t);
   },[count]);
@@ -456,6 +458,7 @@ const ResetCountdown=({frozenTime,onDone})=>{
       <div style={{fontSize:96,fontWeight:900,color:count<=3?'var(--red)':'var(--gold)',fontFamily:'JetBrains Mono',lineHeight:1,transition:'color .3s'}}>{count}</div>
       <div style={{fontSize:11,color:'rgba(255,255,255,.3)',marginTop:2}}>{lang==='de'?'Timer läuft danach weiter':'Timer resumes after this'}</div>
       <div className="timer-grad" style={{fontSize:32,marginTop:6}}>{fmtMs(frozenTime)}</div>
+      {count<=3&&<div style={{fontSize:14,fontWeight:800,color:'var(--green)',marginTop:8,animation:'pulse 0.8s infinite'}}>{lang==='de'?'BEREIT MACHEN!':'GET READY!'}</div>}
     </div>
   );
 };
