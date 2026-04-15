@@ -22,19 +22,18 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
   const obstacles=useFbVal(`ogn/${compId}/obstacles`);
   const {lang}=useLang();
   const [now,setNow]=useState(Date.now());
-  const [flashSplit,setFlashSplit]=useState(null); // {key, cpIdx, diff, at}
+  const [flashSplit,setFlashSplit]=useState(null);
   const prevCPRef=useRef({});
+  const bestSplits=useRef({});
   const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done'):[];
-  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(iv);},[liveEntries.length]);
-  if(!liveEntries.length)return null;
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
   const obsArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false):[];
   const totalCPs=obsArr.length;
   const fmtT=ms=>{if(ms<0)ms=0;const t=Math.floor(ms/1000);const m=Math.floor(t/60);const s=t%60;const ms3=String(Math.floor((ms%1000))).padStart(3,'0');return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${ms3}`;};
   const allRuns=completedRuns?Object.values(completedRuns):[];
-  // Best splits per CP for ski-racing comparison (per category+stage)
-  const bestSplits=useRef({});
+  useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),200);return()=>clearInterval(iv);},[liveEntries.length]);
+  // Best splits per CP for ski-racing comparison
   useEffect(()=>{
     const map={};
     allRuns.forEach(r=>{
@@ -44,6 +43,7 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
     bestSplits.current=map;
   },[allRuns.length]);
   // Detect new CP → flash split
+  const cpSig=liveEntries.map(([k,r])=>`${k}:${cpLen(r.doneCP)}`).join(',');
   useEffect(()=>{
     liveEntries.forEach(([key,r])=>{
       const cpArr=normCP(r.doneCP);const cnt=cpArr.length;
@@ -59,9 +59,10 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
       }
       prevCPRef.current[key]=cnt;
     });
-  },[liveEntries.map(([k,r])=>`${k}:${cpLen(r.doneCP)}`).join(',')]);
+  },[cpSig]);
   // Auto-hide split flash after 4s
   useEffect(()=>{if(!flashSplit)return;const t=setTimeout(()=>setFlashSplit(null),4000);return()=>clearTimeout(t);},[flashSplit?.at]);
+  if(!liveEntries.length)return null;
   return(
     <div style={{display:'flex',flexDirection:'column',gap:0,marginBottom:8}}>
       {liveEntries.map(([key,r])=>{
