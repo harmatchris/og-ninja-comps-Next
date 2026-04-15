@@ -64,7 +64,7 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
   useEffect(()=>{if(!flashSplit)return;const t=setTimeout(()=>setFlashSplit(null),4000);return()=>clearTimeout(t);},[flashSplit?.at]);
   if(!liveEntries.length)return null;
   return(
-    <div style={{display:'flex',flexDirection:'column',gap:0,marginBottom:8}}>
+    <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(liveEntries.length,4)},1fr)`,gap:8,marginBottom:8}}>
       {liveEntries.map(([key,r])=>{
         const a=athletes?.[r.athleteId];
         const isCountdown=r.phase==='countdown';
@@ -79,78 +79,52 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
         const lastCPObs=cpsDone>0&&obsArr[cpsDone-1]?obsArr[cpsDone-1].name:null;
         const hasLives=info?.mode==='lives';
         const activeFlash=flashSplit?.key===key?flashSplit:null;
+        const timerColor=isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'var(--gold)':'rgba(255,180,120,.9)';
         return(
-          <div key={key} className="sh-card" style={{padding:0,overflow:'hidden',border:'1px solid rgba(52,199,89,.3)'}}>
-            {/* Header: Stage + category + LIVE */}
-            <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'rgba(0,0,0,.25)',borderBottom:'1px solid rgba(255,255,255,.06)'}}>
-              <div style={{width:40,height:40,borderRadius:10,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                <I.Bolt s={20} c="#fff"/>
-              </div>
+          <div key={key} className="sh-card" style={{padding:'10px 12px',overflow:'hidden',border:'1px solid rgba(52,199,89,.3)'}}>
+            {/* Row 1: Stage + LIVE dot */}
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+              <div style={{width:6,height:6,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 6px rgba(255,94,58,.8)',animation:'pulse 1.2s infinite',flexShrink:0}}/>
+              <span style={{fontSize:10,fontWeight:700,color:'rgba(255,255,255,.45)',letterSpacing:'.06em',flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{stageName}</span>
+              {cat&&<span style={{fontSize:8,padding:'1px 5px',borderRadius:4,background:`${cat.color}1A`,color:cat.color,border:`1px solid ${cat.color}44`,fontWeight:700,flexShrink:0}}>{cat.name?.[lang]||cat.id}</span>}
+            </div>
+            {/* Row 2: Photo + name + lives */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+              {a?.photo
+                ?<img src={a.photo} style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',border:'1.5px solid rgba(255,94,58,.3)',flexShrink:0}}/>
+                :<div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,rgba(255,94,58,.2),rgba(255,94,58,.06))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:800,color:'var(--cor)',border:'1.5px solid rgba(255,94,58,.15)',flexShrink:0}}>{(a?.name||'?')[0].toUpperCase()}</div>
+              }
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:800,fontSize:15}}>{stageName}</div>
-                {cat&&<div style={{fontSize:12,color:cat.color}}>{cat.name?.[lang]||cat.id}</div>}
+                <div style={{fontSize:14,fontWeight:800,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.name||r.athleteName||'?'}</div>
+                <div style={{fontSize:10,color:'var(--muted)'}}>#{a?.num||'?'}</div>
               </div>
-              <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:20,border:'1px solid rgba(255,94,58,.4)',background:'rgba(255,94,58,.1)'}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 8px rgba(255,94,58,.8)',animation:'pulse 1.2s infinite'}}/>
-                <span style={{fontSize:11,fontWeight:800,color:'var(--cor)',letterSpacing:'.1em'}}>LIVE</span>
+              {hasLives&&r.livesLeft!=null&&<div style={{display:'flex',gap:3,flexShrink:0}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
+                <div key={i} style={{width:10,height:10,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 4px rgba(255,94,58,.4)'}}/>
+              ))}</div>}
+            </div>
+            {/* Big timer */}
+            <div style={{textAlign:'center'}}>
+              <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timerColor,
+                textShadow:timeCritical?'0 0 20px rgba(255,59,48,.4)':'none'}}>
+                {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
+              </div>
+              <div style={{fontSize:10,color:'var(--muted)',marginTop:4}}>
+                {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
               </div>
             </div>
-            {/* Body */}
-            <div style={{padding:'16px 20px'}}>
-              {/* Athlete row: photo + name + lives */}
-              <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:14}}>
-                {a?.photo
-                  ?<img src={a.photo} style={{width:52,height:52,borderRadius:'50%',objectFit:'cover',border:'2px solid rgba(255,94,58,.4)',flexShrink:0}}/>
-                  :<div style={{width:52,height:52,borderRadius:'50%',background:'linear-gradient(135deg,rgba(255,94,58,.22),rgba(255,94,58,.08))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,fontWeight:800,color:'var(--cor)',border:'2px solid rgba(255,94,58,.2)',flexShrink:0}}>{(a?.name||'?')[0].toUpperCase()}</div>
-                }
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:22,fontWeight:800,letterSpacing:'-.3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a?.name||r.athleteName||'?'}</div>
-                  <div style={{fontSize:12,color:'var(--muted)',marginTop:2}}>#{a?.num||'?'}{a?.team&&<span style={{marginLeft:8,color:'var(--cor2)'}}>{a.team}</span>}</div>
+            {/* Split flash */}
+            {activeFlash&&(
+              <div style={{textAlign:'center',marginTop:6,padding:'4px 8px',borderRadius:8,
+                background:activeFlash.diff===null?'rgba(255,255,255,.06)':activeFlash.diff<=0?'rgba(52,199,89,.1)':'rgba(255,59,48,.1)',
+                border:`1px solid ${activeFlash.diff===null?'rgba(255,255,255,.12)':activeFlash.diff<=0?'rgba(52,199,89,.3)':'rgba(255,59,48,.3)'}`,
+                animation:'fadeUp .3s ease'}}>
+                <div style={{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:900,
+                  color:activeFlash.diff!==null?(activeFlash.diff<=0?'var(--green)':'var(--red)'):'var(--gold)'}}>
+                  {activeFlash.diff!==null?`${activeFlash.diff<=0?'-':'+'}${fmtMs(Math.abs(activeFlash.diff))}`:(lang==='de'?'Bestzeit!':'Best!')}
                 </div>
-                {hasLives&&r.livesLeft!=null&&(
-                  <div style={{textAlign:'center',flexShrink:0}}>
-                    <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',marginBottom:3}}>LIVES</div>
-                    <div style={{display:'flex',gap:4}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
-                      <div key={i} style={{width:14,height:14,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 6px rgba(255,94,58,.5)'}}/>
-                    ))}</div>
-                  </div>
-                )}
+                <div style={{fontSize:9,color:'var(--muted)'}}>{activeFlash.obsName}{activeFlash.bestName&&activeFlash.diff!==null?` · vs ${activeFlash.bestName}`:''}</div>
               </div>
-              {/* Big timer */}
-              <div style={{textAlign:'center',marginBottom:8}}>
-                <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.15em',marginBottom:6}}>RUN TIME</div>
-                <div style={{fontFamily:'JetBrains Mono',fontSize:56,fontWeight:900,lineHeight:1,letterSpacing:'-2px',
-                  color:isCountdown?'#FF9500':timeCritical?'#FF3B30':remaining!==null?'var(--gold)':'rgba(255,180,120,.9)',
-                  textShadow:timeCritical?'0 0 30px rgba(255,59,48,.5)':'0 0 20px rgba(255,180,120,.15)'}}>
-                  {isCountdown?(r.countdown||'GO'):fmtT(remaining!==null?remaining:elapsed)}
-                </div>
-                <div style={{fontSize:13,color:'var(--muted)',marginTop:8}}>
-                  {lastCPObs&&<span>{lastCPObs} · </span>}CP {cpsDone}/{totalCPs||'?'}
-                </div>
-              </div>
-              {/* Ski-racing split flash — appears for 4s after each CP */}
-              {activeFlash&&(
-                <div className="scale-in" style={{textAlign:'center',margin:'8px 0',padding:'10px 16px',borderRadius:12,
-                  background:activeFlash.diff===null?'rgba(255,255,255,.06)':activeFlash.diff<=0?'rgba(52,199,89,.1)':'rgba(255,59,48,.1)',
-                  border:`1px solid ${activeFlash.diff===null?'rgba(255,255,255,.12)':activeFlash.diff<=0?'rgba(52,199,89,.35)':'rgba(255,59,48,.35)'}`,
-                  animation:'fadeUp .3s ease'}}>
-                  <div style={{fontSize:11,color:'var(--muted)',fontWeight:700,marginBottom:4}}>{activeFlash.obsName}</div>
-                  {activeFlash.diff!==null?(
-                    <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,
-                      color:activeFlash.diff<=0?'var(--green)':'var(--red)'}}>
-                      {activeFlash.diff<=0?'-':'+'}{fmtMs(Math.abs(activeFlash.diff))}
-                    </div>
-                  ):(
-                    <div style={{fontFamily:'JetBrains Mono',fontSize:22,fontWeight:800,color:'var(--gold)'}}>
-                      {lang==='de'?'Neue Bestzeit!':'New best!'}
-                    </div>
-                  )}
-                  {activeFlash.bestName&&activeFlash.diff!==null&&(
-                    <div style={{fontSize:10,color:'var(--muted)',marginTop:3}}>vs {activeFlash.bestName}</div>
-                  )}
-                </div>
-              )}
-            </div>
+            )}
           </div>
         );
       })}
