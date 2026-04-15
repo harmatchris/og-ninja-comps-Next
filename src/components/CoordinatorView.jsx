@@ -35,9 +35,18 @@ const ExportModal=({compId,info,athletes,completedRuns,pipelineData,isPipeline,p
         if(!ranked.length)return;
         html+=`<h2 style="color:${c.color}">${catName(c)} — ${stgName} (${ranked.length})</h2>`;
         html+=`<table><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
-        ranked.forEach((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const cls=i<3?['m1','m2','m3'][i]:'';const erg=r.status==='complete'?'<span class="bz">Buzzer ✓</span>':r.fellAt?.name?`<span class="fl">Fall @ ${r.fellAt.name}</span>`:(r.status||'DNF');
+        ranked.forEach((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const cls=i<3?['m1','m2','m3'][i]:'';const erg=r.status==='complete'?'<span class="bz">Buzzer ✓</span>':r.status==='timeout'?'<span class="fl">Timeout</span>':r.fellAt?.name?`<span class="fl">Fall @ ${r.fellAt.name}</span>`:(r.status||'DNF');
         html+=`<tr class="${cls}"><td>${r.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${r.doneCP?.length||0}</td><td>${r.finalTime>0?fmtMs(r.finalTime):''}</td><td>${erg}</td></tr>`;});
         html+=`</table>`;
+        // Stats summary
+        const bz=ranked.filter(r=>r.status==='complete').length;
+        const fl=ranked.filter(r=>['fall','dnf','timeout'].includes(r.status)).length;
+        const dq=ranked.filter(r=>r.status==='dsq').length;
+        html+=`<div style="display:flex;gap:16px;font-size:11px;color:#666;margin:4px 0 16px;padding:8px 12px;background:#f9f9f9;border-radius:6px;">`;
+        html+=`<span><strong style="color:#34C759">✓ ${bz}</strong> Buzzer (${ranked.length>0?Math.round(bz/ranked.length*100):0}%)</span>`;
+        html+=`<span><strong style="color:#FF3B30">✗ ${fl}</strong> Fall/DNF</span>`;
+        if(dq)html+=`<span><strong>${dq}</strong> DSQ</span>`;
+        html+=`<span>Total: <strong>${ranked.length}</strong></span></div>`;
       });
     });
     html+=`</body></html>`;
@@ -47,24 +56,46 @@ const ExportModal=({compId,info,athletes,completedRuns,pipelineData,isPipeline,p
   const doExcel=()=>{
     const divs=selDiv==='all'?catsWithRuns:[IGN_CATS.find(c=>c.id===selDiv)].filter(Boolean);
     const stgs=selStg==='all'?stages:[selStg];
-    let xls=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>`;
-    divs.forEach(c=>{xls+=`<x:ExcelWorksheet><x:Name>${catName(c).substring(0,31)}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;});
-    xls+=`</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
+    const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    // XML Spreadsheet 2003 format — real worksheets per division
+    let xml=`<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles><Style ss:ID="h"><Font ss:Bold="1" ss:Size="11"/></Style><Style ss:ID="t"><Font ss:Bold="1" ss:Size="14"/></Style>
+<Style ss:ID="g"><Interior ss:Color="#FFF8DC" ss:Pattern="Solid"/><Font ss:Bold="1"/></Style>
+<Style ss:ID="s"><Interior ss:Color="#F5F5F5" ss:Pattern="Solid"/></Style>
+<Style ss:ID="b"><Interior ss:Color="#FDF5ED" ss:Pattern="Solid"/></Style>
+<Style ss:ID="bz"><Font ss:Color="#34C759" ss:Bold="1"/></Style>
+<Style ss:ID="fl"><Font ss:Color="#FF3B30"/></Style></Styles>`;
     divs.forEach(c=>{
-      xls+=`<table><tr><td colspan="9" style="font-size:16px;font-weight:bold;">${info?.name||''} — ${catName(c)}</td></tr><tr></tr>`;
+      xml+=`<Worksheet ss:Name="${esc(catName(c)).substring(0,31)}"><Table>`;
+      xml+=`<Row><Cell ss:StyleID="t"><Data ss:Type="String">${esc(info?.name||'')} — ${esc(catName(c))}</Data></Cell></Row><Row/>`;
       stgs.forEach(sid=>{
         const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
         const ranked=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);
         if(!ranked.length)return;
-        xls+=`<tr><td colspan="9" style="font-weight:bold;background:#f5f5f5;">${stgName} (${ranked.length})</td></tr>`;
-        xls+=`<tr style="font-weight:bold;"><td>Platz</td><td>Nr</td><td>Name</td><td>Team</td><td>Land</td><td>Stage</td><td>CPs</td><td>Zeit</td><td>Ergebnis</td></tr>`;
-        ranked.forEach((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const erg=r.status==='complete'?'Buzzer':r.fellAt?.name?`Fall @ ${r.fellAt.name}`:(r.status||'DNF');
-        xls+=`<tr${i<3?` style="background:${['#FFF8DC','#F5F5F5','#FDF5ED'][i]}"`:''}><td>${r.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${stgName}</td><td>${r.doneCP?.length||0}</td><td>${r.finalTime>0?fmtMs(r.finalTime):''}</td><td>${erg}</td></tr>`;});
+        xml+=`<Row><Cell ss:StyleID="h"><Data ss:Type="String">${esc(stgName)} (${ranked.length})</Data></Cell></Row>`;
+        xml+=`<Row ss:StyleID="h"><Cell><Data ss:Type="String">Platz</Data></Cell><Cell><Data ss:Type="String">Nr</Data></Cell><Cell><Data ss:Type="String">Name</Data></Cell><Cell><Data ss:Type="String">Team</Data></Cell><Cell><Data ss:Type="String">Land</Data></Cell><Cell><Data ss:Type="String">CPs</Data></Cell><Cell><Data ss:Type="String">Zeit</Data></Cell><Cell><Data ss:Type="String">Ergebnis</Data></Cell></Row>`;
+        ranked.forEach((r,i)=>{
+          const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
+          const erg=r.status==='complete'?'Buzzer':r.status==='timeout'?'Timeout':r.fellAt?.name?`Fall @ ${r.fellAt.name}`:(r.status||'DNF');
+          const sid2=i<3?['g','s','b'][i]:'';
+          xml+=`<Row${sid2?` ss:StyleID="${sid2}"`:''}><Cell><Data ss:Type="Number">${r.status==='dsq'?0:(i+1)}</Data></Cell><Cell><Data ss:Type="String">${esc(a.num)}</Data></Cell><Cell><Data ss:Type="String">${esc(a.name)}</Data></Cell><Cell><Data ss:Type="String">${esc(a.team||'')}</Data></Cell><Cell><Data ss:Type="String">${esc(a.country||'')}</Data></Cell><Cell><Data ss:Type="Number">${r.doneCP?.length||0}</Data></Cell><Cell><Data ss:Type="String">${r.finalTime>0?fmtMs(r.finalTime):''}</Data></Cell><Cell${r.status==='complete'?' ss:StyleID="bz"':r.fellAt?' ss:StyleID="fl"':''}><Data ss:Type="String">${esc(erg)}</Data></Cell></Row>`;
+        });
+        // Stats summary
+        const buzzers=ranked.filter(r=>r.status==='complete').length;
+        const falls=ranked.filter(r=>['fall','dnf','timeout'].includes(r.status)).length;
+        const dsqs=ranked.filter(r=>r.status==='dsq').length;
+        xml+=`<Row/><Row><Cell ss:StyleID="h"><Data ss:Type="String">Statistik</Data></Cell></Row>`;
+        xml+=`<Row><Cell><Data ss:Type="String">Buzzer</Data></Cell><Cell><Data ss:Type="Number">${buzzers}</Data></Cell><Cell><Data ss:Type="String">${ranked.length>0?Math.round(buzzers/ranked.length*100)+'%':''}</Data></Cell></Row>`;
+        xml+=`<Row><Cell><Data ss:Type="String">Fall/DNF/Timeout</Data></Cell><Cell><Data ss:Type="Number">${falls}</Data></Cell><Cell><Data ss:Type="String">${ranked.length>0?Math.round(falls/ranked.length*100)+'%':''}</Data></Cell></Row>`;
+        if(dsqs)xml+=`<Row><Cell><Data ss:Type="String">DSQ</Data></Cell><Cell><Data ss:Type="Number">${dsqs}</Data></Cell></Row>`;
+        xml+=`<Row><Cell><Data ss:Type="String">Total</Data></Cell><Cell><Data ss:Type="Number">${ranked.length}</Data></Cell></Row>`;
+        xml+=`<Row/>`;
       });
-      xls+=`</table>`;
+      xml+=`</Table></Worksheet>`;
     });
-    xls+=`</body></html>`;
-    const blob=new Blob(['\uFEFF'+xls],{type:'application/vnd.ms-excel;charset=utf-8'});
+    xml+=`</Workbook>`;
+    const blob=new Blob([xml],{type:'application/vnd.ms-excel;charset=utf-8'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`results-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);
     onClose();
   };
