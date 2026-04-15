@@ -210,6 +210,50 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
   );
 };
 
+// Auto-scrolling ranking list: pauses at top 2s, scrolls slowly down, resets
+const AutoScrollRanking=({items,athMap,fmtMs,lang,t})=>{
+  const ref=useRef(null);
+  useEffect(()=>{
+    const el=ref.current;if(!el||items.length<=6)return;
+    let raf,paused=true,pauseStart=performance.now();
+    const tick=()=>{
+      const now=performance.now();
+      if(paused){
+        if(now-pauseStart>2000){paused=false;}
+      }else{
+        el.scrollTop+=0.5; // slow scroll
+        if(el.scrollTop>=el.scrollHeight-el.clientHeight){
+          el.scrollTop=0;paused=true;pauseStart=now;
+        }
+      }
+      raf=requestAnimationFrame(tick);
+    };
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[items.length]);
+  return(
+    <div ref={ref} style={{flex:1,overflowY:'auto',overflowX:'hidden',scrollbarWidth:'none'}}>
+      <style>{`.autoscroll-wrap::-webkit-scrollbar{display:none}`}</style>
+      <div className="autoscroll-wrap">
+        {items.map((r,i)=>{
+          const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};
+          return(
+            <div key={r.athleteId} style={{padding:'5px 8px',display:'flex',alignItems:'center',gap:6,borderBottom:'1px solid rgba(255,255,255,.04)',opacity:r.status==='dsq'?.5:1}}>
+              <div style={{width:18,textAlign:'center',fontSize:10,fontWeight:800,color:i<3?['var(--gold)','#C0C0C0','#CD7F32'][i]:'var(--muted)',fontFamily:'JetBrains Mono'}}>{i+1}</div>
+              {a.photo?<img src={a.photo} style={{width:22,height:22,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/>
+                :<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,94,58,.1)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:800,color:'var(--cor)',flexShrink:0}}>{(a.name||'?')[0]}</div>}
+              <div style={{flex:1,minWidth:0,fontSize:11,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+              <div style={{fontSize:10,fontFamily:'JetBrains Mono',color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)',fontWeight:700,flexShrink:0}}>
+                {r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):'—'}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const ResultsView=({compId,athletes})=>{
   const {t,lang,catName}=useLang();
   const runs=useFbVal(`ogn/${compId}/completedRuns`);
@@ -239,8 +283,8 @@ const ResultsView=({compId,athletes})=>{
   const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
   const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
   const isOverall=selStage==='overall';
-  const isMultiOverall=false; // deprecated — use isOverall instead
-  const ranked=selCat?(isOverall
+  const isMultiOverall=false;
+  const ranked=selCat&&!allStagesView?(isOverall
     ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
     :selStage!=null?(isPipeline?computeRankedPipeline(runList,selCat,selStage):computeRankedStage(runList,selCat,selStage))
     :computeRanked(runList,selCat)):[];
@@ -300,45 +344,87 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
       SFX.complete();
     }
   };
+  // Auto-rotate divisions every 6 seconds
+  const [autoRotateCat,setAutoRotateCat]=useState(true);
+  const [catRotateIdx,setCatRotateIdx]=useState(0);
+  useEffect(()=>{
+    if(!autoRotateCat||catsWithRuns.length<=1)return;
+    const iv=setInterval(()=>setCatRotateIdx(i=>(i+1)%catsWithRuns.length),6000);
+    return()=>clearInterval(iv);
+  },[autoRotateCat,catsWithRuns.length]);
+  // Sync selCat with auto-rotate
+  useEffect(()=>{
+    if(autoRotateCat&&catsWithRuns.length>1&&catsWithRuns[catRotateIdx])setSelCat(catsWithRuns[catRotateIdx].id);
+  },[catRotateIdx,autoRotateCat]);
+  const allStagesView=selStage==='all';
+  const stageList=isPipeline?pipelineStages.map(s=>s.id):stageNums;
+  // Auto-select first stage if none selected
+  useEffect(()=>{if(selStage===null&&stageList.length>0)setSelStage(multiStage?'all':stageList[0]);},[stageList.length]);
   return(
     <div style={{paddingBottom:82,overflowX:'hidden',maxWidth:'100%'}}>
-      <div style={{overflowX:'auto',padding:'12px 16px',display:'flex',gap:6,borderBottom:'1px solid var(--border)'}}>
-        {catsWithRuns.map(c=>(
-          <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
-            style={{flexShrink:0,fontSize:11,...(selCat===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
-            onClick={()=>{setSelCat(c.id);SFX.hover();}}>{c.name[lang]}</button>
-        ))}
-      </div>
-      {/* Stage selector + Gesamt at the end */}
+      {/* Stage tabs — BIG, on top */}
       {multiStage&&(
-        <div style={{overflowX:'auto',padding:'6px 16px',display:'flex',gap:5,borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
-          {(isPipeline?pipelineStages:[]).map((stg,si)=>{
-            const sel=selStage===stg.id||(selStage===null&&si===0);
-            if(selStage===null&&si===0)setTimeout(()=>setSelStage(stg.id),0);
-            return(<button key={stg.id} className={`chip${sel?' active':''}`}
-              style={{flexShrink:0,fontSize:10,padding:'2px 10px',...(sel?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+        <div style={{display:'flex',gap:6,padding:'8px 16px',borderBottom:'1px solid var(--border)'}}>
+          <button className={`chip${allStagesView?' active':''}`}
+            style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(allStagesView?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+            onClick={()=>{setSelStage('all');SFX.hover();}}>
+            {lang==='de'?'Alle Stages':'All Stages'}
+          </button>
+          {(isPipeline?pipelineStages:[]).map(stg=>(
+            <button key={stg.id} className={`chip${selStage===stg.id?' active':''}`}
+              style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(selStage===stg.id?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
               onClick={()=>{setSelStage(stg.id);SFX.hover();}}>
               {stg.name||stg.id}
-            </button>);
-          })}
-          {(!isPipeline?stageNums:[]).map((n,si)=>{
-            const sel=selStage===n||(selStage===null&&si===0);
-            if(selStage===null&&si===0)setTimeout(()=>setSelStage(n),0);
-            return(<button key={n} className={`chip${sel?' active':''}`}
-              style={{flexShrink:0,fontSize:10,padding:'2px 10px',...(sel?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+            </button>
+          ))}
+          {(!isPipeline?stageNums:[]).map(n=>(
+            <button key={n} className={`chip${selStage===n?' active':''}`}
+              style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(selStage===n?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
               onClick={()=>{setSelStage(n);SFX.hover();}}>
               Stage {n}
-            </button>);
-          })}
+            </button>
+          ))}
           <button className={`chip${selStage==='overall'?' active':''}`}
-            style={{flexShrink:0,fontSize:10,padding:'2px 10px',fontWeight:800,...(selStage==='overall'?{background:'rgba(255,214,10,.15)',borderColor:'rgba(255,214,10,.4)',color:'var(--gold)'}:{})}}
+            style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(selStage==='overall'?{background:'rgba(255,214,10,.15)',borderColor:'rgba(255,214,10,.4)',color:'var(--gold)'}:{})}}
             onClick={()=>{setSelStage('overall');SFX.hover();}}>
             {lang==='de'?'Gesamt':'Overall'}
           </button>
         </div>
       )}
+      {/* Division tabs — auto-rotating, smaller */}
+      <div style={{padding:'6px 16px',display:'flex',gap:4,alignItems:'center',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
+        {catsWithRuns.map((c,ci)=>(
+          <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
+            style={{flexShrink:0,fontSize:10,padding:'2px 9px',...(selCat===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
+            onClick={()=>{setSelCat(c.id);setAutoRotateCat(false);setCatRotateIdx(ci);SFX.hover();}}>{c.name[lang]}</button>
+        ))}
+        {catsWithRuns.length>1&&<button className={`chip${autoRotateCat?' active':''}`} style={{fontSize:9,padding:'2px 7px',marginLeft:'auto'}} onClick={()=>setAutoRotateCat(!autoRotateCat)}>
+          <I.RefreshCw s={9}/> Auto
+        </button>}
+      </div>
       {catsWithRuns.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
-      {selCat&&ranked.length>0&&(()=>{
+      {/* ALL STAGES side-by-side view */}
+      {allStagesView&&selCat&&(
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${Math.min(stageList.length,4)},1fr)`,gap:8,padding:'8px 12px'}}>
+          {stageList.map(sid=>{
+            const stgRanked=isPipeline?computeRankedPipeline(runList,selCat,sid):computeRankedStage(runList,selCat,sid);
+            const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
+            const cat=IGN_CATS.find(c=>c.id===selCat);
+            return(
+              <div key={sid} style={{border:'1px solid var(--border)',borderRadius:12,overflow:'hidden',display:'flex',flexDirection:'column',maxHeight:'calc(100vh - 240px)'}}>
+                <div style={{padding:'8px 10px',background:'rgba(255,94,58,.06)',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:22,height:22,borderRadius:6,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:'#fff'}}>{isPipeline?(stgName||'').charAt(0).toUpperCase():sid}</div>
+                  <div style={{fontSize:12,fontWeight:800}}>{stgName}</div>
+                  {cat&&<div style={{fontSize:9,color:cat.color,marginLeft:'auto',fontWeight:700}}>{cat.name[lang]}</div>}
+                </div>
+                <AutoScrollRanking items={stgRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t}/>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {/* Single stage / overall view */}
+      {!allStagesView&&selCat&&ranked.length>0&&(()=>{
         return(
           <div className="section">
             {ranked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const initials=(a.name||'?')[0].toUpperCase();const isFirstNonQual=qualCount!=null&&i===qualCount;
