@@ -722,6 +722,7 @@ const handleDeleteAth=async(a)=>{
                     </div>}
                   </div>
                   <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowQR(showQR===stageKey?null:stageKey)}><I.QR s={15}/></button>
+                  <button className="btn btn-ghost" style={{padding:'7px',borderColor:'rgba(255,100,40,.25)'}} title={lang==='de'?'Stage zurücksetzen':'Reset stage'} onClick={()=>handleStageReset(null,null,pStage.id)}><I.RefreshCw s={14} c="rgba(255,120,60,.7)"/></button>
                 </div>
                 {/* QR panel */}
                 {showQR===stageKey&&(
@@ -735,15 +736,14 @@ const handleDeleteAth=async(a)=>{
                 )}
                 {/* BIG START BUTTON */}
                 {isOccupied
-                  ?<div style={{display:'flex',gap:6,marginTop:2}}>
-                    <button className="btn btn-ghost" style={{flex:1,padding:14,fontSize:14,gap:8,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
+                  ?<button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:14,gap:8,marginTop:2,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
                       <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite'}}/>
                       {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
                     </button>
-                    <button className="btn btn-ghost" style={{padding:'10px 12px',borderColor:'rgba(255,100,40,.25)',color:'rgba(255,120,60,.7)'}} title="Reset" onClick={()=>handleStageReset(null,null,pStage.id)}><I.RefreshCw s={15} c="rgba(255,120,60,.7)"/></button>
-                  </div>
                   :stageClosed
-                    ?<div style={{width:'100%',padding:12,fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:7,opacity:.5,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>✔ {lang==='de'?'Abgeschlossen':'Closed'}</div>
+                    ?<button className="btn btn-ghost" style={{width:'100%',padding:12,fontSize:13,gap:7,marginTop:2,borderColor:'rgba(255,200,80,.25)',color:'rgba(255,200,80,.7)'}} onClick={()=>{const pin=window.prompt(lang==='de'?'PIN eingeben um Stage zu öffnen:':'Enter PIN to reopen stage:');if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}fbUpdate(`ogn/${compId}/pipeline/${pStage.id}`,{closed:null});SFX.complete();}}>
+                      <I.RefreshCw s={13}/> {lang==='de'?'Stage wieder öffnen':'Reopen stage'}
+                    </button>
                     :!predsClosed
                       ?<div style={{width:'100%',padding:14,fontSize:14,marginTop:2,display:'flex',alignItems:'center',justifyContent:'center',gap:8,opacity:0.55,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>{lang==='de'?'Vorgänger-Stage(s) erst abschließen':'Complete predecessor stage(s) first'}</div>
                       :info?.skillPhase?.enabled&&!skillStatus?.seedingDone&&!skillStatus?.finalized&&(()=>{
