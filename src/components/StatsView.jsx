@@ -30,27 +30,28 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
     :'ninjaBob 0.45s ease-in-out infinite alternate';
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
   return(
-    <g transform={`translate(${x-size/2},${allDead?y+300:y-size})`} style={{transition:'transform 0.8s ease-in-out'}}>
+    <g transform={`translate(${x-size/2},${allDead?y+300:y-size})`}>
     <g style={{animation:anim}}>
       <style>{`
         @keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}
         @keyframes ninjaFallOut{0%{transform:translateY(0) rotate(0);opacity:1}40%{transform:translateY(${size*2}px) rotate(180deg);opacity:.8}100%{transform:translateY(${size*12}px) rotate(720deg);opacity:0}}
         @keyframes ninjaHangRecover{
           0%{transform:translateY(0) rotate(0)}
-          8%{transform:translateY(${size*2.5}px) rotate(15deg)}
-          14%{transform:translateY(${size*3.5}px) rotate(-10deg)}
-          18%{transform:translateY(${size*2.8}px) rotate(5deg)}
-          22%{transform:translateY(${size*3}px) rotate(0) scaleY(.85)}
-          30%{transform:translateY(${size*3}px) rotate(3deg) scaleY(.85)}
-          35%{transform:translateY(${size*3}px) rotate(-3deg) scaleY(.85)}
-          40%{transform:translateY(${size*3}px) rotate(2deg) scaleY(.85)}
-          48%{transform:translateY(${size*2.2}px) rotate(-5deg) scaleY(.9)}
-          55%{transform:translateY(${size*1.8}px) rotate(4deg) scaleY(.92)}
-          62%{transform:translateY(${size*1.2}px) rotate(-3deg) scaleY(.95)}
-          70%{transform:translateY(${size*.6}px) rotate(2deg) scaleY(.98)}
-          80%{transform:translateY(${size*.2}px) rotate(-8deg)}
-          88%{transform:translateY(0) rotate(5deg)}
-          94%{transform:translateY(0) rotate(-2deg)}
+          6%{transform:translateY(${size*1.2}px) rotate(12deg)}
+          12%{transform:translateY(${size*1.5}px) rotate(-5deg)}
+          16%{transform:translateY(${size*1.4}px) rotate(0) scaleY(.88)}
+          22%{transform:translateY(${size*1.4}px) rotate(2deg) scaleY(.88)}
+          26%{transform:translateY(${size*1.4}px) rotate(-2deg) scaleY(.88)}
+          32%{transform:translateY(${size*1.1}px) rotate(3deg) scaleY(.9)}
+          38%{transform:translateY(${size*1.15}px) rotate(-2deg) scaleY(.9)}
+          44%{transform:translateY(${size*.85}px) rotate(2deg) scaleY(.92)}
+          50%{transform:translateY(${size*.9}px) rotate(-1deg) scaleY(.92)}
+          56%{transform:translateY(${size*.6}px) rotate(2deg) scaleY(.95)}
+          62%{transform:translateY(${size*.65}px) rotate(-1deg) scaleY(.95)}
+          70%{transform:translateY(${size*.3}px) rotate(1deg) scaleY(.98)}
+          78%{transform:translateY(${size*.1}px) rotate(-3deg)}
+          86%{transform:translateY(0) rotate(4deg)}
+          93%{transform:translateY(0) rotate(-1deg)}
           100%{transform:translateY(0) rotate(0)}
         }
         @keyframes ninjaFlip{0%{transform:rotate(0)}30%{transform:translateY(-${size*.6}px) rotate(-180deg)}60%{transform:translateY(-${size*.3}px) rotate(-360deg)}100%{transform:rotate(-360deg)}}
@@ -100,6 +101,85 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   );
 };
 
+// Ghost ninja: semi-transparent, follows the best run's timeline
+const GhostNinja=({x,y,size=24,color='#30D158',name='',ahead=false})=>(
+  <g transform={`translate(${x-size/2},${y-size})`} opacity={.35}>
+    <g style={{animation:'ninjaBob 0.5s ease-in-out infinite alternate'}}>
+      <circle cx={size/2} cy={size*.28} r={size*.16} fill={ahead?'#FF3B30':color}/>
+      <rect x={size*.32} y={size*.26} width={size*.36} height={size*.05} fill="rgba(0,0,0,.4)"/>
+      <rect x={size*.36} y={size*.42} width={size*.28} height={size*.32} rx={size*.07} fill={ahead?'#FF3B30':color}/>
+      <rect x={size*.2} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={ahead?'#FF3B30':color} transform={`rotate(-15 ${size*.27} ${size*.51})`}/>
+      <rect x={size*.66} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={ahead?'#FF3B30':color} transform={`rotate(15 ${size*.73} ${size*.51})`}/>
+      <g style={{transformOrigin:`${size*.44}px ${size*.74}px`,animation:'legA 0.4s linear infinite'}}>
+        <rect x={size*.38} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={ahead?'#FF3B30':color}/>
+      </g>
+      <g style={{transformOrigin:`${size*.56}px ${size*.74}px`,animation:'legB 0.4s linear infinite'}}>
+        <rect x={size*.52} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={ahead?'#FF3B30':color}/>
+      </g>
+      {name&&<text x={size/2} y={-6} textAnchor="middle" fontSize={size*.28} fontWeight="700" fill={ahead?'rgba(255,59,48,.5)':'rgba(52,199,89,.5)'} fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.5)',strokeWidth:2,strokeLinejoin:'round'}}>{name}</text>}
+    </g>
+  </g>
+);
+
+// Smooth ninja: interpolates X between CPs with easeOut (decelerating approach)
+// Also renders a ghost ninja for the best run comparison
+const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
+  const cpIdx=Math.min(lr.doneCPCount,nPts-1);
+  const nextIdx=Math.min(cpIdx+1,nPts-1);
+  const fromX=xs(cpIdx);
+  const toX=xs(nextIdx);
+  const cy=ys(100);
+  const [animX,setAnimX]=useState(fromX);
+  const [ghostX,setGhostX]=useState(xs(0));
+  const startRef=useRef(null);
+  const prevCPRef=useRef(cpIdx);
+  // When CP changes, snap to the CP position and restart forward animation
+  useEffect(()=>{
+    if(cpIdx!==prevCPRef.current){setAnimX(xs(cpIdx));startRef.current=null;prevCPRef.current=cpIdx;}
+  },[cpIdx]);
+  // Animate forward from current CP toward next CP, decelerating
+  // Also animate ghost ninja based on best run's CP times
+  useEffect(()=>{
+    if(cpIdx>=nPts-1||lr.fallen)return;
+    const segDuration=12000;
+    let raf;
+    const tick=()=>{
+      const now=performance.now();
+      if(!startRef.current)startRef.current=now;
+      const elapsed=now-startRef.current;
+      const t=Math.min(elapsed/segDuration,0.92);
+      const ease=1-Math.pow(1-t,3);
+      setAnimX(fromX+(toX-fromX)*ease);
+      // Ghost: compute position based on elapsed real time vs best run CP times
+      if(lr.bestRunCPs?.length>0&&lr.startEpoch){
+        const realElapsed=Date.now()-lr.startEpoch;
+        // Find which CP the ghost has reached based on time
+        let ghostCP=0;
+        for(let i=0;i<lr.bestRunCPs.length;i++){
+          if(lr.bestRunCPs[i]?.time&&realElapsed>=lr.bestRunCPs[i].time)ghostCP=i+1;
+          else break;
+        }
+        const ghostCpIdx=Math.min(ghostCP,nPts-1);
+        const ghostNextIdx=Math.min(ghostCpIdx+1,nPts-1);
+        // Interpolate within current ghost segment
+        const ghostFromTime=ghostCpIdx>0?lr.bestRunCPs[ghostCpIdx-1]?.time||0:0;
+        const ghostToTime=lr.bestRunCPs[ghostCpIdx]?.time||ghostFromTime+segDuration;
+        const ghostSegT=Math.min(Math.max(0,(realElapsed-ghostFromTime)/(ghostToTime-ghostFromTime)),0.98);
+        const gx=xs(ghostCpIdx)+(xs(ghostNextIdx)-xs(ghostCpIdx))*ghostSegT;
+        setGhostX(gx);
+      }
+      raf=requestAnimationFrame(tick);
+    };
+    raf=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(raf);
+  },[cpIdx,fromX,toX,lr.fallen,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
+  const ghostAhead=ghostX>animX;
+  return<>
+    {lr.bestRunCPs?.length>0&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} color="#30D158" name={lr.bestRunName||'Best'} ahead={ghostAhead}/>}
+    <NinjaRunner x={animX} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>
+  </>;
+};
+
 const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
   const W=1000,H=tvMode?420:300;
@@ -145,13 +225,10 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
             {i===0?'Platform':(p.label||'').substring(0,20)}
           </text>
         ))}
-        {/* Live ninja runners — run along top (y=100%), fall down when eliminated */}
+        {/* Live ninja runners — smooth forward run along top line */}
         {liveRunners.map((lr,idx)=>{
-          const cpIdx=Math.min(lr.doneCPCount,nPts-1);
           const catData=data.find(d=>d.cat.id===lr.catId);
-          const cx=xs(cpIdx);
-          const cy=ys(100);
-          return<NinjaRunner key={lr.id||idx} x={cx} y={cy} size={tvMode?36:24} color={catData?.cat?.color||'#FF5E3A'} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining}/>;
+          return<SmoothNinja key={lr.id||idx} lr={lr} xs={xs} ys={ys} nPts={nPts} tvMode={tvMode} catData={catData}/>;
         })}
       </svg>
     </div>
@@ -279,7 +356,11 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const limitSec=info?.stageLimits?.[stageKey]??info?.timeLimit??0;
       const elapsed=r.startEpoch?Date.now()-r.startEpoch:0;
       const timeRemaining=limitSec>0?Math.max(0,limitSec*1000-elapsed):null;
-      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining};
+      // Best run for ghost ninja (same cat+stage, best = most CPs then fastest)
+      const bestRun=stageRuns.filter(x=>x.catId===catId&&x.status!=='dsq'&&x.athleteId!==r.athleteId).sort((a,b)=>(b.doneCP?.length||0)-(a.doneCP?.length||0)||(a.finalTime||Infinity)-(b.finalTime||Infinity))[0];
+      const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
+      const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName};
     }):[];
     return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
   }).filter(Boolean):[];
