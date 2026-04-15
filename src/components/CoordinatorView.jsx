@@ -4,7 +4,7 @@ import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, db, fbSet, fbUpdate, fbRemove 
 import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
-import { Spinner, EmptyState, TopBar, CompEmoji, DragList, AutocompleteInput, QRCodeComp, TimePicker } from './shared.jsx';
+import { Spinner, EmptyState, TopBar, CompEmoji, Heart, DragList, AutocompleteInput, QRCodeComp, TimePicker } from './shared.jsx';
 import { SetupWizard } from './SetupWizard.jsx';
 import { ResultsView } from './ResultsView.jsx';
 import { AthleteQueueView } from './QueueView.jsx';
@@ -233,9 +233,9 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                 <div style={{fontSize:10,color:'var(--muted)'}}>#{a?.num||'?'}</div>
               </div>
               {hasLives&&r.livesLeft!=null&&(r.livesLeft>=999
-                ?<div style={{fontSize:16,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
-                :r.livesLeft>0&&<div style={{display:'flex',gap:3,flexShrink:0}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
-                  <div key={i} style={{width:10,height:10,borderRadius:'50%',background:'var(--cor)',boxShadow:'0 0 4px rgba(255,94,58,.4)'}}/>
+                ?<div style={{fontSize:16,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
+                :r.livesLeft>0&&<div style={{display:'flex',gap:2,flexShrink:0}}>{Array.from({length:r.livesLeft}).map((_,i)=>(
+                  <Heart key={i} alive s={10}/>
                 ))}</div>
               )}
             </div>
@@ -478,17 +478,19 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     await fbRemove(`ogn/${compId}/stations`);
     SFX.complete();setShowRestart(false);
   };
-  const handleStageReset=async(stN,catId)=>{
-    const pin=window.prompt(lang==='de'?`PIN für Stage-${stN}-Reset eingeben:`:`Enter PIN to reset Stage ${stN}:`);
+  const handleStageReset=async(stN,catId,pipeStageId)=>{
+    const pin=window.prompt(lang==='de'?`PIN für Stage-Reset eingeben:`:`Enter PIN to reset stage:`);
     if(pin===null)return;
     if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
-    if(!window.confirm(lang==='de'?`Stage ${stN} (${IGN_CATS.find(c=>c.id===catId)?.name.de||catId}) wirklich zurücksetzen?\nAlle Läufe dieser Stage werden gelöscht.`:`Really reset Stage ${stN}?\nAll runs for this stage will be deleted.`))return;
+    const label=pipeStageId?(pipeline.find(s=>s.id===pipeStageId)?.name||pipeStageId):`Stage ${stN}`;
+    if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\nAlle Läufe dieser Stage werden gelöscht.`:`Really reset ${label}?\nAll runs will be deleted.`))return;
     if(completedRuns){
-      const toDelete=Object.entries(completedRuns).filter(([,r])=>r.stNum===stN||(r.catId===catId&&!r.stNum));
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>pipeStageId?r.stageId===pipeStageId:(r.stNum===stN||(r.catId===catId&&!r.stNum)));
       const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});
       if(Object.keys(updates).length)await db.ref().update(updates);
     }
-    await fbRemove(`ogn/${compId}/activeRuns/${stN}`);
+    const runKey=pipeStageId||stN;
+    await fbRemove(`ogn/${compId}/activeRuns/${runKey}`);
     SFX.complete();
   };
   const handleQuickAddAth=async()=>{
@@ -733,10 +735,13 @@ const handleDeleteAth=async(a)=>{
                 )}
                 {/* BIG START BUTTON */}
                 {isOccupied
-                  ?<button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:14,gap:8,marginTop:2,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
+                  ?<div style={{display:'flex',gap:6,marginTop:2}}>
+                    <button className="btn btn-ghost" style={{flex:1,padding:14,fontSize:14,gap:8,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
                       <div style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.8)',animation:'pulse 1.2s infinite'}}/>
                       {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
                     </button>
+                    <button className="btn btn-ghost" style={{padding:'10px 12px',borderColor:'rgba(255,100,40,.25)',color:'rgba(255,120,60,.7)'}} title="Reset" onClick={()=>handleStageReset(null,null,pStage.id)}><I.RefreshCw s={15} c="rgba(255,120,60,.7)"/></button>
+                  </div>
                   :stageClosed
                     ?<div style={{width:'100%',padding:12,fontSize:13,display:'flex',alignItems:'center',justifyContent:'center',gap:7,opacity:.5,background:'var(--card2)',borderRadius:10,color:'var(--muted)'}}>✔ {lang==='de'?'Abgeschlossen':'Closed'}</div>
                     :!predsClosed

@@ -4,7 +4,7 @@ import { IGN_CATS, db, fbSet, fbUpdate, fbRemove } from '../config.js';
 import { uid, fmtMs, toFlag, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
 import { useFbVal, useTimer, SFX, BLE } from '../hooks.js';
 import { I } from '../icons.jsx';
-import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar, DragList } from './shared.jsx';
+import { Spinner, EmptyState, MedalBadge, Heart, LifeDots, TopBar, DragList } from './shared.jsx';
 import { ResultsView, Regelwerk } from './ResultsView.jsx';
 import { AthleteQueueView } from './QueueView.jsx';
 import { StatsView } from './StatsView.jsx';
@@ -363,9 +363,9 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
               {lives>=999?(
                 <div style={{fontSize:22,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',display:'inline-block',transform:'rotate(90deg)'}}>8</div>
               ):(
-                <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                <div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   {Array.from({length:maxLives||info.lives||3},(_,i)=>(
-                    <div key={i} style={{width:11,height:11,borderRadius:'50%',background:i<lives?'var(--cor)':'rgba(255,255,255,.12)',boxShadow:i<lives?'0 0 8px rgba(255,94,58,.6)':'none',transition:'all .3s'}}/>
+                    <Heart key={i} alive={i<lives} s={13}/>
                   ))}
                 </div>
               )}

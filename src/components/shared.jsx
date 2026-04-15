@@ -70,17 +70,21 @@ const AutocompleteInput=({acKey,value,onChange,placeholder,style,onKeyDown,autoF
 const Spinner=()=><div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><div style={{width:26,height:26,border:'2.5px solid var(--border)',borderTopColor:'var(--cor)',borderRadius:'50%',animation:'spin .7s linear infinite'}}/></div>;
 const EmptyState=({icon,text})=><div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:10,padding:'44px 24px',color:'var(--muted)',textAlign:'center'}}><div style={{fontSize:30,opacity:.4}}>{icon}</div><div style={{fontSize:13}}>{text}</div></div>;
 const MedalBadge=({pos,s=28})=>{const c=pos===0?'#FFD60A':pos===1?'#C0C0C0':'#CD7F32';return<div style={{width:s,height:s,borderRadius:'50%',background:`radial-gradient(135deg,${c}33,${c}11)`,border:`2px solid ${c}88`,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:Math.round(s*.44),color:c,flexShrink:0,fontFamily:'JetBrains Mono'}}>{pos+1}</div>;};
+const Heart=({alive,s=7})=>(
+  <svg width={s} height={s} viewBox="0 0 12 11" style={{flexShrink:0,opacity:alive?1:.25,filter:alive?'drop-shadow(0 0 2px rgba(255,50,80,.6))':'none',transition:'opacity .3s'}}>
+    <path d="M6 10.2C3.6 8.4.5 6.2.5 3.5.5 1.6 2 .5 3.5.5c1 0 1.9.5 2.5 1.3C6.6 1 7.5.5 8.5.5 10 .5 11.5 1.6 11.5 3.5c0 2.7-3.1 4.9-5.5 6.7z" fill={alive?'#FF3B60':'#555'} stroke={alive?'#FF1744':'#444'} strokeWidth=".5"/>
+  </svg>
+);
 const LifeDots=({run,size=7})=>{
   if(run.mode!=='lives')return null;
   const used=Array.isArray(run.falls)?run.falls.length:0;
+  const total=run.lives||3;
+  const remaining=total-used;
+  if(total>=999)return<div style={{fontSize:size+3,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1,flexShrink:0}}>8</div>;
   if(used===0)return null;
   return(
-    <div style={{display:'flex',gap:2,alignItems:'center',flexShrink:0}}>
-      {Array.from({length:used},(_,i)=>(
-        <div key={i} style={{width:size,height:size,borderRadius:'50%',background:'rgba(255,50,50,.18)',border:'1px solid rgba(255,60,50,.5)',position:'relative',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-          <div style={{position:'absolute',width:'130%',height:1,background:'rgba(255,60,50,.75)',transform:'rotate(-45deg)'}}/>
-        </div>
-      ))}
+    <div style={{display:'flex',gap:1,alignItems:'center',flexShrink:0}}>
+      {Array.from({length:total},(_,i)=><Heart key={i} alive={i<remaining} s={size}/>)}
     </div>
   );
 };
@@ -221,4 +225,4 @@ const TimePicker=({value,onChange,allowDefault=false})=>{
   );
 };
 
-export { AutocompleteInput, Spinner, EmptyState, MedalBadge, LifeDots, CompEmoji, TopBar, QRCodeComp, DragList, TimePicker };
+export { AutocompleteInput, Spinner, EmptyState, MedalBadge, Heart, LifeDots, CompEmoji, TopBar, QRCodeComp, DragList, TimePicker };

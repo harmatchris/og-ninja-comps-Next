@@ -4,7 +4,7 @@ import { IGN_CATS, db, fbSet } from '../config.js';
 import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
 import { useFbVal, useTimer, useWinW, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
-import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, LifeDots } from './shared.jsx';
+import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, Heart, LifeDots } from './shared.jsx';
 import { ResultsView } from './ResultsView.jsx';
 import { AthleteQueueView, AutoScrollList } from './QueueView.jsx';
 import { StatsView } from './StatsView.jsx';
@@ -250,12 +250,10 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     <div className="live-dot"/>
                     <div style={{fontFamily:'JetBrains Mono',fontSize:cols===1?36:28,fontWeight:700,color:'#FF5E3A',letterSpacing:'-1px'}}>{fmtMs(elapsed)}</div>
                     {run.livesLeft!=null&&run.livesLeft>0&&(
-                      <div style={{marginLeft:'auto',display:'flex',gap:4,alignItems:'center'}}>
+                      <div style={{marginLeft:'auto',display:'flex',gap:2,alignItems:'center'}}>
                         {run.livesLeft>=999
-                          ?<div style={{fontSize:18,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
-                          :Array.from({length:run.livesLeft}).map((_,i)=>(
-                            <div key={i} style={{width:8,height:8,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px rgba(52,199,89,.6)'}}/>
-                          ))
+                          ?<div style={{fontSize:18,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
+                          :Array.from({length:run.livesLeft}).map((_,i)=><Heart key={i} alive s={10}/>)
                         }
                       </div>
                     )}
