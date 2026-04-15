@@ -717,6 +717,21 @@ const handleDeleteAth=async(a)=>{
                     ✔ {lang==='de'?`Stage "${stageName}" abschließen`:`Close stage "${stageName}"`}
                   </button>
                 )}
+                {/* Time limit — editable per pipeline stage */}
+                {!stageClosed&&(editTimeLimitStage===stageKey
+                  ?<div style={{padding:'10px 14px',background:'var(--card2)',borderRadius:10,border:'1px solid var(--border)',display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--muted)'}}>{lang==='de'?'Zeitlimit (Sekunden)':'Time limit (seconds)'}</div>
+                    <TimePicker value={timeLimitDraft} onChange={v=>setTimeLimitDraft(v||0)} allowDefault/>
+                    <div style={{display:'flex',gap:6}}>
+                      <button className="btn btn-coral" style={{flex:1,padding:'8px',fontSize:12,gap:5}} onClick={()=>saveTimeLimit(stageKey)}><I.Check s={12}/>{lang==='de'?'Speichern':'Save'}</button>
+                      <button className="btn btn-ghost" style={{padding:'8px 12px',fontSize:12}} onClick={()=>setEditTimeLimitStage(null)}><I.X s={12}/></button>
+                    </div>
+                  </div>
+                  :<button className="btn btn-ghost" style={{width:'100%',padding:'7px 12px',fontSize:11,gap:5,marginTop:4}}
+                    onClick={()=>{const cur=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(info.timeLimit||0);setTimeLimitDraft(cur);setEditTimeLimitStage(stageKey);}}>
+                    <I.Clock s={12}/> {lang==='de'?'Zeitlimit':'Time limit'}: <span style={{fontFamily:'JetBrains Mono',color:'var(--gold)'}}>{(()=>{const v=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(info.timeLimit||0);return v===0?(lang==='de'?'Kein Limit':'No limit'):`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;})()}</span>
+                  </button>
+                )}
               </div>
             );
           })
