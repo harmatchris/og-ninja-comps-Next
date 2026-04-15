@@ -16,9 +16,18 @@ import { Spinner, EmptyState } from './shared.jsx';
 
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
 const NinjaRunner=({x,y,size=28,color='#FF5E3A',name=''})=>{
+  const filterId=`glow-${name||'n'}`.replace(/\s/g,'');
   return(
     <g transform={`translate(${x-size/2},${y-size})`} style={{animation:'ninjaBob 0.45s ease-in-out infinite alternate'}}>
-      <style>{`@keyframes ninjaBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}`}</style>
+      <style>{`@keyframes ninjaBob{from{transform:translateY(0)}to{transform:translateY(-3px)}}@keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}@keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}@keyframes ninjaGlow{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}`}</style>
+      <defs>
+        <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      {/* glow circle behind ninja */}
+      <circle cx={size/2} cy={size*0.5} r={size*0.55} fill={color} opacity=".2" style={{animation:'ninjaGlow 1.5s ease-in-out infinite'}} filter={`url(#${filterId})`}/>
       {/* head */}
       <circle cx={size/2} cy={size*0.28} r={size*0.18} fill={color}/>
       {/* mask band */}

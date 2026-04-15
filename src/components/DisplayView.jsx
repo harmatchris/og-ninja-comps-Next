@@ -15,6 +15,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const athletesMap=useFbVal(`ogn/${compId}/athletes`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const pipelineData=useFbVal(info?.pipelineEnabled?`ogn/${compId}/pipeline`:null);
   const [catIdx,setCatIdx]=useState(0);const [nowMs,setNowMs]=useState(Date.now());
   const [showJuryPicker,setShowJuryPicker]=useState(false);
   const winW=useWinW();const isWide=winW>=1024;
@@ -691,7 +692,7 @@ const StatsDisplayView=({compId,onBack})=>{
         {onBack&&<button className="btn btn-ghost" style={{padding:'8px 16px',fontSize:13}} onClick={onBack}><I.X s={14}/></button>}
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'16px 28px 40px'}}>
-        <StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} tvMode={true}/>
+        <StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} pipelineData={pipelineData} tvMode={true}/>
       </div>
     </div>
   );
