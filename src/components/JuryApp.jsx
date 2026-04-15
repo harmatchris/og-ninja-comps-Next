@@ -687,11 +687,12 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const [completedRunKey,setCompletedRunKey]=useState(null);
   // Lives config: pipeline stages store lives/totalLives on the stage config; fallback to global info
   const pipelineLives=isPipeline?pipelineStageCfg?.lives:null;
-  const pipelineTotalLives=isPipeline?pipelineStageCfg?.totalLives:null;
+  const pipelineTotalLives=isPipeline?pipelineStageCfg?.totalLives:undefined;
   const effectiveLives=pipelineLives??info?.stageExtraLife?.[stNum]?.lives??info?.stageLivesOverrides?.[stNum]??info?.lives??3;
-  const effectiveTotalLives=pipelineTotalLives??info?.stageExtraLife?.[stNum]?.stageTotalLives??info?.stageTotalLives??null;
-  // totalLives=0 means infinity — only when mode is 'lives' and explicitly set to 0
-  const isInfinityLives=info?.mode==='lives'&&effectiveTotalLives===0;
+  // Infinity only when the stage itself explicitly has totalLives=0 (not from global default)
+  const _rawTotalLives=pipelineTotalLives??info?.stageExtraLife?.[stNum]?.stageTotalLives??undefined;
+  const isInfinityLives=info?.mode==='lives'&&_rawTotalLives===0;
+  const effectiveTotalLives=_rawTotalLives??info?.stageTotalLives??null;
   const [lives,setLives]=useState(isInfinityLives?999:effectiveLives);
   const [totalLivesLeft,setTotalLivesLeft]=useState(isInfinityLives?null:(effectiveTotalLives!=null&&effectiveTotalLives>0?effectiveTotalLives:null));
   const [goTime,setGoTime]=useState(null);
