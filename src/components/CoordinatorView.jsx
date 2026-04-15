@@ -4,7 +4,7 @@ import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, db, fbSet, fbUpdate, fbRemove 
 import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
-import { Spinner, EmptyState, TopBar, CompEmoji, DragList, AutocompleteInput, QRCodeComp } from './shared.jsx';
+import { Spinner, EmptyState, TopBar, CompEmoji, DragList, AutocompleteInput, QRCodeComp, TimePicker } from './shared.jsx';
 import { SetupWizard } from './SetupWizard.jsx';
 import { ResultsView } from './ResultsView.jsx';
 import { AthleteQueueView } from './QueueView.jsx';
