@@ -279,13 +279,22 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,totalL
   },[]);
   useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives});},[doneCP,lives]);
 
-  // Auto-stop when time limit expires
+  // Auto-stop when time limit expires — treated as fall at the time limit
   useEffect(()=>{
     if(!timeLimitMs)return;
     const t=setTimeout(()=>{
       const dc=doneCPRef.current;
-      const lct=dc.length>0?dc[dc.length-1].time:timeLimitMs;
-      onStop({doneCP:dc,time:lct,currentTime:timeLimitMs,lives:livesRef.current,reason:'timeout'});
+      // Find the last obstacle the athlete was on (fell at)
+      const lastCPIdx=dc.length;
+      const fellAtObs=cpObst[lastCPIdx]||cpObst[cpObst.length-1]||null;
+      onFall({
+        doneCP:dc,
+        pendingFallIdx:lastCPIdx,
+        currentTime:timeLimitMs, // cap at time limit — never exceed
+        lives:livesRef.current,
+        reason:'timeout',
+        fellAt:fellAtObs?{id:fellAtObs.id,name:fellAtObs.name,order:fellAtObs.order}:null
+      });
     },timeLimitMs);
     return()=>clearTimeout(t);
   },[]);
@@ -451,7 +460,7 @@ const ResetCountdown=({frozenTime,onDone})=>{
   );
 };
 
-const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConfirm,onUseLive,onCancel})=>{
+const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConfirm,onUseLive,onCancel,reason})=>{
   const {t,lang}=useLang();
   const [selCount,setSelCount]=useState(doneCP.length);
   const [manualTimeStr,setManualTimeStr]=useState('');
@@ -479,9 +488,10 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
   return(
     <div className="modal-overlay">
       <div className="modal-sheet" onClick={e=>e.stopPropagation()}>
-        <div style={{display:'flex',justifyContent:'center',marginBottom:4}}><div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,59,48,.12)',border:'2px solid rgba(255,59,48,.3)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.XCircle s={28} c="var(--red)"/></div></div>
-        <div style={{fontSize:20,fontWeight:900,textAlign:'center',marginBottom:4}}>{t('fallTitle')}</div>
-        <div style={{fontSize:13,color:'var(--muted)',textAlign:'center',marginBottom:14}}>{athlete.name} · #{athlete.num}</div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:4}}><div style={{width:52,height:52,borderRadius:'50%',background:reason==='timeout'?'rgba(255,149,0,.12)':'rgba(255,59,48,.12)',border:`2px solid ${reason==='timeout'?'rgba(255,149,0,.3)':'rgba(255,59,48,.3)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}>{reason==='timeout'?<I.Clock s={28} c="#FF9500"/>:<I.XCircle s={28} c="var(--red)"/>}</div></div>
+        <div style={{fontSize:20,fontWeight:900,textAlign:'center',marginBottom:4}}>{reason==='timeout'?(lang==='de'?'Zeit abgelaufen!':'Time expired!'):(t('fallTitle'))}</div>
+        <div style={{fontSize:13,color:'var(--muted)',textAlign:'center',marginBottom:reason==='timeout'?6:14}}>{athlete.name} · #{athlete.num}</div>
+        {reason==='timeout'&&<div style={{textAlign:'center',fontSize:12,color:'#FF9500',fontWeight:700,marginBottom:14,padding:'6px 12px',background:'rgba(255,149,0,.08)',borderRadius:8,border:'1px solid rgba(255,149,0,.2)'}}>{lang==='de'?'Bitte letzten Checkpoint bestätigen':'Please confirm last checkpoint'}</div>}
         <div className="sh-card" style={{padding:14,marginBottom:12}}>
           <div className="lbl" style={{marginBottom:8}}>{lang==='de'?'Letzter erreichter Checkpoint':'Last checkpoint reached'}</div>
           <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:12}}>
@@ -830,8 +840,11 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // Confirm DNF
   const handleFallConfirm=async({selCount,time,fellAtObst})=>{
     const corrected=(fallModal.doneCP||[]).slice(0,selCount);
+    const isTimeout=fallModal.reason==='timeout';
+    // Cap time at time limit if applicable
+    const cappedTime=timeLimitMs>0?Math.min(time,timeLimitMs):time;
     const finalFalls=[...activeFalls,{obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime}];
-    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:finalFalls,protested:fallModal.protested||false,status:'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
+    const result={athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:cappedTime,lives,falls:finalFalls,protested:fallModal.protested||false,status:isTimeout?'timeout':'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()};
     const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
   };
   const handleStopConfirm=async({selCount,time,fellAtObst,dsq})=>{
@@ -928,10 +941,10 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone}/>}
       {fallModal&&phase==='active'&&(
         <FallModal athlete={currentAth} doneCP={fallModal.doneCP} cpObst={cpObst} obstArr={obstArr} currentTime={fallModal.currentTime}
-          mode={info.mode} lives={lives}
+          mode={info.mode} lives={lives} reason={fallModal.reason}
           onConfirm={handleFallConfirm}
-          onUseLive={info.mode==='lives'&&lives>0?handleUseLive:null}
-          onCancel={handleFallCancel}/>
+          onUseLive={info.mode==='lives'&&lives>0&&fallModal.reason!=='timeout'?handleUseLive:null}
+          onCancel={fallModal.reason==='timeout'?null:handleFallCancel}/>
       )}
       {stopModal&&phase==='active'&&(
         <StopModal athlete={currentAth} isTimeout={stopModal.reason==='timeout'} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth} onCancel={handleStopCancel}/>
