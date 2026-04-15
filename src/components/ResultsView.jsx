@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, toFlag } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -238,10 +238,14 @@ const ResultsView=({compId,athletes})=>{
   const stageNums=!isPipeline&&selCat?[...new Set(runList.filter(r=>r.catId===selCat&&r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b):[];
   const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
   const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
-  const isMultiOverall=multiStage&&selStage===null;
-  const ranked=selCat?(selStage!=null?(isPipeline?computeRankedPipeline(runList,selCat,selStage):computeRankedStage(runList,selCat,selStage)):isMultiOverall?(isPipeline?computeRankedMultiStagePipeline(runList,selCat,stageIds):computeRankedMultiStage(runList,selCat,stageNums)):computeRanked(runList,selCat)):[];
-  const rCPs=r=>isMultiOverall?r.totalCPs:(r.doneCP?.length||0);
-  const rTime=r=>isMultiOverall?r.totalTime:(r.finalTime||0);
+  const isOverall=selStage==='overall';
+  const isMultiOverall=false; // deprecated — use isOverall instead
+  const ranked=selCat?(isOverall
+    ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
+    :selStage!=null?(isPipeline?computeRankedPipeline(runList,selCat,selStage):computeRankedStage(runList,selCat,selStage))
+    :computeRanked(runList,selCat)):[];
+  const rCPs=r=>isOverall?null:(r.doneCP?.length||0);
+  const rTime=r=>isOverall?r.totalTime:(r.finalTime||0);
   const rMaxCPs=r=>{if(isMultiOverall){const tot=stageNums.reduce((s,sn)=>{const bd=r.stageBreakdown?.[String(sn)];return s+(bd?.totalCPs||0);},0);return tot||r.totalCPs||1;}return Math.max(r.totalCPs||0,r.doneCP?.length||0)||1;};
   const StageBreakdown=({r,compact=false})=>{if(!isMultiOverall||!r.stageBreakdown)return null;const totCPs=rCPs(r),totT=rTime(r);const _stages=isPipeline?stageIds:stageNums;return(<div style={{marginTop:compact?3:6,display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>{_stages.map(sn=>{const bd=r.stageBreakdown[String(sn)];const cps=bd?.doneCP?.length||0;const maxC=bd?.totalCPs||'?';const tm=bd?.finalTime||0;return(<span key={sn} style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 5px',borderRadius:6,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.5)'}}><span style={{color:'rgba(255,144,64,.9)',fontWeight:700,fontSize:8}}>{isPipeline?(pipelineStages.find(s=>s.id===sn)?.name||sn).substring(0,3):`S${sn}`}</span><span>{cps}/{maxC}</span><span style={{opacity:.35}}>·</span><span>{tm>0?fmtMs(tm):'—'}</span></span>);})}  {stageNums.length>1&&<span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 6px',borderRadius:6,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,144,64,.25)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,144,64,.9)',fontWeight:700}}>Σ {totCPs}{totT>0?` · ${fmtMs(totT)}`:''}</span>}</div>);};
   const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
@@ -305,7 +309,7 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
             onClick={()=>{setSelCat(c.id);SFX.hover();}}>{c.name[lang]}</button>
         ))}
       </div>
-      {/* Stage selector — only shown when multiple stages have runs (no "Gesamt") */}
+      {/* Stage selector + Gesamt at the end */}
       {multiStage&&(
         <div style={{overflowX:'auto',padding:'6px 16px',display:'flex',gap:5,borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
           {(isPipeline?pipelineStages:[]).map((stg,si)=>{
@@ -326,6 +330,11 @@ td{padding:4px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
               Stage {n}
             </button>);
           })}
+          <button className={`chip${selStage==='overall'?' active':''}`}
+            style={{flexShrink:0,fontSize:10,padding:'2px 10px',fontWeight:800,...(selStage==='overall'?{background:'rgba(255,214,10,.15)',borderColor:'rgba(255,214,10,.4)',color:'var(--gold)'}:{})}}
+            onClick={()=>{setSelStage('overall');SFX.hover();}}>
+            {lang==='de'?'Gesamt':'Overall'}
+          </button>
         </div>
       )}
       {catsWithRuns.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
@@ -347,24 +356,32 @@ return(<React.Fragment key={r.athleteId}>
                     <span style={{fontSize:9,fontFamily:'JetBrains Mono',color:'var(--muted)',marginLeft:2}}>#{a.num}</span>
                   </div>
                   <div style={{display:'flex',gap:4,alignItems:'center',marginTop:1,fontSize:9}}>
-                    <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)'}}>{rCPs(r)}/{r.totalCPs||'?'} CP</span>
+                    {isOverall?(
+                      <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)',display:'flex',gap:3,flexWrap:'wrap'}}>
+                        {(isPipeline?stageIds:stageNums).map(sid=>{const pl=r.placements?.[sid];const sName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid).substring(0,4):`S${sid}`;return pl?<span key={sid} style={{background:'rgba(255,255,255,.06)',borderRadius:4,padding:'0 4px'}}>{sName}:<span style={{color:'var(--cor)',fontWeight:700}}>P{pl}</span></span>:null;})}
+                        <span style={{color:'var(--gold)',fontWeight:700}}>Σ {r.placementSum}</span>
+                      </span>
+                    ):(
+                      <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)'}}>{rCPs(r)!=null?`${rCPs(r)}/${r.totalCPs||'?'} CP`:''}</span>
+                    )}
                     {a.team&&<span style={{color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}
                   </div>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4,flexShrink:0}}>
                   <div style={{display:'flex',alignItems:'center',gap:6}}>
-                    <div className="timer-grad" style={{fontSize:14,color:r.status==='dsq'?'#FF3B6B':r.status!=='complete'&&rTime(r)>0?'rgba(255,255,255,.55)':undefined}}>{r.status==='dsq'?'DSQ':rTime(r)>0?fmtMs(rTime(r)):t('dnf')}</div>
-                    <EditBtn r={r}/>
+                    <div className="timer-grad" style={{fontSize:14,color:r.status==='dsq'?'#FF3B6B':(!isOverall&&r.status!=='complete'&&rTime(r)>0)?'rgba(255,255,255,.55)':undefined}}>{r.status==='dsq'?'DSQ':rTime(r)>0?fmtMs(rTime(r)):(isOverall?'—':t('dnf'))}</div>
+                    {!isOverall&&<EditBtn r={r}/>}
                   </div>
-                  {r.status==='complete'
+                  {isOverall?null
+                  :r.status==='complete'
                     ?<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>
                     :r.status==='dsq'
                       ?<div style={{fontSize:10,color:'#FF3B6B',fontWeight:600}}>{lang==='de'?'Disqualifiziert':'Disqualified'}</div>
-                    :!isMultiOverall&&r.fellAt?.name
+                    :r.fellAt?.name
                       ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,textAlign:'right'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
-                      :!isMultiOverall?<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>:null
+                      :<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>
                   }
-                  <LifeDots run={r} size={7}/>
+                  {!isOverall&&<LifeDots run={r} size={7}/>}
                 </div>
               </div>
             </React.Fragment>);})}

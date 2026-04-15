@@ -99,6 +99,42 @@ export const computeRankedMultiStagePipeline = (runList, catId, stageIds) => {
 
 
 
+// ── PLACEMENT-BASED OVERALL RANKING (sum of per-stage placements, tiebreak by total time)
+export const computeRankedByPlacement = (runList, catId, stageIds, computeStageFn) => {
+  // 1. Compute per-stage rankings
+  const stageRankings = {};
+  stageIds.forEach(sid => {
+    const ranked = computeStageFn(runList, catId, sid).filter(r => r.status !== 'dsq');
+    stageRankings[sid] = ranked;
+  });
+  // 2. For each athlete, sum their placements across stages
+  const athMap = {};
+  stageIds.forEach(sid => {
+    (stageRankings[sid] || []).forEach((r, idx) => {
+      const aid = r.athleteId;
+      if (!athMap[aid]) athMap[aid] = { athleteId: aid, athleteName: r.athleteName, placementSum: 0, totalTime: 0, stagesRun: 0, placements: {}, stageBreakdown: {} };
+      athMap[aid].placements[sid] = idx + 1; // 1-based placement
+      athMap[aid].placementSum += (idx + 1);
+      athMap[aid].totalTime += (r.finalTime || 0);
+      athMap[aid].stagesRun += 1;
+      athMap[aid].stageBreakdown[sid] = r;
+    });
+  });
+  // 3. Sort: most stages run → lowest placement sum → fastest total time
+  const sorted = Object.values(athMap).sort((a, b) =>
+    b.stagesRun - a.stagesRun ||
+    a.placementSum - b.placementSum ||
+    a.totalTime - b.totalTime
+  );
+  // 4. Add DSQ athletes at the end
+  const inMain = new Set(sorted.map(a => a.athleteId));
+  const dsqList = [];
+  runList.filter(r => r.catId === catId && r.status === 'dsq' && !inMain.has(r.athleteId)).forEach(r => {
+    if (!inMain.has(r.athleteId)) { dsqList.push({ athleteId: r.athleteId, athleteName: r.athleteName, placementSum: 999, totalTime: 0, stagesRun: 0, placements: {}, stageBreakdown: {}, status: 'dsq' }); inMain.add(r.athleteId); }
+  });
+  return [...sorted, ...dsqList];
+};
+
 // ── PHOTO RESIZE
 export const resizePhotoUtil = (file, cb) => {
   const img = new Image(); const url = URL.createObjectURL(file);
