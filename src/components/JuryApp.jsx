@@ -35,17 +35,55 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
   const [localQ,setLocalQ]=useState(null);
-  const effectiveQ=localQ||queue;
+  // Category order: draggable list of category IDs for multi-division stages
+  const queueCats=[...new Set(queue.map(a=>a.cat))];
+  const [catOrder,setCatOrder]=useState(queueCats);
+  // Keep catOrder in sync when new cats appear
+  useEffect(()=>{const missing=queueCats.filter(c=>!catOrder.includes(c));if(missing.length)setCatOrder(o=>[...o,...missing]);},[queueCats.join(',')]);
+  const multiCat=queueCats.length>1;
+  // Build effective queue: group by catOrder, within each group keep queueOrder
+  const effectiveQ=(()=>{
+    if(localQ)return localQ;
+    if(!multiCat)return queue;
+    const grouped=[];
+    catOrder.filter(c=>queueCats.includes(c)).forEach(c=>{
+      grouped.push(...queue.filter(a=>a.cat===c).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999)));
+    });
+    // Add any athletes with cats not yet in catOrder
+    const ordered=new Set(grouped.map(a=>a.id));
+    queue.filter(a=>!ordered.has(a.id)).forEach(a=>grouped.push(a));
+    return grouped;
+  })();
   const reorderQ=arr=>{
     setLocalQ(arr);
-    // persist order to firebase
     const updates={};arr.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
     if(Object.keys(updates).length)db.ref().update(updates);
   };
+  const reorderCats=newOrder=>{
+    setCatOrder(newOrder);
+    // Rebuild queue in new cat order and persist
+    const rebuilt=[];
+    newOrder.filter(c=>queueCats.includes(c)).forEach(c=>{
+      rebuilt.push(...queue.filter(a=>a.cat===c).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999)));
+    });
+    reorderQ(rebuilt);
+  };
   const shuffleQ=()=>{
-    const arr=[...effectiveQ];
-    for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
-    reorderQ(arr);SFX.click();
+    if(multiCat){
+      // Shuffle within each category, keep category order
+      const rebuilt=[];
+      catOrder.filter(c=>queueCats.includes(c)).forEach(c=>{
+        const grp=[...effectiveQ.filter(a=>a.cat===c)];
+        for(let i=grp.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[grp[i],grp[j]]=[grp[j],grp[i]];}
+        rebuilt.push(...grp);
+      });
+      reorderQ(rebuilt);
+    }else{
+      const arr=[...effectiveQ];
+      for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}
+      reorderQ(arr);
+    }
+    SFX.click();
   };
   const next=effectiveQ[0];
   return(
@@ -100,17 +138,48 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
                   <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
                 </div>
               </div>
+              {/* Category order — drag to set which division starts first */}
+              {multiCat&&(
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',marginBottom:4}}>{lang==='de'?'DIVISIONS-REIHENFOLGE':'DIVISION ORDER'}</div>
+                  <DragList items={catOrder.filter(c=>queueCats.includes(c))} onReorder={reorderCats} keyFn={c=>c}
+                    renderItem={(cid)=>{
+                      const c=IGN_CATS.find(x=>x.id===cid);
+                      return(
+                        <div style={{padding:'6px 10px',display:'flex',alignItems:'center',gap:8,background:`${c?.color||'var(--cor)'}0A`,borderLeft:`3px solid ${c?.color||'var(--cor)'}`,borderRadius:4}}>
+                          <div className="drag-handle"><I.Drag s={13}/></div>
+                          <div style={{width:8,height:8,borderRadius:'50%',background:c?.color||'var(--cor)',flexShrink:0}}/>
+                          <div style={{fontSize:12,fontWeight:700,color:c?.color||'var(--cor)'}}>{c?.name[lang]||cid}</div>
+                          <div style={{fontSize:10,color:'var(--muted)',marginLeft:'auto'}}>{effectiveQ.filter(a=>a.cat===cid).length}</div>
+                        </div>
+                      );
+                    }}/>
+                </div>
+              )}
               <DragList items={effectiveQ} onReorder={arr=>reorderQ(arr)} keyFn={a=>a.id}
-                renderItem={(a,i)=>(
-                  <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:8,background:i===0?'rgba(52,199,89,.04)':'transparent',borderRadius:i===0?10:0}}>
+                renderItem={(a,i)=>{
+                  const aCat=IGN_CATS.find(c=>c.id===a.cat);
+                  const isFirst=i===0;
+                  const isCatStart=multiCat&&(i===0||effectiveQ[i-1]?.cat!==a.cat);
+                  return(
+                  <div>
+                  {isCatStart&&(
+                    <div style={{padding:'6px 10px 4px',display:'flex',alignItems:'center',gap:6,borderTop:i>0?`2px solid ${aCat?.color||'var(--cor)'}33`:'none',marginTop:i>0?6:0}}>
+                      <div style={{width:6,height:6,borderRadius:'50%',background:aCat?.color||'var(--cor)'}}/>
+                      <span style={{fontSize:10,fontWeight:800,color:aCat?.color||'var(--cor)',letterSpacing:'.06em'}}>{aCat?.name[lang]||a.cat}</span>
+                    </div>
+                  )}
+                  <div style={{padding:'9px 12px',display:'flex',alignItems:'center',gap:8,background:isFirst?'rgba(52,199,89,.04)':'transparent',borderRadius:isFirst?10:0,borderLeft:multiCat?`3px solid ${aCat?.color||'var(--cor)'}22`:'none'}}>
                     <div className="drag-handle"><I.Drag s={15}/></div>
-                    <div style={{fontSize:11,color:i===0?'var(--green)':'var(--cor)',minWidth:20,fontWeight:800,fontFamily:'JetBrains Mono'}}>{i+1}</div>
+                    <div style={{fontSize:11,color:isFirst?'var(--green)':'var(--cor)',minWidth:20,fontWeight:800,fontFamily:'JetBrains Mono'}}>{i+1}</div>
                     <div style={{flex:1,fontSize:13,fontWeight:600}}>{a.name}</div>
-                    {i===0&&<div style={{fontSize:9,padding:'2px 7px',borderRadius:6,background:'rgba(52,199,89,.15)',color:'var(--green)',fontWeight:800,border:'1px solid rgba(52,199,89,.3)',letterSpacing:'.05em'}}>NEXT</div>}
+                    {isFirst&&<div style={{fontSize:9,padding:'2px 7px',borderRadius:6,background:'rgba(52,199,89,.15)',color:'var(--green)',fontWeight:800,border:'1px solid rgba(52,199,89,.3)',letterSpacing:'.05em'}}>NEXT</div>}
                     <div style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>#{a.num}</div>
                     {onDsq&&<button style={{fontSize:10,padding:'2px 8px',borderRadius:6,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontWeight:700,fontFamily:'Inter,sans-serif',flexShrink:0}} onClick={e=>{e.stopPropagation();if(window.confirm(`${a.name} als DSQ markieren?`))onDsq(a);}}>DSQ</button>}
                   </div>
-                )}/>
+                  </div>
+                  );
+                }}/>
             </div>
           )}
         </div>
