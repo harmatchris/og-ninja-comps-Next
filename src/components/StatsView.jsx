@@ -4,7 +4,7 @@ import { IGN_CATS, DEF_OBS } from '../config.js';
 
 const obsShortName=name=>{
   const n=(name||'').toLowerCase();
-  if(/startplattform|start plattform|^start/.test(n))return '▶ Start';
+  if(/startplattform|start plattform|^start/.test(n))return '▶ Platform';
   if(/landeplattform|land plattform/.test(n))return '⬛ Land';
   if(/endplattform|end plattform/.test(n))return '⬛ End';
   return name;
@@ -125,7 +125,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
         {data[0]?.points?.map((p,i)=>(
           <text key={i} x={xs(i)} y={H-MB+16} fill="rgba(255,255,255,.4)" fontSize={tvMode?11:9} textAnchor="end" fontFamily="system-ui"
             transform={`rotate(-48,${xs(i)},${H-MB+16})`}>
-            {i===0?'Start':(p.label||'').substring(0,20)}
+            {i===0?'Platform':(p.label||'').substring(0,20)}
           </text>
         ))}
         {/* Live ninja runners — run along top (y=100%), fall down when eliminated */}
@@ -232,7 +232,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;if(!total)return null;
-      const points=[{x:-1,y:100,label:'Start'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
+      const points=[{x:-1,y:100,label:'Platform'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
       return{cat,points,total};
     }).filter(Boolean);
     const difficultyData=obsArr.map((obs,i)=>{
@@ -300,7 +300,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;if(!total)return null;
-      const points=[{x:-1,y:100,label:'Start'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
+      const points=[{x:-1,y:100,label:'Platform'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
       return{cat,points,total};
     }).filter(Boolean);
 
