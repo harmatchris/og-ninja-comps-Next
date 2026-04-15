@@ -457,7 +457,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{marginTop:14,background:'rgba(200,168,75,.07)',border:`1px solid ${chRankingUnlocked&&info.chRankingEnabled?'rgba(200,168,75,.5)':'rgba(200,168,75,.2)'}`,borderRadius:12,padding:'12px 14px'}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <span style={{fontSize:13,fontWeight:700}}>CH</span>
+                <svg viewBox="0 0 32 32" width="28" height="28" style={{borderRadius:'50%',flexShrink:0,display:'block'}}><circle cx="16" cy="16" r="16" fill="#FF0000"/><rect x="13" y="7" width="6" height="18" fill="#FFFFFF"/><rect x="7" y="13" width="18" height="6" fill="#FFFFFF"/></svg>
                 <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
               </div>
               {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓 Freischalten</button>
