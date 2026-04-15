@@ -703,24 +703,33 @@ const StatsDisplayView=({compId,onBack})=>{
 
 const StageRecoveryBanner=({compId,onJoin,lang})=>{
   const activeRuns=useFbVal(compId?`ogn/${compId}/activeRuns`:null);
+  const pipelineData=useFbVal(compId?`ogn/${compId}/pipeline`:null);
+  const info=useFbVal(compId?`ogn/${compId}/info`:null);
   const [dismissed,setDismissed]=useState(false);
   if(dismissed||!activeRuns||typeof activeRuns!=='object'||!Object.keys(activeRuns).length)return null;
-  const stages=Object.keys(activeRuns).sort();
+  const entries=Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done');
+  if(!entries.length)return null;
+  const getStageName=(key)=>{
+    if(pipelineData?.[key]?.name)return pipelineData[key].name;
+    if(info?.stageNames?.[key])return info.stageNames[key];
+    if(!isNaN(Number(key)))return`Stage ${key}`;
+    return key;
+  };
   return(
     <>
-      {/* spacer so fixed banner doesn't cover content */}
-      <div style={{height:48,flexShrink:0}}/>
+      <div style={{height:56,flexShrink:0}}/>
       <div style={{position:'fixed',top:0,left:0,right:0,zIndex:9999,background:'rgba(18,18,20,.97)',padding:'8px 16px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',borderBottom:'2px solid rgba(255,160,0,.55)'}}>
         <span style={{fontSize:12,color:'rgba(255,195,40,1)',flex:1}}>
-          {lang==='de'?'Aktive Stage gefunden — Handy ausgefallen?':'Active stage found — phone died?'}
+          {lang==='de'?'Aktive Stage gefunden — übernehmen?':'Active stage found — re-join?'}
         </span>
-        {stages.map(s=>(
-          <button key={s} className="btn btn-ghost" style={{padding:'5px 12px',fontSize:12,borderColor:'rgba(255,160,0,.55)',color:'rgba(255,195,40,1)',minWidth:0}} onClick={()=>onJoin(parseInt(s,10)||s)}>
-            Stage {s} {lang==='de'?'übernehmen':'re-join'}
+        {entries.map(([key,r])=>(
+          <button key={key} className="btn btn-ghost" style={{padding:'5px 12px',fontSize:12,borderColor:'rgba(255,160,0,.55)',color:'rgba(255,195,40,1)',minWidth:0,display:'flex',flexDirection:'column',alignItems:'center',gap:1}} onClick={()=>onJoin(parseInt(key,10)||key)}>
+            <span style={{fontWeight:800}}>{getStageName(key)}</span>
+            <span style={{fontSize:10,opacity:.7}}>{r.athleteName||'Athlet'}</span>
           </button>
         ))}
         <button onClick={()=>setDismissed(true)} style={{padding:'5px 10px',borderRadius:8,border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.06)',color:'rgba(255,255,255,.5)',cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'Inter,sans-serif',flexShrink:0}}>
-          {lang==='de'?'Nein, schließen':'No, dismiss'} ✕
+          ✕
         </button>
       </div>
     </>
