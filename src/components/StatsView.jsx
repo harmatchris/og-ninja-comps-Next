@@ -102,24 +102,36 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
 };
 
 // Ghost ninja: semi-transparent, follows the best run's timeline
-const GhostNinja=({x,y,size=24,color='#30D158',name='',ahead=false})=>(
-  <g transform={`translate(${x-size/2},${y-size})`} opacity={.35}>
+// ahead = ghost is leading (best time is faster) → green. behind = runner overtook ghost → red
+const GhostNinja=({x,y,size=24,name='',ahead=false})=>{
+  const c=ahead?'#30D158':'#FF3B30';
+  const gid=`gg-${(name||'g').replace(/\s/g,'')}`;
+  return(
+  <g transform={`translate(${x-size/2},${y-size})`} opacity={.55}>
     <g style={{animation:'ninjaBob 0.5s ease-in-out infinite alternate'}}>
-      <circle cx={size/2} cy={size*.28} r={size*.16} fill={ahead?'#FF3B30':color}/>
+      <defs><filter id={gid} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      {/* glow */}
+      <circle cx={size/2} cy={size*.5} r={size*.5} fill={c} opacity=".18" filter={`url(#${gid})`}/>
+      {/* head */}
+      <circle cx={size/2} cy={size*.28} r={size*.16} fill={c}/>
       <rect x={size*.32} y={size*.26} width={size*.36} height={size*.05} fill="rgba(0,0,0,.4)"/>
-      <rect x={size*.36} y={size*.42} width={size*.28} height={size*.32} rx={size*.07} fill={ahead?'#FF3B30':color}/>
-      <rect x={size*.2} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={ahead?'#FF3B30':color} transform={`rotate(-15 ${size*.27} ${size*.51})`}/>
-      <rect x={size*.66} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={ahead?'#FF3B30':color} transform={`rotate(15 ${size*.73} ${size*.51})`}/>
+      {/* body */}
+      <rect x={size*.36} y={size*.42} width={size*.28} height={size*.32} rx={size*.07} fill={c}/>
+      {/* arms */}
+      <rect x={size*.2} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={c} transform={`rotate(-15 ${size*.27} ${size*.51})`}/>
+      <rect x={size*.66} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={c} transform={`rotate(15 ${size*.73} ${size*.51})`}/>
+      {/* legs */}
       <g style={{transformOrigin:`${size*.44}px ${size*.74}px`,animation:'legA 0.4s linear infinite'}}>
-        <rect x={size*.38} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={ahead?'#FF3B30':color}/>
+        <rect x={size*.38} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={c}/>
       </g>
       <g style={{transformOrigin:`${size*.56}px ${size*.74}px`,animation:'legB 0.4s linear infinite'}}>
-        <rect x={size*.52} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={ahead?'#FF3B30':color}/>
+        <rect x={size*.52} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={c}/>
       </g>
-      {name&&<text x={size/2} y={-6} textAnchor="middle" fontSize={size*.28} fontWeight="700" fill={ahead?'rgba(255,59,48,.5)':'rgba(52,199,89,.5)'} fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.5)',strokeWidth:2,strokeLinejoin:'round'}}>{name}</text>}
+      {name&&<text x={size/2} y={-6} textAnchor="middle" fontSize={size*.3} fontWeight="800" fill={c} fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.7)',strokeWidth:2.5,strokeLinejoin:'round'}}>{name}</text>}
     </g>
   </g>
-);
+  );
+};
 
 // Smooth ninja: interpolates X between CPs with easeOut (decelerating approach)
 // Also renders a ghost ninja for the best run comparison
