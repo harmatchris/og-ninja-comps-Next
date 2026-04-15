@@ -68,7 +68,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const [chRankingUnlocked,setChRankingUnlocked]=useState(!!(initialInfo?.chRankingEnabled));
   const [chRankingPwPrompt,setChRankingPwPrompt]=useState(false);
   const [chRankingPwInput,setChRankingPwInput]=useState('');
-  const CH_RANKING_PW='CH2026';
+  const CH_RANKING_PW='2021';
   const tryUnlock=()=>{if(chRankingPwInput===CH_RANKING_PW){setChRankingUnlocked(true);setChRankingPwPrompt(false);setChRankingPwInput('');}else{setChRankingPwInput('');alert(lang==='de'?'Falsches Passwort':'Wrong password');}};
 
   /* ── derived ── */
@@ -460,8 +460,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 <span style={{fontSize:13,fontWeight:700}}>CH</span>
                 <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
               </div>
-              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>Lock</button>
-              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>Unlock</button>}
+              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓 Freischalten</button>
+              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔒 Sperren</button>}
             </div>
             {chRankingUnlocked&&<div style={{marginTop:8}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}</label>
               {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
