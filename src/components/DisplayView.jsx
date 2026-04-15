@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
 import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
-import { useFbVal, useTimer, SFX } from '../hooks.js';
+import { useFbVal, useTimer, useWinW, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, LifeDots } from './shared.jsx';
 import { ResultsView } from './ResultsView.jsx';

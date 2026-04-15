@@ -218,52 +218,40 @@ const SkillRankingLive=({compId,info,athletes})=>{
         <span style={{fontSize:12,fontWeight:500,color:'var(--muted)',marginLeft:4}}>{ranking.length} {lang==='de'?'Athleten':'athletes'}</span>
       </div>}
 
-      {/* Ranking list */}
+      {/* Ranking list — compact rows */}
       {ranking.length===0&&<EmptyState icon={<I.Trophy s={28} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Keine Athleten':'No athletes'}/>}
       {ranking.map((a,i)=>{
         const rankColor=podColors[i]||'var(--muted)';
         return(
-          <div key={a.id} className="sh-card" style={{padding:'10px 13px',display:'flex',alignItems:'center',gap:10,animation:`fadeUp .3s ${i*.04}s both`}}>
-            <div style={{width:28,textAlign:'center',fontWeight:900,fontSize:16,color:rankColor,fontFamily:'JetBrains Mono',flexShrink:0}}>{i+1}</div>
-            <div style={{width:36,height:36,borderRadius:'50%',background:`${rankColor}18`,border:`1.5px solid ${rankColor}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              {a.photo?<img src={a.photo} style={{width:34,height:34,borderRadius:'50%',objectFit:'cover'}}/>
-              :<I.User s={18} c={rankColor}/>}
+          <div key={a.id} className="sh-card" style={{padding:'5px 10px',display:'flex',alignItems:'center',gap:7,animation:`fadeUp .2s ${i*.02}s both`}}>
+            <div style={{width:20,textAlign:'center',fontWeight:900,fontSize:12,color:rankColor,fontFamily:'JetBrains Mono',flexShrink:0}}>{i+1}</div>
+            <div style={{width:26,height:26,borderRadius:'50%',background:`${rankColor}18`,border:`1px solid ${rankColor}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              {a.photo?<img src={a.photo} style={{width:24,height:24,borderRadius:'50%',objectFit:'cover'}}/>
+              :<I.User s={12} c={rankColor}/>}
             </div>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:14,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-              <div style={{display:'flex',gap:3,marginTop:3,flexWrap:'wrap'}}>
+              <div style={{fontSize:12,fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
+              <div style={{display:'flex',gap:2,marginTop:1,flexWrap:'wrap'}}>
                 {skills.map(sk=>{
                   const sc=skillScores?.[a.id]?.[sk.id];
                   const diffCol={easy:'#30D158',medium:'#FF9F0A',hard:'#FF3B30'}[sk.difficulty||'medium'];
-                  let bg='rgba(255,255,255,.05)',bdr='rgba(255,255,255,.08)',col='var(--dim)',icon='·',extra='';
+                  let col='var(--dim)',icon='·';
                   if(isOldschool){
-                    // Oldschool: show which attempt it was passed on
-                    if(sc?.a1===true){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='F';extra='V1';}
-                    else if(sc?.a1===false&&sc?.a2===true){bg='rgba(52,199,89,.15)';bdr='rgba(52,199,89,.3)';col='var(--green)';icon='✓';extra='V2';}
-                    else if(sc?.a1===false&&sc?.a2===false&&sc?.a3===true){bg='rgba(52,199,89,.1)';bdr='rgba(52,199,89,.25)';col='var(--green)';icon='✓';extra='V3';}
-                    else if(sc?.a1===false&&sc?.a2===false&&sc?.a3===false){bg='rgba(255,59,48,.1)';bdr='rgba(255,59,48,.2)';col='var(--red)';icon='✗';}
+                    if(sc?.a1===true){col='var(--gold)';icon='✓';}
+                    else if(sc?.a2===true){col='var(--green)';icon='✓';}
+                    else if(sc?.a3===true){col='var(--green)';icon='✓';}
+                    else if(sc?.a1===false&&sc?.a2===false&&sc?.a3===false){col='var(--red)';icon='✗';}
                   } else {
-                    if(sc?.completed&&sc?.flashed){bg='rgba(255,214,10,.12)';bdr='rgba(255,214,10,.35)';col='var(--gold)';icon='F';}
-                    else if(sc?.completed){bg='rgba(52,199,89,.15)';bdr='rgba(52,199,89,.3)';col='var(--green)';icon='✓';}
-                    else if(sc?.attempts>0){bg='rgba(255,59,48,.1)';bdr='rgba(255,59,48,.2)';col='var(--red)';icon='✗';}
+                    if(sc?.completed&&sc?.flashed){col='var(--gold)';icon='F';}
+                    else if(sc?.completed){col='var(--green)';icon='✓';}
+                    else if(sc?.attempts>0){col='var(--red)';icon='✗';}
                   }
-                  return(
-                    <div key={sk.id} style={{display:'flex',alignItems:'center',gap:2,background:bg,borderRadius:4,padding:'1px 5px',border:`1px solid ${bdr}`}}>
-                      <div style={{width:4,height:4,borderRadius:'50%',background:diffCol,flexShrink:0}}/>
-                      <span style={{fontSize:8,color:col}}>{icon}</span>
-                      <span style={{fontSize:7,fontWeight:700,color:col,maxWidth:28,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sk.name||'S'}</span>
-                      {extra&&<span style={{fontSize:7,fontWeight:800,color:col,marginLeft:1}}>{extra}</span>}
-                    </div>
-                  );
+                  return<span key={sk.id} style={{fontSize:9,color:col,fontWeight:700}}>{icon}</span>;
                 })}
               </div>
             </div>
-            <div style={{textAlign:'right',flexShrink:0}}>
-              <div style={{fontSize:22,fontWeight:900,fontFamily:'JetBrains Mono',lineHeight:1,
-                color:a.skillTotal>0?rankColor:'var(--dim)'}}>
-                {a.skillTotal>0?a.skillTotal:'—'}
-              </div>
-              <div style={{fontSize:8,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Punkte':'pts'}</div>
+            <div style={{fontWeight:900,fontSize:16,fontFamily:'JetBrains Mono',color:a.skillTotal>0?rankColor:'var(--dim)',flexShrink:0}}>
+              {a.skillTotal>0?a.skillTotal:'—'}
             </div>
           </div>
         );
@@ -499,10 +487,22 @@ const handleDeleteAth=async(a)=>{
             </button>
           ))}
         </div>
-        {coordView==='results'&&<div style={{marginTop:8}}>
-          <LiveRunBanner compId={compId} info={info} athletes={athletes} pipelineData={pipelineData}/>
-          {info?.skillPhase?.enabled&&!skillStatus?.finalized&&!skillStatus?.seedingDone?<SkillRankingLive compId={compId} info={info} athletes={athletes}/>:<ResultsView compId={compId} athletes={athletes}/>}
-        </div>}
+        {coordView==='results'&&(()=>{
+          const skillsActive=info?.skillPhase?.enabled&&!skillStatus?.finalized&&!skillStatus?.seedingDone;
+          const skillsDone=info?.skillPhase?.enabled&&(skillStatus?.finalized||skillStatus?.seedingDone);
+          return<div style={{marginTop:8}}>
+            <LiveRunBanner compId={compId} info={info} athletes={athletes} pipelineData={pipelineData}/>
+            {skillsActive&&<SkillRankingLive compId={compId} info={info} athletes={athletes}/>}
+            {!skillsActive&&<ResultsView compId={compId} athletes={athletes}/>}
+            {skillsDone&&<div style={{marginTop:12,padding:'10px 0',borderTop:'1px solid rgba(255,255,255,.06)'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg>
+                SKILL RANKING
+              </div>
+              <SkillRankingLive compId={compId} info={info} athletes={athletes}/>
+            </div>}
+          </div>;
+        })()}
         {coordView==='queue'&&<div style={{marginTop:8}}><AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
         {coordView==='stats'&&<div style={{marginTop:8}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletes} pipelineData={pipelineData}/></div>}
         {coordView==='skills'&&info?.skillPhase?.enabled&&<div style={{marginTop:8}}><SkillPhaseView compId={compId} info={info} athletes={athletes}/></div>}

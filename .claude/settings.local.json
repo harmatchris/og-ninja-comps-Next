@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l \"/Users/chrisharmat/Library/Mobile Documents/com~apple~CloudDocs/01 Arbeit/01 Apps/OG Ninja Comp Next/og-ninja-comps-Next/src/components\"/*.jsx)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:og-ninja-comps-next.vercel.app)",
+      "Bash(curl -s http://localhost:5173/)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s http://localhost:5173/src/components/CoordinatorView.jsx)"
+    ]
+  }
+}
