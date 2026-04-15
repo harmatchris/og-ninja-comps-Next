@@ -11,6 +11,106 @@ import { AthleteQueueView } from './QueueView.jsx';
 import { StatsView } from './StatsView.jsx';
 import { SkillPhaseView } from './SkillPhaseView.jsx';
 
+// ── EXPORT MODAL — accessible from header, full selection ────────
+const ExportModal=({compId,info,athletes,completedRuns,pipelineData,isPipeline,pipelineStages,lang,onClose})=>{
+  const {catName}=useLang();
+  const [selDiv,setSelDiv]=useState('all');
+  const [selStg,setSelStg]=useState('all');
+  const runList=completedRuns?Object.values(completedRuns):[];
+  const athMap=athletes||{};
+  const catsWithRuns=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
+  const stageIds=isPipeline?pipelineStages.map(s=>s.id):[];
+  const stageNums=isPipeline?[]:[...new Set(runList.filter(r=>r.stNum!=null).map(r=>r.stNum))].sort((a,b)=>a-b);
+  const stages=isPipeline?stageIds:stageNums;
+  const ps=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:14px 0 6px;border-bottom:2px solid #FF5E3A;padding-bottom:4px;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;}th{background:#f5f5f5;text-align:left;padding:5px 8px;font-weight:700;border-bottom:2px solid #ddd;}td{padding:4px 8px;border-bottom:1px solid #eee;}.m1{background:#FFF8DC;font-weight:700;}.m2{background:#F5F5F5;}.m3{background:#FDF5ED;}.bz{color:#34C759;font-weight:700;}.fl{color:#FF3B30;}@media print{body{padding:0;font-size:11px;}h2{page-break-after:avoid;}table{page-break-inside:auto;}tr{page-break-inside:avoid;}}`;
+  const doPrint=()=>{
+    const divs=selDiv==='all'?catsWithRuns:[IGN_CATS.find(c=>c.id===selDiv)].filter(Boolean);
+    const stgs=selStg==='all'?stages:[selStg];
+    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ergebnisse</title><style>${ps}</style></head><body>`;
+    html+=`<h1>${info?.name||'Wettkampf'}</h1><p style="font-size:11px;color:#888;">${info?.date||new Date().toLocaleDateString()} · ${info?.location||''}</p>`;
+    divs.forEach(c=>{
+      stgs.forEach(sid=>{
+        const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
+        const ranked=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);
+        if(!ranked.length)return;
+        html+=`<h2 style="color:${c.color}">${catName(c)} — ${stgName} (${ranked.length})</h2>`;
+        html+=`<table><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;
+        ranked.forEach((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const cls=i<3?['m1','m2','m3'][i]:'';const erg=r.status==='complete'?'<span class="bz">Buzzer ✓</span>':r.fellAt?.name?`<span class="fl">Fall @ ${r.fellAt.name}</span>`:(r.status||'DNF');
+        html+=`<tr class="${cls}"><td>${r.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${r.doneCP?.length||0}</td><td>${r.finalTime>0?fmtMs(r.finalTime):''}</td><td>${erg}</td></tr>`;});
+        html+=`</table>`;
+      });
+    });
+    html+=`</body></html>`;
+    const w=window.open('','_blank');w.document.write(html);w.document.close();setTimeout(()=>w.print(),400);
+    onClose();
+  };
+  const doExcel=()=>{
+    const divs=selDiv==='all'?catsWithRuns:[IGN_CATS.find(c=>c.id===selDiv)].filter(Boolean);
+    const stgs=selStg==='all'?stages:[selStg];
+    let xls=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets>`;
+    divs.forEach(c=>{xls+=`<x:ExcelWorksheet><x:Name>${catName(c).substring(0,31)}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet>`;});
+    xls+=`</x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
+    divs.forEach(c=>{
+      xls+=`<table><tr><td colspan="9" style="font-size:16px;font-weight:bold;">${info?.name||''} — ${catName(c)}</td></tr><tr></tr>`;
+      stgs.forEach(sid=>{
+        const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;
+        const ranked=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);
+        if(!ranked.length)return;
+        xls+=`<tr><td colspan="9" style="font-weight:bold;background:#f5f5f5;">${stgName} (${ranked.length})</td></tr>`;
+        xls+=`<tr style="font-weight:bold;"><td>Platz</td><td>Nr</td><td>Name</td><td>Team</td><td>Land</td><td>Stage</td><td>CPs</td><td>Zeit</td><td>Ergebnis</td></tr>`;
+        ranked.forEach((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const erg=r.status==='complete'?'Buzzer':r.fellAt?.name?`Fall @ ${r.fellAt.name}`:(r.status||'DNF');
+        xls+=`<tr${i<3?` style="background:${['#FFF8DC','#F5F5F5','#FDF5ED'][i]}"`:''}><td>${r.status==='dsq'?'DSQ':(i+1)}</td><td>${a.num}</td><td>${a.name}</td><td>${a.team||''}</td><td>${a.country||''}</td><td>${stgName}</td><td>${r.doneCP?.length||0}</td><td>${r.finalTime>0?fmtMs(r.finalTime):''}</td><td>${erg}</td></tr>`;});
+      });
+      xls+=`</table>`;
+    });
+    xls+=`</body></html>`;
+    const blob=new Blob(['\uFEFF'+xls],{type:'application/vnd.ms-excel;charset=utf-8'});
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`results-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);
+    onClose();
+  };
+  return(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-sheet" style={{maxWidth:360}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+          <I.FileText s={20} c="var(--cor)"/>
+          <div style={{fontSize:17,fontWeight:900}}>Export / Druck</div>
+          <button style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',padding:4}} onClick={onClose}><I.X s={16} c="var(--muted)"/></button>
+        </div>
+        {/* Division selector */}
+        <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',marginBottom:4}}>DIVISION</div>
+        <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:12}}>
+          <button className={`chip${selDiv==='all'?' active':''}`} style={{fontSize:10,padding:'3px 8px'}} onClick={()=>setSelDiv('all')}>{lang==='de'?'Alle':'All'}</button>
+          {catsWithRuns.map(c=>(
+            <button key={c.id} className={`chip${selDiv===c.id?' active':''}`} style={{fontSize:10,padding:'3px 8px',...(selDiv===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}} onClick={()=>setSelDiv(c.id)}>{c.name[lang]}</button>
+          ))}
+        </div>
+        {/* Stage selector */}
+        {stages.length>1&&<>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',marginBottom:4}}>STAGE</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:12}}>
+            <button className={`chip${selStg==='all'?' active':''}`} style={{fontSize:10,padding:'3px 8px'}} onClick={()=>setSelStg('all')}>{lang==='de'?'Alle':'All'}</button>
+            {(isPipeline?pipelineStages:[]).map(s=>(
+              <button key={s.id} className={`chip${selStg===s.id?' active':''}`} style={{fontSize:10,padding:'3px 8px'}} onClick={()=>setSelStg(s.id)}>{s.name||s.id}</button>
+            ))}
+            {(!isPipeline?stageNums:[]).map(n=>(
+              <button key={n} className={`chip${selStg===n?' active':''}`} style={{fontSize:10,padding:'3px 8px'}} onClick={()=>setSelStg(n)}>Stage {n}</button>
+            ))}
+          </div>
+        </>}
+        {/* Actions */}
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          <button className="btn btn-coral" style={{width:'100%',padding:12,fontSize:14,gap:8}} onClick={doPrint}>
+            <I.FileText s={15}/> {lang==='de'?'Drucken':'Print'}
+          </button>
+          <button className="btn btn-ghost" style={{width:'100%',padding:12,fontSize:14,gap:8}} onClick={doExcel}>
+            <I.Download s={15}/> Excel (.xls)
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── LIVE RUN BANNER (shows above ranking when stage is running) ────────
 // Firebase may return arrays as objects — normalize doneCP to array
 const normCP=cp=>{if(!cp)return[];if(Array.isArray(cp))return cp;return Object.values(cp);};
@@ -294,6 +394,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const [showAddAth,setShowAddAth]=useState(false);
   const [quickAth,setQuickAth]=useState({name:'',num:'',cat:'am1',gender:'m',country:'',team:'',photo:null});
   const [addingAth,setAddingAth]=useState(false);
+  const [showExport,setShowExport]=useState(false);
   const [editingStageName,setEditingStageName]=useState(null); // stNum being renamed
   const [stageNameDraft,setStageNameDraft]=useState('');
   const saveStageNameFn=(n)=>{fbSet(`ogn/${compId}/info/stageNames/${n}`,stageNameDraft.trim()||null);setEditingStageName(null);};
@@ -468,6 +569,7 @@ const handleDeleteAth=async(a)=>{
     <div style={{minHeight:'100vh',paddingBottom:40}}>
       <TopBar title={<div style={{display:'flex',alignItems:'center',gap:8}}>{info.logo&&<img src={info.logo} style={{width:28,height:28,borderRadius:7,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>}<span>{info.name||'Wettkampf'}</span></div>} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
         right={<div style={{display:'flex',gap:6}}>
+          <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowExport(true)} title="Export / Druck"><I.FileText s={15}/></button>
           <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setEditing(true)}><I.Settings s={15}/></button>
           <button className="btn btn-ghost" style={{padding:'5px 10px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>
         </div>}/>
@@ -846,6 +948,8 @@ const handleDeleteAth=async(a)=>{
         )}
         </>}
       </div>
+      {/* Export / Print Modal */}
+      {showExport&&<ExportModal compId={compId} info={info} athletes={athletes} completedRuns={completedRuns} pipelineData={pipelineData} isPipeline={isPipeline} pipelineStages={pipelineStages} lang={lang} onClose={()=>setShowExport(false)}/>}
     </div>
   );
 };
