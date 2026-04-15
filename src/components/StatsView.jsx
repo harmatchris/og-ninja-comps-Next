@@ -23,9 +23,9 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
   const allDead=livesLeft<=0&&livesUsed>0;
   const stumbling=livesUsed>0&&!allDead;
-  // Choose animation: all dead → fall out, just lost life → stumble+recover, CP hit → trick, idle → bob
+  // Choose animation: all dead → fall out, lost life → drop+hang+pullup+standup, CP → trick, idle → bob
   const anim=allDead?'ninjaFallOut 1.2s ease-in forwards'
-    :stumbling?`ninjaStumble 1.8s ease-out`
+    :stumbling?`ninjaHangRecover 3.5s ease-in-out`
     :doneCPCount>0?`${trick} 0.6s ease-out`
     :'ninjaBob 0.45s ease-in-out infinite alternate';
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
@@ -35,7 +35,24 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
       <style>{`
         @keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}
         @keyframes ninjaFallOut{0%{transform:translateY(0) rotate(0);opacity:1}40%{transform:translateY(${size*2}px) rotate(180deg);opacity:.8}100%{transform:translateY(${size*12}px) rotate(720deg);opacity:0}}
-        @keyframes ninjaStumble{0%{transform:rotate(0)}10%{transform:rotate(40deg) translateY(${size*.3}px)}25%{transform:rotate(-20deg) translateY(${size*.5}px)}40%{transform:rotate(30deg) translateY(${size*.2}px)}55%{transform:rotate(-10deg) translateY(${size*.1}px)}70%{transform:rotate(5deg)}100%{transform:rotate(0)}}
+        @keyframes ninjaHangRecover{
+          0%{transform:translateY(0) rotate(0)}
+          8%{transform:translateY(${size*2.5}px) rotate(15deg)}
+          14%{transform:translateY(${size*3.5}px) rotate(-10deg)}
+          18%{transform:translateY(${size*2.8}px) rotate(5deg)}
+          22%{transform:translateY(${size*3}px) rotate(0) scaleY(.85)}
+          30%{transform:translateY(${size*3}px) rotate(3deg) scaleY(.85)}
+          35%{transform:translateY(${size*3}px) rotate(-3deg) scaleY(.85)}
+          40%{transform:translateY(${size*3}px) rotate(2deg) scaleY(.85)}
+          48%{transform:translateY(${size*2.2}px) rotate(-5deg) scaleY(.9)}
+          55%{transform:translateY(${size*1.8}px) rotate(4deg) scaleY(.92)}
+          62%{transform:translateY(${size*1.2}px) rotate(-3deg) scaleY(.95)}
+          70%{transform:translateY(${size*.6}px) rotate(2deg) scaleY(.98)}
+          80%{transform:translateY(${size*.2}px) rotate(-8deg)}
+          88%{transform:translateY(0) rotate(5deg)}
+          94%{transform:translateY(0) rotate(-2deg)}
+          100%{transform:translateY(0) rotate(0)}
+        }
         @keyframes ninjaFlip{0%{transform:rotate(0)}30%{transform:translateY(-${size*.6}px) rotate(-180deg)}60%{transform:translateY(-${size*.3}px) rotate(-360deg)}100%{transform:rotate(-360deg)}}
         @keyframes ninjaSpinKick{0%{transform:rotate(0) scale(1)}40%{transform:translateY(-${size*.5}px) rotate(180deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
         @keyframes ninjaSplit{0%{transform:scaleX(1)}30%{transform:translateY(-${size*.4}px) scaleX(1.4) scaleY(.7)}60%{transform:scaleX(1.2) scaleY(.9)}100%{transform:scaleX(1) scaleY(1)}}
