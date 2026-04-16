@@ -6,7 +6,22 @@
       "WebFetch(domain:og-ninja-comps-next.vercel.app)",
       "Bash(curl -s http://localhost:5173/)",
       "Bash(npx vite:*)",
-      "Bash(curl -s http://localhost:5173/src/components/CoordinatorView.jsx)"
+      "Bash(curl -s http://localhost:5173/src/components/CoordinatorView.jsx)",
+      "Read(//Users/chrisharmat/Downloads/**)",
+      "Bash(sips -g pixelWidth -g pixelHeight \"/Users/chrisharmat/Downloads/OG Comp App Icon.png\")",
+      "Bash(sips -c 1500 1500 --cropOffset 274 274 \"/Users/chrisharmat/Downloads/OG Comp App Icon.png\" --out /tmp/og-icon-tight.png)",
+      "Bash(sips -c 1380 1380 --cropOffset 334 334 \"/Users/chrisharmat/Downloads/OG Comp App Icon.png\" --out /tmp/og-icon-final.png)",
+      "Bash(ls -la ~/Downloads/OG*Comp*App*Icon*2*)",
+      "Bash(md5 public/icon-512.png dist/assets/icon-512-*.png)",
+      "Bash(ls -la dist/assets/icon-*)",
+      "Bash(md5 public/icon-512.png)",
+      "Bash(md5 dist/assets/icon-512-*.png)",
+      "Bash(cp public/icon-512.png ./icon-512.png)",
+      "Bash(cp public/icon-180.png ./icon-180.png)",
+      "Bash(cp public/icon-192.png ./icon-192.png)",
+      "Bash(md5 ./icon-512.png public/icon-512.png)",
+      "Bash(ls dist/assets/icon-*)",
+      "WebFetch(domain:localhost)"
     ]
   }
 }

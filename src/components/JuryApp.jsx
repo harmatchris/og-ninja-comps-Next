@@ -93,7 +93,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:12,padding:'36px 24px 24px'}}>
           <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(52,199,89,.1)',border:'2px solid rgba(52,199,89,.25)',display:'flex',alignItems:'center',justifyContent:'center'}}><I.CheckCircle s={26} c="var(--green)"/></div>
           <div style={{fontSize:17,fontWeight:800,color:'var(--green)'}}>{t('allDone')}</div>
-          {totalAthletes>0&&<div style={{fontSize:13,color:'var(--muted)',textAlign:'center'}}>{doneCount} / {totalAthletes} {lang==='de'?'Athleten absolviert':'athletes completed'}</div>}
+          {totalAthletes>0&&<div style={{fontSize:13,color:'var(--muted)',textAlign:'center'}}>{doneCount} / {totalAthletes} {t('athletesCompleted')}</div>}
           {doneCount>0&&totalAthletes>0&&doneCount<totalAthletes&&(
             <div style={{background:'rgba(255,200,80,.08)',border:'1px solid rgba(255,200,80,.25)',borderRadius:12,padding:'12px 16px',width:'100%',maxWidth:320}}>
               <div style={{fontSize:12,color:'rgba(255,200,80,.8)',fontWeight:700,marginBottom:6}}>{lang==='de'?'⚠ Nur teilweise absolviert':'⚠ Partially completed'}</div>
@@ -118,7 +118,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
               {cpObst.map(o=><div key={o.id} className="cp-pill future"><ObsLabel obs={o} size={9}/></div>)}
             </div>
-            <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} Hindernisse</div>
+            <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} {t('obstacles')}</div>
             <div style={{display:'flex',gap:8,marginTop:16}}>
               <button className="btn btn-coral" style={{flex:1,padding:18,fontSize:18,gap:10,minHeight:56,borderRadius:14}} onClick={()=>{SFX.click();onStart(next);}}>
                 <I.Play s={16}/> {t('startCountdown')}
@@ -132,16 +132,16 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
           {effectiveQ.length>1&&(
             <div style={{paddingBottom:84}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-                <div className="lbl">Startreihenfolge</div>
+                <div className="lbl">{t('startOrder')}</div>
                 <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title="Zufällige Reihenfolge"><span style={{fontSize:10}}>Mischen</span></button>
+                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title={lang==='de'?'Zufällige Reihenfolge':'Random order'}><span style={{fontSize:10}}>{t('shuffle')}</span></button>
                   <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
                 </div>
               </div>
               {/* Category order — drag to set which division starts first */}
               {multiCat&&(
                 <div style={{marginBottom:10}}>
-                  <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',marginBottom:4}}>{lang==='de'?'DIVISIONS-REIHENFOLGE':'DIVISION ORDER'}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.06em',marginBottom:4}}>{t('divisionOrder')}</div>
                   <DragList items={catOrder.filter(c=>queueCats.includes(c))} onReorder={reorderCats} keyFn={c=>c}
                     renderItem={(cid)=>{
                       const c=IGN_CATS.find(x=>x.id===cid);
@@ -761,7 +761,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
           <div style={{padding:'24px 0 8px',textAlign:'center'}}>
             <div style={{width:52,height:52,borderRadius:'50%',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.15)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8}}><I.Ninja s={28} c="rgba(255,255,255,.25)"/></div>
             <div style={{fontSize:18,fontWeight:800,marginBottom:4}}>Kategorie wählen</div>
-            <div style={{fontSize:13,color:'var(--muted)'}}>Welche Kategorie startet auf Stage {stNum}?</div>
+            <div style={{fontSize:13,color:'var(--muted)'}}>{lang==='de'?`Welche Kategorie startet auf Stage ${stNum}?`:`Which category starts on Stage ${stNum}?`}</div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:8}}>
             {IGN_CATS.filter(c=>athList.some(a=>a.cat===c.id)).map(c=>{
@@ -926,10 +926,10 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
         <div style={{padding:'8px 12px',background:'rgba(13,15,20,.97)',borderBottom:'1px solid var(--border)',flexShrink:0}}>
           <div style={{display:'flex',background:'rgba(255,255,255,.07)',borderRadius:26,padding:3,gap:2}}>
             {[
-              {k:'jury',   ic:<I.Bolt s={13}/>,    lb:'Jury'},
-              {k:'results',ic:<I.Trophy s={13}/>,  lb:'Ranking'},
-              {k:'queue',  ic:<I.User s={13}/>,    lb:'Next up'},
-              {k:'stats',  ic:<I.TrendUp s={13}/>, lb:'Stats'},
+              {k:'jury',   ic:<I.Bolt s={13}/>,    lb:t('tabJury')},
+              {k:'results',ic:<I.Trophy s={13}/>,  lb:t('tabRanking')},
+              {k:'queue',  ic:<I.User s={13}/>,    lb:t('tabQueue')},
+              {k:'stats',  ic:<I.TrendUp s={13}/>, lb:t('tabStats')},
             ].map(({k,ic,lb})=>(
               <button key={k} style={{flex:1,padding:'7px 3px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:4,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
                 background:topView===k?'var(--coral)':'transparent',
@@ -964,7 +964,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       {navigator.bluetooth&&<div style={{padding:'6px 16px',display:'flex',justifyContent:'flex-end'}}>
         <button onClick={toggleBuzzer} style={{background:buzzerName?'rgba(76,175,80,.15)':'rgba(255,255,255,.06)',border:buzzerName?'1px solid rgba(76,175,80,.3)':'1px solid rgba(255,255,255,.1)',borderRadius:8,padding:'5px 12px',fontSize:11,color:buzzerName?'#4CAF50':'rgba(255,255,255,.5)',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
           <span style={{width:7,height:7,borderRadius:'50%',background:buzzerName?'#4CAF50':'rgba(255,255,255,.3)',display:'inline-block'}}></span>
-          {buzzerName?buzzerName:'Buzzer verbinden'}
+          {buzzerName?buzzerName:(lang==='de'?'Buzzer verbinden':'Connect buzzer')}
         </button>
       </div>}
       {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone}/>}
