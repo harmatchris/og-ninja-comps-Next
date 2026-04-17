@@ -1015,7 +1015,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       <TopBar title={isPipeline?(pipelineStageCfg?.name||stageId||`Stage`):`Stage ${stNum}`} sub={cat?catName(cat):compId}
         onBack={(!inRun&&onBack)?onBack:undefined}
         right={<div style={{display:'flex',alignItems:'center',gap:6}}>
-          <button className="btn btn-ghost" style={{padding:'5px 7px',borderRadius:10,flexShrink:0}} onClick={()=>{SFX.wake();SFX.click();}}><I.Volume s={16} c="rgba(255,255,255,.5)"/></button>
+          <button className="btn btn-ghost" style={{padding:'5px 7px',borderRadius:10,flexShrink:0}} onClick={(e)=>{const s=SFX.wake();SFX.click();e.currentTarget.style.borderColor=s==='running'?'rgba(52,199,89,.5)':'rgba(255,59,48,.5)';setTimeout(()=>{if(e.currentTarget)e.currentTarget.style.borderColor='';},1500);}}><I.Volume s={16} c="rgba(255,255,255,.5)"/></button>
           {inRun&&<div className="live-badge"><div className="live-dot"/>LIVE</div>}
         </div>}/>
       {/* ── Top 3-way toggle: Jury | Ranking | Athleten ── */}
