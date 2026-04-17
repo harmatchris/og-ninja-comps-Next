@@ -278,8 +278,25 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   const [restActive,setRestActive]=useState(false);
   const restIntervalRef=useRef(null);
   const doneCPRef=useRef([]);
+  const cpFirstTimes=useRef({});
   const livesRef=useRef(lives);
   useEffect(()=>{livesRef.current=lives;},[lives]);
+  const prevFallCount=useRef(0);
+  useEffect(()=>{
+    if(activeFalls.length>prevFallCount.current&&doneCP.length>0){
+      const isPlatformObs=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
+      let trimTo=0;
+      for(let i=doneCP.length-1;i>=0;i--){
+        if(isPlatformObs(cpObst[i])){trimTo=i+1;break;}
+      }
+      if(trimTo<doneCP.length){
+        const trimmed=doneCP.slice(0,trimTo);
+        doneCPRef.current=trimmed;setDoneCP(trimmed);
+        fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
+      }
+    }
+    prevFallCount.current=activeFalls.length;
+  },[activeFalls.length]);
   // startPerf comes from JuryApp — captured at the exact moment GO tone fired
   const [startPerf]=useState(()=>startPerfProp!=null?startPerfProp:performance.now());
   const [startEpoch]=useState(()=>Date.now());
@@ -361,7 +378,9 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     if(allDone)return;
     SFX.checkpoint();if(navigator.vibrate)navigator.vibrate(50);setFlash(true);setTimeout(()=>setFlash(false),320);
     const t=Math.round(performance.now()-startPerf);
-    const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:t}];
+    const firstTime=cpFirstTimes.current[nextCp.id]??t;
+    if(!cpFirstTimes.current[nextCp.id])cpFirstTimes.current[nextCp.id]=t;
+    const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:firstTime}];
     doneCPRef.current=nd;setDoneCP(nd);
     // Show split time for 3.5s
     setLastSplit({name:nextCp.name,time:t,idx:nd.length,total:cpObst.length});
@@ -371,11 +390,14 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives,protested}),400);
     else if(onRefillLives&&nextCp.type==='section'){onRefillLives(nextCp.lives);if(nextCp.restTime>0){clearInterval(restIntervalRef.current);setRestSecs(nextCp.restTime);setRestActive(true);let s=nextCp.restTime;restIntervalRef.current=setInterval(()=>{s--;setRestSecs(s);if(s<=0){clearInterval(restIntervalRef.current);setRestActive(false);}},1000);}} // section marker: refill lives
   };
+  const isPlatform=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
   const handleFall=()=>{
     SFX.fall();
     const elapsed=Math.round(performance.now()-startPerf);
     const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
-    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested});
+    let lastPlatformIdx=-1;
+    for(let i=doneCP.length-1;i>=0;i--){const cp=cpObst[i];if(isPlatform(cp))lastPlatformIdx=i;}
+    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested,lastPlatformIdx});
   };
   const handleStop=()=>{
     SFX.fall();
