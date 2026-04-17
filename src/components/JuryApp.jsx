@@ -837,19 +837,12 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // In pipeline mode: no single catId, show all athletes in stage. In legacy: catId from station.
   const catId=isPipeline?null:stData?.cat;
   const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
-  // In pipeline mode: athletesMap IS the global map, but queue = only pipeline stage athletes
-  const pipelineAthIds=isPipeline&&stageAthletesRaw?new Set(Object.keys(stageAthletesRaw)):null;
   const athList=athletesMap?Object.values(athletesMap):[];
-  // Belt-and-suspenders: enforce stage's category filter on the final list, even if pipelineAthIds
-  // contains stale entries from pre-category-filter test data. Prevents off-category athletes
-  // from ever appearing in the Jury queue for a filtered stage.
   const _stageCatsCfg=pipelineStageCfg?.categories;
   const _stageAllowAll=!_stageCatsCfg||_stageCatsCfg==='all'||(Array.isArray(_stageCatsCfg)&&_stageCatsCfg.length===0);
   const _stageCatSet=_stageAllowAll?null:new Set(Array.isArray(_stageCatsCfg)?_stageCatsCfg:[]);
   const stageAthList=isPipeline
-    ?(pipelineAthIds&&pipelineAthIds.size>0
-      ?athList.filter(a=>pipelineAthIds.has(a.id)&&(!_stageCatSet||_stageCatSet.has(a.cat)))
-      :(()=>{const _cats=_stageAllowAll?IGN_CATS.map(c=>c.id):Array.from(_stageCatSet||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})())
+    ?(()=>{const _cats=_stageAllowAll?IGN_CATS.map(c=>c.id):Array.from(_stageCatSet||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})()
     :(athList.filter(a=>a.cat===catId));
   const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&stNum!=null&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).map(r=>r.athleteId):[]);
   const queue=stageAthList.filter(a=>!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));

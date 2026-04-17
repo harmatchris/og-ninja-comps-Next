@@ -702,9 +702,9 @@ const handleDeleteAth=async(a)=>{
             const stageLetter=STAGE_LETTERS[idx]||String(idx+1);
             const isOccupied=occupiedStages.has(stageKey);
             const stageName=pStage.name||`Stage ${stageLetter}`;
-            const pipelineAthletes=pipelineData?.[stageKey]?.athletes||{};
-            const hasPipeAths=Object.keys(pipelineAthletes).length>0;
-            const athsInStage=hasPipeAths?Object.values(pipelineAthletes):(()=>{const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage.categories)?pStage.categories:[]);const _cs=new Set(_cIds);return Object.values(athletes||{}).filter(a=>_cs.has(a.cat));})();
+            const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage.categories)?pStage.categories:[]);
+            const _cs=new Set(_cIds);
+            const athsInStage=Object.values(athletes||{}).filter(a=>_cs.has(a.cat));
             const allRuns=completedRuns?Object.values(completedRuns):[];
             const stageRuns=allRuns.filter(r=>r.stageId===stageKey);
             const doneAthIds=new Set(stageRuns.map(r=>r.athleteId));
