@@ -547,7 +547,8 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     if(!orders)return;
     const {jsPDF}=await import('jspdf');
     const compName=info?.name||info?.emoji||compId;
-    const compDate=info?.date||new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
+    const fmtDate=d=>{try{return new Date(d+'T12:00:00').toLocaleDateString('de-AT',{day:'numeric',month:'long',year:'numeric'});}catch{return d;}};
+    const compDate=info?.date?fmtDate(info.date):new Date().toLocaleDateString('de-AT',{day:'numeric',month:'long',year:'numeric'});
     const loc=info?.location||'';
     const stageIds=pipelineStages.map(s=>s.id);
     const flagCache={};
