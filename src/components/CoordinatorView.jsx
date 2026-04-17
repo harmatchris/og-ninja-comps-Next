@@ -255,8 +255,7 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
                     <span style={{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:900,color:resetSec<=3?'#FF3B30':'#FF9500'}}>{resetSec>0?`${resetSec}s`:'GO!'}</span>
                   </div>
                 </div>;
-              })()
-              ):(
+              })():(
                 <div>
                   <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timeCritical?'#FF3B30':'rgba(255,180,120,.9)',
                     textShadow:timeCritical?'0 0 20px rgba(255,59,48,.4)':'none'}}>
