@@ -241,16 +241,21 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
             </div>
             {/* Big timer */}
             <div style={{textAlign:'center'}}>
-              {isResetting?(
-                <div>
-                  <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:'rgba(255,180,120,.9)',marginBottom:6}}>
+              {isResetting?(()=>{
+                const dcp=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP?Object.values(r.doneCP):[]);
+                const lastPlat=dcp.length>0?[...dcp].reverse().find(c=>c.name&&(c.name.toLowerCase().includes('platform')||c.name.toLowerCase().includes('plattform'))):null;
+                const platLabel=lastPlat?lastPlat.name:(lang==='de'?'Start':'Start');
+                return<div>
+                  <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:'rgba(255,180,120,.9)',marginBottom:4}}>
                     {fmtT(elapsed)}
                   </div>
+                  <div style={{fontSize:10,color:'#FF9500',fontWeight:700,marginBottom:4}}>↩ {lang==='de'?'Zurück zu':'Back to'} {platLabel}</div>
                   <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:8,background:'rgba(255,149,0,.1)',border:'1px solid rgba(255,149,0,.25)'}}>
-                    <span style={{fontSize:9,fontWeight:700,color:'#FF9500',letterSpacing:'.08em'}}>RESET</span>
-                    <span style={{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:900,color:resetSec<=3?'#FF3B30':'#FF9500'}}>{resetSec>0?resetSec:'GO'}</span>
+                    <span style={{fontSize:9,fontWeight:700,color:'#FF9500',letterSpacing:'.08em'}}>START IN</span>
+                    <span style={{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:900,color:resetSec<=3?'#FF3B30':'#FF9500'}}>{resetSec>0?`${resetSec}s`:'GO!'}</span>
                   </div>
-                </div>
+                </div>;
+              })()
               ):(
                 <div>
                   <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:timeCritical?'#FF3B30':'rgba(255,180,120,.9)',
