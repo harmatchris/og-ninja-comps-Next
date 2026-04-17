@@ -19,9 +19,8 @@ const App=()=>{
   const [view,setView]=useState(()=>{
     if(modeP==='display')return 'display';if(modeP==='queue')return 'queue';if(modeP==='stats')return 'stats';if(modeP==='skill')return 'skill';
     if(stageIdP&&compP)return 'jury';if(stP&&compP)return 'jury';if(compP)return 'coordinator';
-    // Restore last view on refresh (if no URL params)
-    const lastView=storage.get('lastView',null);const lastComp=storage.get('lastCompId',null);
-    if(lastComp&&lastView&&lastView!=='home')return lastView;
+    const lastComp=storage.get('lastCompId',null);
+    if(lastComp)return 'coordinator';
     return 'home';
   });
   const [prevView,setPrevView]=useState('coordinator');
