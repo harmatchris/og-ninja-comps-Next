@@ -279,7 +279,7 @@ const JuryCountdown=({onGo})=>{
 // JURY — ACTIVE RUN
 // ════════════════════════════════════════════════════════════
 
-const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLives,totalLivesLeft,activeFalls,startPerf:startPerfProp,frozenAt,onFall,onComplete,onStop,onRefillLives,stageCfgTimeLimit})=>{
+const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLives,totalLivesLeft,activeFalls,startPerf:startPerfProp,frozenAt,onFall,onComplete,onStop,onEndRun,resetActive:resetActiveProp,onRefillLives,stageCfgTimeLimit})=>{
   const {lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
@@ -502,10 +502,16 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
             <div style={{fontSize:9,opacity:.28,fontWeight:400,letterSpacing:'.04em',marginTop:3,lineHeight:1,textTransform:'none'}}>{lang==='de'?'halten = rückgängig':'hold = undo'}</div>
           </button>);})()}
           <div style={{display:'flex',gap:8}}>
-            <button className="btn btn-fall" style={{flex:1,padding:20,fontSize:16,gap:10,minHeight:56,borderRadius:14}} onClick={handleFall}>
-              <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
-            </button>
-            <button className="btn btn-ghost" style={{padding:'16px 20px',fontSize:14,gap:7,minHeight:56,borderRadius:14}} onClick={handleStop}>
+            {resetActiveProp?(
+              <button className="btn" style={{flex:1,padding:20,fontSize:16,gap:10,minHeight:56,borderRadius:14,background:'rgba(255,59,48,.15)',border:'2px solid rgba(255,59,48,.4)',color:'#FF3B6B'}} onClick={onEndRun}>
+                <I.StopOct s={14}/> {lang==='de'?'Lauf beenden':'End run'}
+              </button>
+            ):(
+              <button className="btn btn-fall" style={{flex:1,padding:20,fontSize:16,gap:10,minHeight:56,borderRadius:14}} onClick={handleFall}>
+                <I.X s={14}/> {lang==='de'?'Fall':'Fall'}
+              </button>
+            )}
+            <button className="btn btn-ghost" style={{padding:'16px 20px',fontSize:14,gap:7,minHeight:56,borderRadius:14}} onClick={resetActiveProp?onEndRun:handleStop}>
               <I.StopOct s={12}/> {lang==='de'?'Abbrechen':'Stop run'}
             </button>
           </div>
@@ -770,8 +776,9 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const existingRun=useFbVal(`ogn/${compId}/activeRuns/${activeRunKey}`);
   const [phase,setPhase]=useState('wait');
   const [currentAth,setCurrentAth]=useState(null);
-  const [fallModal,setFallModal]=useState(null);   // null or fall data — timer stays running
-  const [stopModal,setStopModal]=useState(null);   // null or stop data — timer stays running
+  const [fallModal,setFallModal]=useState(null);
+  const [stopModal,setStopModal]=useState(null);
+  const [pendingFallData,setPendingFallData]=useState(null);
   const [activeFalls,setActiveFalls]=useState([]); // committed falls in current run
   const [doneResult,setDoneResult]=useState(null);
   const [completedRunKey,setCompletedRunKey]=useState(null);
@@ -923,28 +930,32 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   };
   // goTime = performance.now() at the exact moment the GO horn fired — used as timer origin
   const handleGo=(gt)=>{setGoTime(gt);setPhase('active');};
-  // Fall: show modal overlay — JuryActive stays mounted, timer keeps running
-  const handleFall=data=>{if(fallModal||stopModal)return;setFallModal(data);};
-  const handleStop=data=>{if(fallModal||stopModal)return;setStopModal(data);};
-  // "Back to run" — accidental press, no fall recorded
-  const handleFallCancel=()=>setFallModal(null);
-  const handleStopCancel=()=>setStopModal(null);
-  const handleUseLive=({selCount,time})=>{
-    const newFall={obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime};
+  // Fall: immediately start reset countdown, show decision buttons during countdown
+  const handleFall=data=>{
+    if(fallModal||stopModal||resetActive)return;
+    const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
     setActiveFalls(prev=>[...prev,newFall]);
-    setFallFreezeTime(fallModal.currentTime);
-    setFallModal(null);
+    setFallFreezeTime(data.currentTime);
     if(!isInfinityLives)setLives(l=>l-1);
     if(totalLivesLeft!==null&&!isInfinityLives)setTotalLivesLeft(t=>t-1);
-    if(info.mode==='lives'){
-      setResetActive(true);
-      fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:isInfinityLives?999:lives-1,livesUsed:activeFalls.length+1});
-    }
+    setResetActive(true);
+    setPendingFallData(data);
+    fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:isInfinityLives?999:lives-1,livesUsed:activeFalls.length+1});
   };
+  const handleStop=data=>{if(fallModal||stopModal)return;setStopModal(data);};
+  const handleEndRun=()=>{
+    if(!pendingFallData)return;
+    setResetActive(false);setPendingFallData(null);
+    setFallModal(pendingFallData);
+  };
+  const handleFallCancel=()=>setFallModal(null);
+  const handleStopCancel=()=>setStopModal(null);
+  const handleUseLive=()=>{setFallModal(null);};
   const handleResetDone=()=>{
     setGoTime(performance.now()-fallFreezeTime);
     setFallFreezeTime(null);
     setResetActive(false);
+    setPendingFallData(null);
     fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:null,resetUntil:null});
   };
   const handleRefillLives=(sectionLives)=>{if(isInfinityLives){setLives(999);return;}const refill=sectionLives!=null?sectionLives:(pipelineLivesPerSection||effectiveLives);const capped=totalLivesLeft!=null?Math.min(refill,totalLivesLeft):refill;setLives(capped);};
@@ -1005,7 +1016,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
 
   const juryContent=(()=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
-    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} activeRunKey={activeRunKey} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} maxLives={effectiveLives} totalLivesLeft={totalLivesLeft} activeFalls={activeFalls} startPerf={goTime} frozenAt={fallFreezeTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop} onRefillLives={info.mode==='lives'?handleRefillLives:null} stageCfgTimeLimit={isPipeline?pipelineStageCfg?.timeLimit:null}/>;
+    if(phase==='active')return<JuryActive compId={compId} stNum={stNum} activeRunKey={activeRunKey} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} maxLives={effectiveLives} totalLivesLeft={totalLivesLeft} activeFalls={activeFalls} startPerf={goTime} frozenAt={fallFreezeTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop} onEndRun={handleEndRun} resetActive={resetActive} onRefillLives={info.mode==='lives'?handleRefillLives:null} stageCfgTimeLimit={isPipeline?pipelineStageCfg?.timeLimit:null}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
     return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage} onDsq={handleDsqAth} stageId={stageId} isPipeline={isPipeline} stNum={stNum}/>;
   })();
