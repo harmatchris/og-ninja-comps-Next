@@ -930,17 +930,22 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   };
   // goTime = performance.now() at the exact moment the GO horn fired — used as timer origin
   const handleGo=(gt)=>{setGoTime(gt);setPhase('active');};
-  // Fall: immediately start reset countdown, show decision buttons during countdown
+  // Fall: Extra Life mode → immediate reset + decide during countdown
+  //       Classic mode → open FallModal immediately (old behavior)
   const handleFall=data=>{
     if(fallModal||stopModal||resetActive)return;
-    const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
-    setActiveFalls(prev=>[...prev,newFall]);
-    setFallFreezeTime(data.currentTime);
-    if(!isInfinityLives)setLives(l=>l-1);
-    if(totalLivesLeft!==null&&!isInfinityLives)setTotalLivesLeft(t=>t-1);
-    setResetActive(true);
-    setPendingFallData(data);
-    fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:isInfinityLives?999:lives-1,livesUsed:activeFalls.length+1});
+    if(info.mode==='lives'){
+      const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
+      setActiveFalls(prev=>[...prev,newFall]);
+      setFallFreezeTime(data.currentTime);
+      if(!isInfinityLives)setLives(l=>l-1);
+      if(totalLivesLeft!==null&&!isInfinityLives)setTotalLivesLeft(t=>t-1);
+      setResetActive(true);
+      setPendingFallData(data);
+      fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:isInfinityLives?999:lives-1,livesUsed:activeFalls.length+1});
+    }else{
+      setFallModal(data);
+    }
   };
   const handleStop=data=>{if(fallModal||stopModal)return;setStopModal(data);};
   const handleEndRun=()=>{
