@@ -110,11 +110,14 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
       setSaving(false);SFX.complete();onClose();
     }catch(err){setSaving(false);window.alert('Error: '+err.message);}
   };
+  const [rerunConfirm,setRerunConfirm]=useState(false);
   const handleRerun=async()=>{
-    if(!window.confirm(lang==='de'?`Re-Run für ${run.athleteName} genehmigen?\n\nDer aktuelle Lauf wird gelöscht und der Athlet kann erneut starten.`:`Grant re-run for ${run.athleteName}?\n\nCurrent run will be deleted and athlete can start again.`))return;
-    setSaving(true);
-    await fbRemove(`ogn/${compId}/completedRuns/${runKey}`);
-    setSaving(false);SFX.complete();onClose();
+    if(!rerunConfirm){setRerunConfirm(true);return;}
+    try{
+      setSaving(true);
+      await fbRemove(`ogn/${compId}/completedRuns/${runKey}`);
+      setSaving(false);SFX.complete();onClose();
+    }catch(e){setSaving(false);window.alert('Error: '+e.message);}
   };
   const statusOpts=[['complete',lang==='de'?'Abgeschlossen / Buzzer':'Complete / Buzzer','var(--green)'],['fall',lang==='de'?'Fall':'Fall','var(--cor)'],['dnf','DNF / '+(lang==='de'?'Abgebrochen':'Stopped'),'var(--gold)'],['timeout',lang==='de'?'Zeitlimit':'Timeout','var(--gold)'],['dsq','DSQ','#FF3B6B']];
   return(
@@ -180,8 +183,8 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
         <button className="btn btn-coral" style={{width:'100%',padding:13,gap:8,marginBottom:6}} onClick={handleSave} disabled={saving}>{saving?<I.RefreshCw s={14}/>:<I.Check s={14}/>} {lang==='de'?'Korrektur speichern':'Save correction'}</button>
         <button className="btn btn-ghost" style={{width:'100%',padding:11,marginBottom:6}} onClick={onClose}>↩ {lang==='de'?'Abbrechen':'Cancel'}</button>
         <div style={{borderTop:'1px solid var(--border)',paddingTop:8,marginTop:4}}>
-          <button className="btn" style={{width:'100%',padding:11,gap:6,fontSize:12,background:'rgba(255,149,0,.08)',border:'1px solid rgba(255,149,0,.3)',color:'#FF9500',borderRadius:10}} onClick={handleRerun} disabled={saving}>
-            <I.RefreshCw s={13}/> {lang==='de'?'Re-Run genehmigen (Einspruch)':'Grant Re-Run (protest)'}
+          <button className="btn" style={{width:'100%',padding:11,gap:6,fontSize:12,background:rerunConfirm?'rgba(255,59,48,.15)':'rgba(255,149,0,.08)',border:`1px solid ${rerunConfirm?'rgba(255,59,48,.4)':'rgba(255,149,0,.3)'}`,color:rerunConfirm?'#FF3B6B':'#FF9500',borderRadius:10}} onClick={handleRerun} disabled={saving}>
+            <I.RefreshCw s={13}/> {rerunConfirm?(lang==='de'?'Wirklich löschen? Nochmal tippen':'Really delete? Tap again'):(lang==='de'?'Re-Run genehmigen (Einspruch)':'Grant Re-Run (protest)')}
           </button>
           <div style={{fontSize:9,color:'var(--muted)',textAlign:'center',marginTop:4}}>{lang==='de'?'Löscht diesen Lauf — Athlet kann erneut starten':'Deletes this run — athlete can start again'}</div>
         </div>
