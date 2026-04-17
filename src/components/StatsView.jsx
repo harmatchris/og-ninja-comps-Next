@@ -254,8 +254,9 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
 
 const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPerObs=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
-  const W=1000,H=tvMode?420:300;
-  const ML=46,MR=16,MT=20,MB=tvMode?90:80;
+  const extraMB=nPts>20?Math.min(nPts*1.5,60):0;
+  const W=1000,H=(tvMode?420:300)+extraMB;
+  const ML=46,MR=16,MT=tvMode?60:50,MB=(tvMode?90:80)+extraMB;
   const PW=W-ML-MR,PH=H-MT-MB;
   const nPts=data[0]?.points?.length||0;
   if(nPts<2)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Noch zu wenig Läufe für eine Kurve</div>;
@@ -306,9 +307,11 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
         })}
         {data[0]?.points?.map((p,i)=>{
           const isPlat=p.isPlat;
-          return<text key={i} x={xs(i)} y={H-MB+16} fill={isPlat?'#FF9500':'rgba(255,255,255,.4)'} fontSize={tvMode?11:9} fontWeight={isPlat?'800':'400'} textAnchor="end" fontFamily="system-ui"
-            transform={`rotate(-48,${xs(i)},${H-MB+16})`}>
-            {(isPlat?'▮ ':'')+(i===0?'Start':(p.label||'').substring(0,20))}
+          const lblSize=nPts>30?(tvMode?8:6):nPts>20?(tvMode?9:7):(tvMode?11:9);
+          const maxLen=nPts>30?14:20;
+          return<text key={i} x={xs(i)} y={H-MB+16} fill={isPlat?'#FF9500':'rgba(255,255,255,.4)'} fontSize={lblSize} fontWeight={isPlat?'800':'400'} textAnchor="end" fontFamily="system-ui"
+            transform={`rotate(-55,${xs(i)},${H-MB+16})`}>
+            {(isPlat?'▮ ':'')+(i===0?'Start':(p.label||'').substring(0,maxLen))}
           </text>;
         })}
         {livesUsedPerObs.map((count,i)=>{
