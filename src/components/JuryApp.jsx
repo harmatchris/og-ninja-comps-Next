@@ -295,16 +295,26 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   useEffect(()=>{
     try{
       if(activeFalls.length>prevFallCount.current&&doneCP.length>0){
-        let trimTo=0;
-        for(let i=doneCP.length-1;i>=0;i--){
-          const cpEntry=doneCP[i];
-          const obsMatch=cpObst[i];
-          if(isPlatformName(cpEntry?.name)||isPlatformObs(obsMatch)){trimTo=i+1;break;}
+        // Find current position in full obstacle array
+        let fullIdx=0,cpCount=0;
+        for(let i=0;i<obstArr.length;i++){
+          if(obstArr[i].isCP!==false){if(cpCount>=doneCP.length){fullIdx=i;break;}cpCount++;}
+          if(i===obstArr.length-1)fullIdx=i+1;
         }
-        if(trimTo<doneCP.length){
-          const trimmed=doneCP.slice(0,trimTo);
-          doneCPRef.current=trimmed;setDoneCP(trimmed);
-          fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
+        // Search backward in full array for last platform BEFORE current position
+        let lastPlatFullIdx=-1;
+        for(let i=fullIdx-1;i>=0;i--){
+          if(isPlatformObs(obstArr[i])){lastPlatFullIdx=i;break;}
+        }
+        if(lastPlatFullIdx>=0){
+          // Count CPs up to and including the platform (platforms with isCP count too)
+          let trimTo=0;
+          for(let i=0;i<=lastPlatFullIdx;i++){if(obstArr[i].isCP!==false)trimTo++;}
+          if(trimTo<doneCP.length){
+            const trimmed=doneCP.slice(0,trimTo);
+            doneCPRef.current=trimmed;setDoneCP(trimmed);
+            fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
+          }
         }
       }
     }catch(e){console.error('Platform trim error:',e);}
