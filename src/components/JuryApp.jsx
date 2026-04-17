@@ -41,7 +41,15 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
   const obsPath=isPipeline?`ogn/${compId}/pipeline/${stageId}/obstacles`:`ogn/${compId}/obstacles`;
   const saveObs=arr=>{const obj={};arr.forEach((o,i)=>{obj[o.id]={...o,order:i};});fbSet(obsPath,obj);};
   const reorderObs=arr=>saveObs(arr.map((o,i)=>({...o,order:i})));
-  const addObs=()=>{if(!newObsName.trim())return;const o={id:uid(),name:newObsName.trim(),isCP:true,order:obstArr.length};fbUpdate(obsPath+'/'+o.id,o);setNewObsName('');SFX.click();};
+  const addObs=()=>{
+    if(!newObsName.trim())return;
+    let name=newObsName.trim();
+    if(isPlatformName(name)&&!/\d/.test(name)){
+      const existing=obstArr.filter(o=>isPlatformName(o.name)).length;
+      name=`${name} ${existing}`;
+    }
+    const o={id:uid(),name,isCP:true,order:obstArr.length};fbUpdate(obsPath+'/'+o.id,o);setNewObsName('');SFX.click();
+  };
   const removeObs=id=>{fbRemove(obsPath+'/'+id);SFX.click();};
   const toggleCP=id=>{const o=obstArr.find(x=>x.id===id);if(o)fbUpdate(obsPath+'/'+id,{...o,isCP:!o.isCP});};
   const renameObs=(id,name)=>{if(!name.trim())return;fbUpdate(obsPath+'/'+id+'/name',name.trim());};
@@ -133,7 +141,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
               {cpObst.map(o=>{const plat=isPlatformName(o.name)||o.type==='section';return<div key={o.id} className="cp-pill future" style={plat?{background:'rgba(52,199,89,.15)',borderColor:'rgba(52,199,89,.4)',color:'var(--green)'}:{}}>{plat?'▮ ':''}<ObsLabel obs={o} size={9}/></div>;})}
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-              <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{cpObst.length} Checkpoints · {obstArr.length} {t('obstacles')}</div>
+              <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{obstArr.filter(o=>!isPlatformObs(o)).length} {t('obstacles')} · {cpObst.length} Checkpoints{obstArr.filter(o=>isPlatformObs(o)).length>0&&` · ${obstArr.filter(o=>isPlatformObs(o)).length} Plattformen`}</div>
               <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8}} onClick={()=>setEditObs(!editObs)}>
                 <I.Settings s={11}/> {editObs?(lang==='de'?'Fertig':'Done'):(lang==='de'?'Bearbeiten':'Edit')}
               </button>

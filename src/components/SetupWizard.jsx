@@ -103,10 +103,16 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   /* ── obstacle helpers ── */
   const si=Math.min(obsStage,Math.max(numSt-1,0));
   const curObs=stageObs[si]||[];
+  const isPlatName=n=>{if(!n)return false;const l=n.toLowerCase();return l.includes('platform')||l.includes('plattform')||l.includes('section')||l.includes('sektion');};
   const addObs=()=>{
     if(!newObs.trim())return;
     const idx=Math.min(obsStage,Math.max(numSt-1,0));
-    setStageObs(s=>{const n=[...s];n[idx]=[...n[idx],{id:uid(),name:newObs.trim(),isCP:true,order:n[idx].length}];return n;});
+    let name=newObs.trim();
+    if(isPlatName(name)&&!/\d/.test(name)){
+      const existing=(stageObs[idx]||[]).filter(o=>isPlatName(o.name)).length;
+      name=`${name} ${existing}`;
+    }
+    setStageObs(s=>{const n=[...s];n[idx]=[...n[idx],{id:uid(),name,isCP:true,order:n[idx].length}];return n;});
     setNewObs('');SFX.click();
   };
   const reorderObs=arr=>{
