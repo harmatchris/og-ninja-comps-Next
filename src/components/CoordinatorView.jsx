@@ -551,57 +551,70 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const loc=info?.location||'';
     const stageIds=pipelineStages.map(s=>s.id);
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pw=210,ph=297,mx=12,my=15,cw=pw-2*mx;
+    const pw=210,ph=297,mx=14,my=16,cw=pw-2*mx;
+    const rh=5.8;
+    const cols={num:mx,bib:mx+9,name:mx+21,country:mx+85,team:mx+100,div:mx+135};
+    const headers=['#','Nr','Name','Land','Team','Division'];
+    const headerX=[cols.num,cols.bib,cols.name,cols.country,cols.team,cols.div];
+    const drawHeader=(doc,y)=>{
+      doc.setFillColor(240,240,240);doc.rect(mx,y-3.5,cw,6.5,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(90,90,90);
+      headers.forEach((h,i)=>doc.text(h,headerX[i],y));
+      doc.setDrawColor(180,180,180);doc.setLineWidth(0.4);doc.line(mx,y+2.5,mx+cw,y+2.5);
+      return y+5;
+    };
     stageIds.forEach((sid,sIdx)=>{
       if(sIdx>0)doc.addPage();
       const stage=pipelineStages.find(s=>s.id===sid);
       const stageName=stage?.name||sid;
       const q=orders[sid]||[];
       let y=my;
-      doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(30,30,30);
-      doc.text(compName,mx,y);y+=6;
-      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(130,130,130);
-      doc.text(`${compDate}${loc?' · '+loc:''}`,mx,y);y+=8;
-      doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(255,94,58);
-      doc.text(stageName,mx,y);y+=2;
-      doc.setDrawColor(255,94,58);doc.setLineWidth(0.6);doc.line(mx,y,mx+doc.getTextWidth(stageName),y);y+=6;
-      const colX=[mx,mx+10,mx+22,mx+22,mx+cw*0.65,mx+cw*0.82];
-      doc.setFillColor(245,245,245);doc.rect(mx,y-3,cw,6,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
-      ['#','Nr','Name','','Team','Division'].forEach((h,hi)=>{if(h)doc.text(h,colX[hi],y);});
-      y+=5;doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(mx,y-2,mx+cw,y-2);
-      let lastCat='';
+      doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(25,25,25);
+      doc.text(compName,mx,y);y+=7;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120,120,120);
+      doc.text(`${compDate}${loc?' \u00B7 '+loc:''}`,mx,y);y+=9;
+      doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,94,58);
+      doc.text(stageName,mx,y);
+      const stw=doc.getTextWidth(stageName);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150,150,150);
+      doc.text(`  (${q.length} Athleten)`,mx+stw,y);
+      y+=2.5;doc.setDrawColor(255,94,58);doc.setLineWidth(0.8);doc.line(mx,y,mx+stw+1,y);y+=7;
+      y=drawHeader(doc,y);
+      let lastCat='';let catNum=0;
       q.forEach((a,i)=>{
-        if(y>ph-20){doc.addPage();y=my;
-          doc.setFillColor(245,245,245);doc.rect(mx,y-3,cw,6,'F');
-          doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
-          ['#','Nr','Name','','Team','Division'].forEach((h,hi)=>{if(h)doc.text(h,colX[hi],y);});
-          y+=5;doc.setDrawColor(200,200,200);doc.line(mx,y-2,mx+cw,y-2);lastCat='';
+        if(y>ph-18){doc.addPage();y=my;y=drawHeader(doc,y);lastCat='';}
+        if(a.cat!==lastCat){
+          if(lastCat){y+=1.5;doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(mx,y-1,mx+cw,y-1);y+=1.5;}
+          lastCat=a.cat;catNum=0;
         }
-        if(a.cat!==lastCat&&lastCat){doc.setDrawColor(210,210,210);doc.setLineWidth(0.4);doc.line(mx,y-1,mx+cw,y-1);y+=1;}
-        lastCat=a.cat;
+        catNum++;
+        if(i%2===0){doc.setFillColor(248,248,248);doc.rect(mx,y-3.5,cw,rh,'F');}
+        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(160,160,160);
+        doc.text(String(i+1),cols.num,y);
+        doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(100,100,100);
+        doc.text(String(a.num||'-'),cols.bib,y);
+        doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(25,25,25);
+        const nameStr=a.name||'';
+        doc.text(nameStr.length>28?nameStr.slice(0,27)+'..':nameStr,cols.name,y);
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(130,130,130);
+        doc.text((a.country||'').toUpperCase(),cols.country,y);
+        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(220,130,20);
+        const teamStr=a.team||'';
+        doc.text(teamStr.length>16?teamStr.slice(0,15)+'..':teamStr,cols.team,y);
         const cat=IGN_CATS.find(c=>c.id===a.cat);
-        const flag=toFlag(a.country);
-        const even=i%2===0;
-        if(even){doc.setFillColor(250,250,250);doc.rect(mx,y-3,cw,5.5,'F');}
-        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(140,140,140);
-        doc.text(String(i+1),colX[0],y);
-        doc.text(a.num||'—',colX[1],y);
-        doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);
-        doc.text(`${flag?flag+' ':''}${a.name}`,colX[2],y);
-        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(255,149,0);
-        doc.text(a.team||'',colX[4],y);
         if(cat){
-          const cl=cat.color;const r=parseInt(cl.slice(1,3),16),g=parseInt(cl.slice(3,5),16),b=parseInt(cl.slice(5,7),16);
-          const lbl=cat.name?.de||a.cat;const tw2=doc.getTextWidth(lbl)+4;
-          doc.setFillColor(r,g,b);doc.roundedRect(colX[5],y-3,tw2,4.5,1,1,'F');
-          doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
-          doc.text(lbl,colX[5]+2,y-0.3);
+          const hex=cat.color;const cr=parseInt(hex.slice(1,3),16),cg=parseInt(hex.slice(3,5),16),cb=parseInt(hex.slice(5,7),16);
+          const lbl=(cat.name?.de||a.cat);
+          doc.setFont('helvetica','bold');doc.setFontSize(7);
+          const lblW=doc.getTextWidth(lbl)+5;
+          doc.setFillColor(cr,cg,cb);doc.roundedRect(cols.div,y-3,lblW,4.2,1.2,1.2,'F');
+          doc.setTextColor(255,255,255);doc.text(lbl,cols.div+2.5,y-0.2);
         }
-        y+=5.5;
+        y+=rh;
       });
-      y+=4;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,180,180);
-      doc.text(`${stageName} · ${q.length} Athleten · OG Ninja Competition Tool`,pw/2,y,{align:'center'});
+      y+=6;doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(mx,y,mx+cw,y);y+=4;
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(170,170,170);
+      doc.text(`${stageName}  \u00B7  ${q.length} Athleten  \u00B7  OG Ninja Competition Tool`,pw/2,y,{align:'center'});
     });
     doc.save(`Startreihenfolge-${compName.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
   };
@@ -790,7 +803,11 @@ const handleDeleteAth=async(a)=>{
           <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
             {isPipeline&&pipelineStages.length>=2&&<>
-              <button className="btn" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,background:'rgba(52,199,89,.12)',border:'1px solid rgba(52,199,89,.35)',color:'var(--green)',fontWeight:700}} onClick={()=>{generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated! Divisions are offset across stages.');}}>
+              <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{
+                const pin=window.prompt(lang==='de'?'PIN eingeben um Startreihenfolge zu generieren:':'Enter PIN to generate start order:');
+                if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
+                generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated!');
+              }}>
                 ⚡ {lang==='de'?'Startreihenfolge generieren':'Generate start order'}
               </button>
               <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
