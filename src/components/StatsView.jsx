@@ -254,11 +254,11 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
 
 const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPerObs=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
+  const nPts=data[0]?.points?.length||0;
   const extraMB=nPts>20?Math.min(nPts*1.5,60):0;
   const W=1000,H=(tvMode?420:300)+extraMB;
   const ML=46,MR=16,MT=tvMode?60:50,MB=(tvMode?90:80)+extraMB;
   const PW=W-ML-MR,PH=H-MT-MB;
-  const nPts=data[0]?.points?.length||0;
   if(nPts<2)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Noch zu wenig Läufe für eine Kurve</div>;
   const hasRuns=data.some(d=>d.total>0);
   const xs=i=>ML+(i/(nPts-1))*PW;
