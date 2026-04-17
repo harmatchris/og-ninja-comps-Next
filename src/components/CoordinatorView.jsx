@@ -508,48 +508,39 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const generateStartOrder=()=>{
     if(!isPipeline||pipelineStages.length<2){window.alert('Mindestens 2 Stages nötig');return;}
     const allAths=Object.values(athletes||{});
-    const stageQueues={};
-    pipelineStages.forEach(ps=>{
+    const stageIds=pipelineStages.map(s=>s.id);
+    const nStages=stageIds.length;
+    const byCat={};
+    allAths.forEach(a=>{(byCat[a.cat]=byCat[a.cat]||[]).push(a);});
+    Object.values(byCat).forEach(arr=>arr.sort((a,b)=>(a.num||'').localeCompare(b.num||'',undefined,{numeric:true})));
+    const allCats=IGN_CATS.map(c=>c.id).filter(c=>byCat[c]?.length);
+    const orders={};
+    stageIds.forEach(sid=>{
+      const ps=pipelineStages.find(s=>s.id===sid);
       const cIds=ps.categories==='all'||!ps.categories?IGN_CATS.map(c=>c.id):(Array.isArray(ps.categories)?ps.categories:[]);
       const cs=new Set(cIds);
-      const stageAths=allAths.filter(a=>cs.has(a.cat));
-      const byCat={};stageAths.forEach(a=>{(byCat[a.cat]=byCat[a.cat]||[]).push(a);});
-      Object.values(byCat).forEach(arr=>arr.sort((a,b)=>(a.num||'').localeCompare(b.num||'',undefined,{numeric:true})));
-      stageQueues[ps.id]={cats:cIds.filter(c=>byCat[c]?.length),byCat};
+      const stageCats=allCats.filter(c=>cs.has(c));
+      orders[sid]={cats:stageCats,list:[]};
     });
-    const stageIds=pipelineStages.map(s=>s.id);
-    const allCats=[...new Set(stageIds.flatMap(sid=>stageQueues[sid].cats))];
-    const catPairs=[];
-    for(let i=0;i<allCats.length;i+=2){
-      if(i+1<allCats.length)catPairs.push([allCats[i],allCats[i+1]]);
-      else catPairs.push([allCats[i]]);
-    }
-    const orders={};stageIds.forEach(sid=>{orders[sid]=[];});
-    catPairs.forEach((pair,pi)=>{
-      stageIds.forEach((sid,si)=>{
-        const catIdx=(si+pi)%pair.length;
-        const rCats=si%2===0?pair:[...pair].reverse();
-        rCats.forEach(cat=>{
-          const aths=stageQueues[sid].byCat[cat];
-          if(aths)orders[sid].push(...aths);
-        });
+    // Offset each stage's division order by half so they don't overlap
+    stageIds.forEach((sid,si)=>{
+      const cats=orders[sid].cats;
+      const offset=Math.round((si*cats.length)/nStages);
+      const rotated=[...cats.slice(offset),...cats.slice(0,offset)];
+      rotated.forEach(cat=>{
+        if(byCat[cat])orders[sid].list.push(...byCat[cat]);
       });
-    });
-    const stageIds2=new Set();
-    stageIds.forEach(sid=>{
-      const seen=new Set();
-      orders[sid]=orders[sid].filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
     });
     const updates={};
     stageIds.forEach(sid=>{
-      orders[sid].forEach((a,i)=>{
+      orders[sid].list.forEach((a,i)=>{
         updates[`ogn/${compId}/athletes/${a.id}/pipelineQueueOrder/${sid}`]=i;
         if(sid===stageIds[0])updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
       });
     });
     db.ref().update(updates);
     SFX.complete();
-    return orders;
+    return Object.fromEntries(stageIds.map(sid=>[sid,orders[sid].list]));
   };
   const exportStartOrderPDF=()=>{
     const orders=generateStartOrder();
@@ -786,9 +777,14 @@ const handleDeleteAth=async(a)=>{
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,flexWrap:'wrap',gap:4}}>
           <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {isPipeline&&pipelineStages.length>=2&&<button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
-              <I.Download s={11}/> {lang==='de'?'Startreihenfolge PDF':'Start order PDF'}
-            </button>}
+            {isPipeline&&pipelineStages.length>=2&&<>
+              <button className="btn" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,background:'rgba(52,199,89,.12)',border:'1px solid rgba(52,199,89,.35)',color:'var(--green)',fontWeight:700}} onClick={()=>{generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated! Divisions are offset across stages.');}}>
+                ⚡ {lang==='de'?'Startreihenfolge generieren':'Generate start order'}
+              </button>
+              <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
+                <I.Download s={11}/> PDF
+              </button>
+            </>}
             {completedRuns&&Object.keys(completedRuns).length>0&&(
               <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)'}} onClick={handleDeleteAllRuns}>
                 <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}

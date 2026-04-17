@@ -65,7 +65,10 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
   })();
   const reorderQ=arr=>{
     setLocalQ(arr);
-    const updates={};arr.forEach((a,i)=>{updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;});
+    const updates={};arr.forEach((a,i)=>{
+      if(isPipeline&&stageId)updates[`ogn/${compId}/athletes/${a.id}/pipelineQueueOrder/${stageId}`]=i;
+      else updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
+    });
     if(Object.keys(updates).length)db.ref().update(updates);
   };
   const reorderCats=newOrder=>{
@@ -846,7 +849,8 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     ?(()=>{const _cats=_stageAllowAll?IGN_CATS.map(c=>c.id):Array.from(_stageCatSet||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})()
     :(athList.filter(a=>a.cat===catId));
   const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&stNum!=null&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).map(r=>r.athleteId):[]);
-  const queue=stageAthList.filter(a=>!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
+  const getQueueOrder=a=>(isPipeline&&a.pipelineQueueOrder&&a.pipelineQueueOrder[stageId]!=null)?a.pipelineQueueOrder[stageId]:(a.queueOrder??999);
+  const queue=stageAthList.filter(a=>!doneIds.has(a.id)).sort((a,b)=>getQueueOrder(a)-getQueueOrder(b));
   const totalCatAthletes=stageAthList.length;
   const handleForceResetStage=async()=>{
     const count=completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&stNum!=null&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).length:0;
