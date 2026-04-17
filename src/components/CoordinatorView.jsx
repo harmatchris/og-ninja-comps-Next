@@ -483,9 +483,10 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     if(pin===null)return;
     if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
     const label=pipeStageId?(pipeline.find(s=>s.id===pipeStageId)?.name||pipeStageId):`Stage ${stN}`;
-    if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\nAlle Läufe dieser Stage werden gelöscht.`:`Really reset ${label}?\nAll runs will be deleted.`))return;
+    const delCount=completedRuns?Object.values(completedRuns).filter(r=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&stN!=null&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum))).length:0;
+    if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\n${delCount} Läufe werden gelöscht.`:`Really reset ${label}?\n${delCount} runs will be deleted.`))return;
     if(completedRuns){
-      const toDelete=Object.entries(completedRuns).filter(([,r])=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum)));
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&stN!=null&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum)));
       const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});
       if(Object.keys(updates).length)await db.ref().update(updates);
     }
@@ -723,6 +724,7 @@ const handleDeleteAth=async(a)=>{
                     </div>}
                   </div>
                   <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowQR(showQR===stageKey?null:stageKey)}><I.QR s={15}/></button>
+                  <button className="btn btn-ghost" style={{padding:'7px'}} title={lang==='de'?'Hindernisse bearbeiten':'Edit obstacles'} onClick={()=>setShowQR(showQR===`edit-${stageKey}`?null:`edit-${stageKey}`)}><I.Edit s={14}/></button>
                   <button className="btn btn-ghost" style={{padding:'7px',borderColor:'rgba(255,100,40,.25)'}} title={lang==='de'?'Stage zurücksetzen':'Reset stage'} onClick={()=>handleStageReset(null,null,pStage.id)}><I.RefreshCw s={14} c="rgba(255,120,60,.7)"/></button>
                 </div>
                 {/* QR panel */}
@@ -735,6 +737,34 @@ const handleDeleteAth=async(a)=>{
                     </button>
                   </div>
                 )}
+                {/* Inline obstacle editor */}
+                {showQR===`edit-${stageKey}`&&(()=>{
+                  const obsPath=`ogn/${compId}/pipeline/${stageKey}/obstacles`;
+                  const globalObsPath=`ogn/${compId}/obstacles`;
+                  const stageObs=pipelineData?.[stageKey]?.obstacles;
+                  const obsSource=stageObs||obstacles;
+                  const obsArr=obsSource?Object.values(obsSource).sort((a,b)=>a.order-b.order):[];
+                  const activePath=stageObs?obsPath:globalObsPath;
+                  const saveObs=arr=>{const obj={};arr.forEach((o,i)=>{obj[o.id]={...o,order:i};});fbSet(activePath,obj);};
+                  return(
+                    <div className="scale-in" style={{background:'rgba(255,255,255,.03)',borderRadius:12,padding:12,border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:11,fontWeight:700,color:'var(--muted)',marginBottom:8}}>{lang==='de'?'Hindernisse':'Obstacles'} ({obsArr.length})</div>
+                      <DragList items={obsArr} onReorder={saveObs} keyFn={o=>o.id}
+                        renderItem={(o,i)=>(
+                          <div style={{padding:'6px 8px',display:'flex',alignItems:'center',gap:6}}>
+                            <div className="drag-handle" style={{cursor:'grab'}}><I.Drag s={13}/></div>
+                            <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',width:16,textAlign:'center',fontFamily:'JetBrains Mono'}}>{i+1}</div>
+                            <input type="text" defaultValue={o.name} onBlur={e=>{if(e.target.value.trim()&&e.target.value!==o.name)fbUpdate(activePath+'/'+o.id+'/name',e.target.value.trim());}} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} style={{flex:1,fontSize:11,fontWeight:600,padding:'3px 6px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)'}}/>
+                            <button style={{padding:'2px 6px',fontSize:8,borderRadius:5,border:`1px solid ${o.isCP?'rgba(52,199,89,.4)':'rgba(255,255,255,.15)'}`,background:o.isCP?'rgba(52,199,89,.12)':'transparent',color:o.isCP?'var(--green)':'var(--muted)',cursor:'pointer',fontWeight:700}} onClick={()=>fbUpdate(activePath+'/'+o.id,{...o,isCP:!o.isCP})}>CP</button>
+                            <button style={{padding:'2px 5px',borderRadius:5,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:10}} onClick={()=>{if(window.confirm(`"${o.name}" entfernen?`))fbRemove(activePath+'/'+o.id);}}>✕</button>
+                          </div>
+                        )}/>
+                      <div style={{display:'flex',gap:5,marginTop:6}}>
+                        <input id={`newobs-${stageKey}`} type="text" placeholder={lang==='de'?'Neues Hindernis...':'New obstacle...'} onKeyDown={e=>{if(e.key==='Enter'&&e.target.value.trim()){const o={id:uid(),name:e.target.value.trim(),isCP:true,order:obsArr.length};fbUpdate(activePath+'/'+o.id,o);e.target.value='';SFX.click();}}} style={{flex:1,fontSize:11,padding:'5px 8px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)'}}/>
+                      </div>
+                    </div>
+                  );
+                })()}
                 {/* BIG START BUTTON */}
                 {isOccupied
                   ?<button className="btn btn-ghost" style={{width:'100%',padding:14,fontSize:14,gap:8,marginTop:2,cursor:'default',opacity:.6,borderColor:'rgba(52,199,89,.3)',color:'var(--green)'}} disabled>
