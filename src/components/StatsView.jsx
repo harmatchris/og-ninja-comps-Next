@@ -294,7 +294,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
             </g>
           );
         })}
-        {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
+        {!hasRuns&&!liveRunners.length&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
         {/* Platform zone highlights — orange columns */}
         {data[0]?.points?.map((p,i)=>{
           if(!p.isPlat||i===0)return null;
