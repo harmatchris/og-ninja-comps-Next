@@ -30,10 +30,19 @@ const ObsLabel=({obs,size=10})=>{
 // ════════════════════════════════════════════════════════════
 // JURY — WAIT
 
-const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset,onDsq})=>{
+const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset,onDsq,stageId,isPipeline,stNum})=>{
   const {t,catName,lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP);
+  const [editObs,setEditObs]=useState(false);
+  const [newObsName,setNewObsName]=useState('');
+  const obsPath=isPipeline?`ogn/${compId}/pipeline/${stageId}/obstacles`:`ogn/${compId}/obstacles`;
+  const saveObs=arr=>{const obj={};arr.forEach((o,i)=>{obj[o.id]={...o,order:i};});fbSet(obsPath,obj);};
+  const reorderObs=arr=>saveObs(arr.map((o,i)=>({...o,order:i})));
+  const addObs=()=>{if(!newObsName.trim())return;const o={id:uid(),name:newObsName.trim(),isCP:true,order:obstArr.length};fbUpdate(obsPath+'/'+o.id,o);setNewObsName('');SFX.click();};
+  const removeObs=id=>{fbRemove(obsPath+'/'+id);SFX.click();};
+  const toggleCP=id=>{const o=obstArr.find(x=>x.id===id);if(o)fbUpdate(obsPath+'/'+id,{...o,isCP:!o.isCP});};
+  const renameObs=(id,name)=>{if(!name.trim())return;fbUpdate(obsPath+'/'+id+'/name',name.trim());};
   const [localQ,setLocalQ]=useState(null);
   // Category order: draggable list of category IDs for multi-division stages
   const queueCats=[...new Set(queue.map(a=>a.cat))];
@@ -118,8 +127,34 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
               {cpObst.map(o=><div key={o.id} className="cp-pill future"><ObsLabel obs={o} size={9}/></div>)}
             </div>
-            <div style={{fontSize:11,color:'var(--muted)'}}>{cpObst.length} Checkpoints · {obstArr.length} {t('obstacles')}</div>
-            <div style={{display:'flex',gap:8,marginTop:16}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+              <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{cpObst.length} Checkpoints · {obstArr.length} {t('obstacles')}</div>
+              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8}} onClick={()=>setEditObs(!editObs)}>
+                <I.Settings s={11}/> {editObs?(lang==='de'?'Fertig':'Done'):(lang==='de'?'Bearbeiten':'Edit')}
+              </button>
+              {onForceReset&&<button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,200,80,.25)',color:'rgba(255,200,80,.8)'}} onClick={onForceReset}>
+                <I.RefreshCw s={11}/> Reset
+              </button>}
+            </div>
+            {editObs&&(
+              <div style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:12,marginBottom:8}}>
+                <DragList items={obstArr} onReorder={reorderObs} keyFn={o=>o.id}
+                  renderItem={(o,i)=>(
+                    <div style={{padding:'7px 8px',display:'flex',alignItems:'center',gap:6}}>
+                      <div className="drag-handle" style={{cursor:'grab'}}><I.Drag s={14}/></div>
+                      <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',width:18,textAlign:'center',fontFamily:'JetBrains Mono'}}>{i+1}</div>
+                      <input type="text" defaultValue={o.name} onBlur={e=>renameObs(o.id,e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} style={{flex:1,fontSize:12,fontWeight:600,padding:'4px 8px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)'}}/>
+                      <button style={{padding:'3px 8px',fontSize:9,borderRadius:6,border:`1px solid ${o.isCP?'rgba(52,199,89,.4)':'rgba(255,255,255,.15)'}`,background:o.isCP?'rgba(52,199,89,.12)':'transparent',color:o.isCP?'var(--green)':'var(--muted)',cursor:'pointer',fontWeight:700}} onClick={()=>toggleCP(o.id)}>CP</button>
+                      <button style={{padding:'3px 6px',borderRadius:6,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:11}} onClick={()=>{if(window.confirm(`"${o.name}" ${lang==='de'?'entfernen':'remove'}?`))removeObs(o.id);}}>✕</button>
+                    </div>
+                  )}/>
+                <div style={{display:'flex',gap:6,marginTop:8}}>
+                  <input type="text" value={newObsName} onChange={e=>setNewObsName(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')addObs();}} placeholder={lang==='de'?'Neues Hindernis...':'New obstacle...'} style={{flex:1,fontSize:12,padding:'6px 10px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:8,color:'var(--text)'}}/>
+                  <button className="btn" style={{padding:'6px 12px',fontSize:11,gap:4}} onClick={addObs}><I.Plus s={12}/> {lang==='de'?'Hinzufügen':'Add'}</button>
+                </div>
+              </div>
+            )}
+            <div style={{display:'flex',gap:8,marginTop:editObs?8:16}}>
               <button className="btn btn-coral" style={{flex:1,padding:18,fontSize:18,gap:10,minHeight:56,borderRadius:14}} onClick={()=>{SFX.click();onStart(next);}}>
                 <I.Play s={16}/> {t('startCountdown')}
               </button>
@@ -926,7 +961,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     if(phase==='countdown')return<JuryCountdown onGo={handleGo}/>;
     if(phase==='active')return<JuryActive compId={compId} stNum={stNum} activeRunKey={activeRunKey} athlete={currentAth} obstacles={obstacles} info={info} lives={lives} maxLives={effectiveLives} totalLivesLeft={totalLivesLeft} activeFalls={activeFalls} startPerf={goTime} frozenAt={fallFreezeTime} onFall={handleFall} onComplete={handleComplete} onStop={handleStop} onRefillLives={info.mode==='lives'?handleRefillLives:null} stageCfgTimeLimit={isPipeline?pipelineStageCfg?.timeLimit:null}/>;
     if(phase==='done')return<JuryDone athlete={currentAth} result={doneResult} cat={cat} onNext={handleNext} onRestart={handleRestartRun} onSwitchAth={handleSwitchAth}/>;
-    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage} onDsq={handleDsqAth}/>;
+    return<JuryWait cat={cat} queue={queue} obstacles={obstacles} onStart={handleStart} compId={compId} totalAthletes={totalCatAthletes} doneCount={doneIds.size} onForceReset={handleForceResetStage} onDsq={handleDsqAth} stageId={stageId} isPipeline={isPipeline} stNum={stNum}/>;
   })();
 
   return(
