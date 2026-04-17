@@ -845,10 +845,25 @@ const handleDeleteAth=async(a)=>{
                       {pStage.qualiPercent>0&&<span style={{marginLeft:6,color:'var(--cor2)'}}>· Top {pStage.qualiPercent}% quali</span>}
                       {predecessors.length>0&&<span style={{marginLeft:6}}>· von {predecessors.map(p=>p.name||p.id).join(', ')}</span>}
                     </div>
-                    {/* Category pills */}
-                    {catIds.length>0&&<div style={{display:'flex',gap:3,flexWrap:'wrap',marginTop:4}}>
-                      {catIds.map(cid=>{const c=IGN_CATS.find(x=>x.id===cid);return c?<span key={cid} style={{fontSize:9,padding:'1px 6px',borderRadius:6,background:`${c.color}1A`,color:c.color,border:`1px solid ${c.color}44`,fontWeight:600}}>{c.name[lang]}</span>:null;})}
-                    </div>}
+                    {/* Division start order with arrows + done fading */}
+                    {catIds.length>0&&(()=>{
+                      const orderedCats=(()=>{
+                        const athsWithOrder=athsInStage.filter(a=>a.pipelineQueueOrder&&a.pipelineQueueOrder[stageKey]!=null);
+                        if(!athsWithOrder.length)return catIds;
+                        const catFirst={};athsWithOrder.forEach(a=>{const o=a.pipelineQueueOrder[stageKey];if(catFirst[a.cat]==null||o<catFirst[a.cat])catFirst[a.cat]=o;});
+                        return [...catIds].sort((a,b)=>(catFirst[a]??999)-(catFirst[b]??999));
+                      })();
+                      const doneCats=new Set(orderedCats.filter(cid=>{
+                        const catAths=athsInStage.filter(a=>a.cat===cid);
+                        return catAths.length>0&&catAths.every(a=>doneAthIds.has(a.id));
+                      }));
+                      return<div style={{display:'flex',gap:2,flexWrap:'wrap',marginTop:4,alignItems:'center'}}>
+                        {orderedCats.map((cid,ci)=>{const c=IGN_CATS.find(x=>x.id===cid);const done=doneCats.has(cid);return c?<React.Fragment key={cid}>
+                          {ci>0&&<span style={{fontSize:8,color:'rgba(255,255,255,.2)',margin:'0 1px'}}>›</span>}
+                          <span style={{fontSize:9,padding:'1px 6px',borderRadius:6,background:done?'rgba(255,255,255,.04)':`${c.color}1A`,color:done?'rgba(255,255,255,.25)':c.color,border:`1px solid ${done?'rgba(255,255,255,.08)':c.color+'44'}`,fontWeight:600,textDecoration:done?'line-through':'none',transition:'all .3s'}}>{c.name[lang]}</span>
+                        </React.Fragment>:null;})}
+                      </div>;
+                    })()}
                   </div>
                   <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowQR(showQR===stageKey?null:stageKey)}><I.QR s={15}/></button>
                   <button className="btn btn-ghost" style={{padding:'7px'}} title={lang==='de'?'Hindernisse bearbeiten':'Edit obstacles'} onClick={()=>setShowQR(showQR===`edit-${stageKey}`?null:`edit-${stageKey}`)}><I.Edit s={14}/></button>
