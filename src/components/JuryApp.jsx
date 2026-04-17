@@ -292,24 +292,24 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   const livesRef=useRef(lives);
   useEffect(()=>{livesRef.current=lives;},[lives]);
   const prevFallCount=useRef(0);
+  const isCpOrPlat=o=>o&&(o.isCP||isPlatformObs(o));
   useEffect(()=>{
     try{
       if(activeFalls.length>prevFallCount.current&&doneCP.length>0){
-        // Find current position in full obstacle array
-        let fullIdx=0,cpCount=0;
+        // Find current position in full obstacle array (counting same as cpObst)
+        let fullIdx=obstArr.length,cnt=0;
         for(let i=0;i<obstArr.length;i++){
-          if(obstArr[i].isCP!==false){if(cpCount>=doneCP.length){fullIdx=i;break;}cpCount++;}
-          if(i===obstArr.length-1)fullIdx=i+1;
+          if(isCpOrPlat(obstArr[i])){if(cnt>=doneCP.length){fullIdx=i;break;}cnt++;}
         }
-        // Search backward in full array for last platform BEFORE current position
+        // Search backward for last platform BEFORE current position
         let lastPlatFullIdx=-1;
         for(let i=fullIdx-1;i>=0;i--){
           if(isPlatformObs(obstArr[i])){lastPlatFullIdx=i;break;}
         }
         if(lastPlatFullIdx>=0){
-          // Count CPs up to and including the platform (platforms with isCP count too)
+          // Count cpObst-eligible items up to and including the platform
           let trimTo=0;
-          for(let i=0;i<=lastPlatFullIdx;i++){if(obstArr[i].isCP!==false)trimTo++;}
+          for(let i=0;i<=lastPlatFullIdx;i++){if(isCpOrPlat(obstArr[i]))trimTo++;}
           if(trimTo<doneCP.length){
             const trimmed=doneCP.slice(0,trimTo);
             doneCPRef.current=trimmed;setDoneCP(trimmed);
