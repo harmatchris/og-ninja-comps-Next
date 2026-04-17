@@ -252,7 +252,7 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   </>;
 };
 
-const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=>{
+const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPerObs=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
   const W=1000,H=tvMode?420:300;
   const ML=46,MR=16,MT=20,MB=tvMode?90:80;
@@ -294,12 +294,30 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=
           );
         })}
         {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
-        {data[0]?.points?.map((p,i)=>(
-          <text key={i} x={xs(i)} y={H-MB+16} fill="rgba(255,255,255,.4)" fontSize={tvMode?11:9} textAnchor="end" fontFamily="system-ui"
+        {/* Platform zone highlights */}
+        {(()=>{
+          const isPlatform=o=>o.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.type==='section');
+          let cpI=0;
+          return allObs.map((o,oi)=>{
+            const isCp=o.isCP!==false;
+            if(!isCp)return null;
+            cpI++;
+            if(!isPlatform(o))return null;
+            const xi=xs(cpI);
+            return<g key={`pf-${oi}`}>
+              <rect x={xi-8} y={MT-2} width={16} height={PH+4} rx={3} fill="rgba(52,199,89,.04)" stroke="rgba(52,199,89,.15)" strokeWidth="1" strokeDasharray="3 3"/>
+              <rect x={xi-10} y={MT-8} width={20} height={10} rx={3} fill="rgba(52,199,89,.15)"/>
+              <text x={xi} y={MT-1} textAnchor="middle" fontSize={tvMode?7:5.5} fontWeight="800" fill="rgba(52,199,89,.9)" fontFamily="system-ui">P</text>
+            </g>;
+          });
+        })()}
+        {data[0]?.points?.map((p,i)=>{
+          const isPlatform=i>0&&obsArr[i-1]&&(obsArr[i-1].name?.toLowerCase().includes('platform')||obsArr[i-1].name?.toLowerCase().includes('plattform')||obsArr[i-1].type==='section');
+          return<text key={i} x={xs(i)} y={H-MB+16} fill={isPlatform?'rgba(52,199,89,.7)':'rgba(255,255,255,.4)'} fontSize={tvMode?11:9} fontWeight={isPlatform?'700':'400'} textAnchor="end" fontFamily="system-ui"
             transform={`rotate(-48,${xs(i)},${H-MB+16})`}>
             {i===0?'Platform':(p.label||'').substring(0,20)}
-          </text>
-        ))}
+          </text>;
+        })}
         {livesUsedPerObs.map((count,i)=>{
           if(!count)return null;
           const xi=xs(i+1);
@@ -477,12 +495,13 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const configCatIds=pStage.categories==='all'||!pStage.categories?IGN_CATS.map(c=>c.id):Array.isArray(pStage.categories)?pStage.categories:[];
     const unionIds=[...new Set([...configCatIds,...runCatIds,...activeRunCatIds])];
     const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
-    const obsArr=(()=>{
+    const allObs=(()=>{
       const stageObs=pipelineData?.[stageKey]?.obstacles;
       const raw=stageObs&&Object.keys(stageObs).length>0?stageObs:globalObstacles;
       if(!raw)return DEF_OBS;
-      return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);
+      return Object.values(raw).sort((a,b)=>a.order-b.order);
     })();
+    const obsArr=allObs.filter(o=>o.isCP!==false);
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;
@@ -526,7 +545,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
       return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives:stageTotalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
-    return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
+    return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,allObs,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
   }).filter(Boolean):[];
 
   // ── LEGACY MODE ──
@@ -540,16 +559,18 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
 
   // Get the correct obstacle array for a specific stage
   // Priority: per-stage obstacles → global obstacles → built-in defaults
-  const getStageObsArr=sn=>{
+  const getStageAllObs=sn=>{
     const raw=allStagesData?.[sn]?.obstacles||globalObstacles;
     if(!raw)return DEF_OBS;
-    return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);
+    return Object.values(raw).sort((a,b)=>a.order-b.order);
   };
+  const getStageObsArr=sn=>getStageAllObs(sn).filter(o=>o.isCP!==false);
 
   // Build full dataset for each active stage independently
   const legacyStageDataArr=activeStageNums.map(sn=>{
     const catId=allStations?.[sn]?.cat||null;
-    const obsArr=getStageObsArr(sn);
+    const allObs=getStageAllObs(sn);
+    const obsArr=allObs.filter(o=>o.isCP!==false);
     // Only runs from THIS stage
     const stageRuns=runList.filter(r=>String(r.stNum)===String(sn));
     // Categories present in this stage — union of station's configured cat + all cats with runs
@@ -606,7 +627,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
 
-    return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
+    return{sn,catId,obsArr,allObs,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
   });
 
   const stageDataArr=isPipeline?pipelineStageDataArr:legacyStageDataArr;
@@ -646,7 +667,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         gap:tvMode?16:10,
         height:tvMode&&stageDataArr.length>1?'calc(100vh - 160px)':'auto'
       }:{display:'flex',flexDirection:'column',gap:tvMode?20:12}}>
-        {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr,livesUsedPerObs})=>{
+        {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr,allObs,livesUsedPerObs})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
           const stageName=pipelineStageName||(info?.stageNames?.[sn]||`Stage ${sn}`);
           return(
@@ -662,7 +683,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
                   </div>
                 </div>
               )}
-              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr} livesUsedPerObs={livesUsedPerObs||[]}/>}
+              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr} allObs={allObs||obsArr} livesUsedPerObs={livesUsedPerObs||[]}/>}
               {chartTab==='difficulty'&&<>
                 <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
                 <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
