@@ -845,24 +845,22 @@ const handleDeleteAth=async(a)=>{
           </div>
         ):(
         <>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,flexWrap:'wrap',gap:4}}>
-          <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,gap:6}}>
+          <div className="lbl" style={{marginBottom:0,flexShrink:0}}>Stages — direkt starten</div>
+          <div style={{display:'flex',gap:4,alignItems:'center'}}>
             {isPipeline&&pipelineStages.length>=2&&<>
-              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{
-                const pin=window.prompt(lang==='de'?'PIN eingeben um Startreihenfolge zu generieren:':'Enter PIN to generate start order:');
+              <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)',whiteSpace:'nowrap'}} onClick={()=>{
+                const pin=window.prompt(lang==='de'?'PIN eingeben:':'Enter PIN:');
                 if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
-                generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated!');
-              }}>
-                ⚡ {lang==='de'?'Startreihenfolge generieren':'Generate start order'}
-              </button>
-              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
-                <I.Download s={11}/> PDF
+                generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert!':'Start order generated!');
+              }}>⚡ Startliste</button>
+              <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
+                <I.Download s={10}/> PDF
               </button>
             </>}
             {completedRuns&&Object.keys(completedRuns).length>0&&(
-              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)',position:'relative',zIndex:10}} onClick={handleDeleteAllRuns}>
-                <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
+              <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)',whiteSpace:'nowrap',position:'relative',zIndex:10}} onClick={handleDeleteAllRuns}>
+                <I.RefreshCw s={10}/> {Object.keys(completedRuns).length}× {lang==='de'?'löschen':'delete'}
               </button>
             )}
           </div>

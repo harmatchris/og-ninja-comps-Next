@@ -289,6 +289,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   const restIntervalRef=useRef(null);
   const doneCPRef=useRef([]);
   const cpFirstTimes=useRef({});
+  const maxDoneCPRef=useRef([]);
   const livesRef=useRef(lives);
   useEffect(()=>{livesRef.current=lives;},[lives]);
   const prevFallCount=useRef(0);
@@ -366,9 +367,9 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
       const lastCPIdx=dc.length;
       const fellAtObs=cpObst[lastCPIdx]||cpObst[cpObst.length-1]||null;
       onFall({
-        doneCP:dc,
+        doneCP:maxDoneCPRef.current.length>dc.length?maxDoneCPRef.current:dc,
         pendingFallIdx:lastCPIdx,
-        currentTime:timeLimitMs, // cap at time limit — never exceed
+        currentTime:timeLimitMs,
         lives:livesRef.current,
         reason:'timeout',
         fellAt:fellAtObs?{id:fellAtObs.id,name:fellAtObs.name,order:fellAtObs.order}:null
@@ -405,6 +406,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     if(!cpFirstTimes.current[nextCp.id])cpFirstTimes.current[nextCp.id]=t;
     const nd=[...doneCP,{obsId:nextCp.id,name:nextCp.name,time:firstTime}];
     doneCPRef.current=nd;setDoneCP(nd);
+    if(nd.length>maxDoneCPRef.current.length)maxDoneCPRef.current=nd;
     // Show split time for 3.5s
     setLastSplit({name:nextCp.name,time:t,idx:nd.length,total:cpObst.length});
     setShowSplit(true);
@@ -419,7 +421,8 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
     let lastPlatformIdx=-1;
     for(let i=doneCP.length-1;i>=0;i--){const cp=cpObst[i];if(isPlatformObs(cp))lastPlatformIdx=i;}
-    onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested,lastPlatformIdx});
+    const bestDoneCP=maxDoneCPRef.current.length>doneCP.length?maxDoneCPRef.current:doneCP;
+    onFall({doneCP:bestDoneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested,lastPlatformIdx});
   };
   const handleStop=()=>{
     SFX.fall();
