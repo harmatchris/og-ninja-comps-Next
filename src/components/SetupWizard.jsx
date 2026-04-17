@@ -638,6 +638,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                           <div style={{fontSize:10,color:'var(--muted)',minWidth:16,fontFamily:'JetBrains Mono'}}>{i+1}</div>
                           <div style={{flex:1,fontSize:12,fontWeight:500}}>{o.name}</div>
                           <button className={`chip${o.isCP?' active':''}`} style={{padding:'1px 7px',fontSize:9}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].map(x=>x.id===o.id?{...x,isCP:!x.isCP}:x);return n;});}}>CP</button>
+                          <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} title={lang==='de'?'Duplizieren':'Duplicate'} onClick={()=>{setStageObs(s=>{const n=[...s];const clone={...o,id:uid(),name:o.name+' (2)'};n[flatIdx]=[...n[flatIdx].slice(0,i+1),clone,...n[flatIdx].slice(i+1)].map((x,j)=>({...x,order:j}));return n;});SFX.click();}}><I.Copy s={12} c="var(--muted)"/></button>
                           <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].filter(x=>x.id!==o.id);return n;});}}><I.Trash s={12} c="var(--red)"/></button>
                         </div>
                       )}/>
