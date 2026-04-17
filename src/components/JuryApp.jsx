@@ -408,7 +408,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     const elapsed=Math.round(performance.now()-startPerf);
     const lct=doneCP.length>0?doneCP[doneCP.length-1].time:elapsed;
     let lastPlatformIdx=-1;
-    for(let i=doneCP.length-1;i>=0;i--){const cp=cpObst[i];if(isPlatform(cp))lastPlatformIdx=i;}
+    for(let i=doneCP.length-1;i>=0;i--){const cp=cpObst[i];if(isPlatformObs(cp))lastPlatformIdx=i;}
     onFall({doneCP,time:lct,currentTime:elapsed,lives,pendingFallIdx:nextIdx,protested,lastPlatformIdx});
   };
   const handleStop=()=>{
