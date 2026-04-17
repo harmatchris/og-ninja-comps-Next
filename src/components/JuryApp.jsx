@@ -816,16 +816,19 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       ?athList.filter(a=>pipelineAthIds.has(a.id)&&(!_stageCatSet||_stageCatSet.has(a.cat)))
       :(()=>{const _cats=_stageAllowAll?IGN_CATS.map(c=>c.id):Array.from(_stageCatSet||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})())
     :(athList.filter(a=>a.cat===catId));
-  const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?r.stageId===stageId:(r.catId===catId&&r.stNum===stNum)).map(r=>r.athleteId):[]);
+  const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).map(r=>r.athleteId):[]);
   const queue=stageAthList.filter(a=>!doneIds.has(a.id)).sort((a,b)=>(a.queueOrder??999)-(b.queueOrder??999));
   const totalCatAthletes=stageAthList.length;
   const handleForceResetStage=async()=>{
-    if(!window.confirm(lang==='de'?`Alle Läufe von Stage ${isPipeline?stageId:stNum} löschen und Stage neu starten?`:`Delete all runs from Stage ${isPipeline?stageId:stNum} and restart?`))return;
+    const count=completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).length:0;
+    if(!window.confirm(lang==='de'?`${count} Läufe von Stage "${isPipeline?(pipelineStageCfg?.name||stageId):stNum}" löschen und Stage neu starten?`:`Delete ${count} runs from Stage "${isPipeline?(pipelineStageCfg?.name||stageId):stNum}" and restart?`))return;
     if(completedRuns){
-      const toDelete=Object.entries(completedRuns).filter(([,r])=>isPipeline?r.stageId===stageId:(r.catId===catId&&r.stNum===stNum));
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>isPipeline?(r.stageId===stageId||(!r.stageId&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum)));
       if(toDelete.length){const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});await db.ref().update(updates);}
     }
     await fbRemove(`ogn/${compId}/activeRuns/${activeRunKey}`);
+    if(isPipeline)await fbRemove(`ogn/${compId}/pipeline/${stageId}/completedAthletes`);
+    setPhase('wait');setCurrentAth(null);setDoneResult(null);setActiveFalls([]);setCompletedRunKey(null);
     SFX.complete();
   };
 

@@ -485,12 +485,13 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const label=pipeStageId?(pipeline.find(s=>s.id===pipeStageId)?.name||pipeStageId):`Stage ${stN}`;
     if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\nAlle Läufe dieser Stage werden gelöscht.`:`Really reset ${label}?\nAll runs will be deleted.`))return;
     if(completedRuns){
-      const toDelete=Object.entries(completedRuns).filter(([,r])=>pipeStageId?r.stageId===pipeStageId:(r.stNum===stN||(r.catId===catId&&!r.stNum)));
+      const toDelete=Object.entries(completedRuns).filter(([,r])=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum)));
       const updates={};toDelete.forEach(([k])=>{updates[`ogn/${compId}/completedRuns/${k}`]=null;});
       if(Object.keys(updates).length)await db.ref().update(updates);
     }
     const runKey=pipeStageId||stN;
     await fbRemove(`ogn/${compId}/activeRuns/${runKey}`);
+    if(pipeStageId)await fbRemove(`ogn/${compId}/pipeline/${pipeStageId}/completedAthletes`);
     SFX.complete();
   };
   const handleQuickAddAth=async()=>{
