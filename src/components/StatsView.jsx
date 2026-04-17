@@ -295,14 +295,13 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
         })}
         {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
         {/* Platform zone highlights */}
-        {(()=>{
-          const isPlatform=o=>o.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.type==='section');
+        {(allObs||[]).length>0&&(()=>{
+          const isPlatformO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.type==='section');
           let cpI=0;
-          return allObs.map((o,oi)=>{
-            const isCp=o.isCP!==false;
-            if(!isCp)return null;
+          return(allObs||[]).map((o,oi)=>{
+            if(!o||o.isCP===false)return null;
             cpI++;
-            if(!isPlatform(o))return null;
+            if(!isPlatformO(o)||cpI>=nPts)return null;
             const xi=xs(cpI);
             return<g key={`pf-${oi}`}>
               <rect x={xi-8} y={MT-2} width={16} height={PH+4} rx={3} fill="rgba(52,199,89,.04)" stroke="rgba(52,199,89,.15)" strokeWidth="1" strokeDasharray="3 3"/>

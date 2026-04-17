@@ -283,18 +283,20 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   useEffect(()=>{livesRef.current=lives;},[lives]);
   const prevFallCount=useRef(0);
   useEffect(()=>{
-    if(activeFalls.length>prevFallCount.current&&doneCP.length>0){
-      const isPlatformObs=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
-      let trimTo=0;
-      for(let i=doneCP.length-1;i>=0;i--){
-        if(isPlatformObs(cpObst[i])){trimTo=i+1;break;}
+    try{
+      if(activeFalls.length>prevFallCount.current&&doneCP.length>0&&cpObst.length>0){
+        const isPlatformObs=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
+        let trimTo=0;
+        for(let i=Math.min(doneCP.length,cpObst.length)-1;i>=0;i--){
+          if(isPlatformObs(cpObst[i])){trimTo=i+1;break;}
+        }
+        if(trimTo<doneCP.length){
+          const trimmed=doneCP.slice(0,trimTo);
+          doneCPRef.current=trimmed;setDoneCP(trimmed);
+          fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
+        }
       }
-      if(trimTo<doneCP.length){
-        const trimmed=doneCP.slice(0,trimTo);
-        doneCPRef.current=trimmed;setDoneCP(trimmed);
-        fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
-      }
-    }
+    }catch(e){console.error('Platform trim error:',e);}
     prevFallCount.current=activeFalls.length;
   },[activeFalls.length]);
   // startPerf comes from JuryApp — captured at the exact moment GO tone fired
