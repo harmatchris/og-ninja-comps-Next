@@ -495,6 +495,16 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     if(pipeStageId)await fbRemove(`ogn/${compId}/pipeline/${pipeStageId}/completedAthletes`);
     SFX.complete();
   };
+  const handleDeleteAllRuns=async()=>{
+    const pin=window.prompt(lang==='de'?'PIN eingeben um ALLE Läufe zu löschen:':'Enter PIN to delete ALL runs:');
+    if(pin===null)return;
+    if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
+    const total=completedRuns?Object.keys(completedRuns).length:0;
+    if(!window.confirm(lang==='de'?`ALLE ${total} Läufe des gesamten Wettkampfs löschen?\nDiese Aktion kann nicht rückgängig gemacht werden!`:`Delete ALL ${total} runs of the entire competition?\nThis cannot be undone!`))return;
+    await fbRemove(`ogn/${compId}/completedRuns`);
+    await fbRemove(`ogn/${compId}/activeRuns`);
+    SFX.complete();
+  };
   const handleQuickAddAth=async()=>{
     if(!quickAth.name.trim())return;
     setAddingAth(true);
@@ -676,7 +686,14 @@ const handleDeleteAth=async(a)=>{
           </div>
         ):(
         <>
-        <div className="lbl">Stages — direkt starten</div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
+          <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
+          {completedRuns&&Object.keys(completedRuns).length>0&&(
+            <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)'}} onClick={handleDeleteAllRuns}>
+              <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
+            </button>
+          )}
+        </div>
         {isPipeline
           /* ── PIPELINE MODE: render pipeline stage cards ── */
           ?pipelineStages.map((pStage,idx)=>{
