@@ -38,9 +38,10 @@ export const useWinW = () => {
 // ── SFX (Audio + Haptics)
 let _ac = null;
 const ac = () => { if (!_ac) _ac = new (window.AudioContext || window.webkitAudioContext)(); return _ac; };
-const tone = (freq, dur = 0.1, vol = 0.15, type = 'sine', delay = 0) => { try { const c = ac(); const o = c.createOscillator(); const g = c.createGain(); o.type = type; o.frequency.value = freq; g.gain.value = vol; o.connect(g); g.connect(c.destination); const t = c.currentTime + delay; o.start(t); o.stop(t + dur); } catch {} };
+const tone = (freq, dur = 0.1, vol = 0.15, type = 'sine', delay = 0) => { try { const c = ac(); if(c.state==='suspended')c.resume(); const o = c.createOscillator(); const g = c.createGain(); o.type = type; o.frequency.value = freq; g.gain.value = vol; o.connect(g); g.connect(c.destination); const t = c.currentTime + delay; o.start(t); o.stop(t + dur); } catch {} };
 const vib = (ms) => { try { navigator.vibrate?.(ms); } catch {} };
 export const SFX = {
+  wake: () => { try { const c=ac(); if(c.state==='suspended')c.resume(); tone(1,0.01,0.01); return c.state; } catch{ return 'error'; } },
   click: () => { vib(8); tone(600, 0.04, 0.08); },
   hover: () => tone(800, 0.02, 0.05),
   fall: () => { vib(100); tone(180, 0.2, 0.2, 'sawtooth'); tone(120, 0.3, 0.15, 'sawtooth', 0.15); },
