@@ -845,27 +845,29 @@ const handleDeleteAth=async(a)=>{
           </div>
         ):(
         <>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,flexWrap:'wrap',gap:4}}>
-          <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
-          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {isPipeline&&pipelineStages.length>=2&&<>
-              <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{
-                const pin=window.prompt(lang==='de'?'PIN eingeben um Startreihenfolge zu generieren:':'Enter PIN to generate start order:');
-                if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
-                generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated!');
-              }}>
-                ⚡ {lang==='de'?'Startreihenfolge generieren':'Generate start order'}
-              </button>
-              <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
-                <I.Download s={11}/> PDF
-              </button>
-            </>}
-            {completedRuns&&Object.keys(completedRuns).length>0&&(
-              <button className="btn btn-ghost" style={{padding:'6px 14px',fontSize:12,gap:5,borderRadius:8,borderColor:'rgba(255,100,40,.4)',color:'rgba(255,120,60,.9)',cursor:'pointer',minHeight:32}} onClick={handleDeleteAllRuns}>
-                <I.RefreshCw s={13}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
-              </button>
-            )}
+        <div style={{marginBottom:6}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4,flexWrap:'wrap',gap:4}}>
+            <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {isPipeline&&pipelineStages.length>=2&&<>
+                <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{
+                  const pin=window.prompt(lang==='de'?'PIN eingeben um Startreihenfolge zu generieren:':'Enter PIN to generate start order:');
+                  if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
+                  generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert! Divisionen sind versetzt auf die Stages verteilt.':'Start order generated!');
+                }}>
+                  ⚡ {lang==='de'?'Startreihenfolge generieren':'Generate start order'}
+                </button>
+                <button className="btn btn-ghost" style={{padding:'5px 12px',fontSize:11,gap:5,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
+                  <I.Download s={11}/> PDF
+                </button>
+              </>}
+            </div>
           </div>
+          {completedRuns&&Object.keys(completedRuns).length>0&&(
+            <button className="btn btn-ghost" style={{width:'100%',padding:'8px 14px',fontSize:13,gap:6,borderRadius:10,borderColor:'rgba(255,100,40,.4)',color:'rgba(255,120,60,.9)',cursor:'pointer',minHeight:36,display:'flex',alignItems:'center',justifyContent:'center',position:'relative',zIndex:10}} onClick={handleDeleteAllRuns}>
+              <I.RefreshCw s={14}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
+            </button>
+          )}
         </div>
         {isPipeline
           /* ── PIPELINE MODE: render pipeline stage cards ── */
