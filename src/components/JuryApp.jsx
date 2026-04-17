@@ -137,8 +137,8 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div style={{fontSize:26,fontWeight:900,letterSpacing:'-.6px',marginBottom:4}}>{next.country&&<span style={{marginRight:6}}>{toFlag(next.country)}</span>}{next.name}</div>
             <div style={{fontSize:13,color:'var(--muted)',fontFamily:'JetBrains Mono',marginBottom:14}}>#{next.num}{next.team&&<span style={{marginLeft:8,color:'var(--cor2)',fontWeight:600,fontFamily:'Inter,sans-serif',fontSize:12}}>{next.team}</span>}</div>
             {/* CP obstacle name pills — platforms highlighted green */}
-            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-              {cpObst.map(o=>{const plat=isPlatformName(o.name)||o.type==='section';return<div key={o.id} className="cp-pill future" style={plat?{background:'rgba(52,199,89,.15)',borderColor:'rgba(52,199,89,.4)',color:'var(--green)'}:{}}>{plat?'▮ ':''}<ObsLabel obs={o} size={9}/></div>;})}
+            <div style={{display:'flex',flexWrap:'wrap',gap:3,marginBottom:6}}>
+              {cpObst.map(o=>{const plat=isPlatformName(o.name)||o.type==='section';return<div key={o.id} className="cp-pill future" style={plat?{background:'rgba(52,199,89,.12)',borderColor:'rgba(52,199,89,.35)',color:'var(--green)',fontWeight:700}:{}}>{plat?'▮ ':''}<ObsLabel obs={o} size={8}/></div>;})}
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
               <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{obstArr.filter(o=>!isPlatformObs(o)).length} {t('obstacles')} · {cpObst.length} Checkpoints{obstArr.filter(o=>isPlatformObs(o)).length>0&&` · ${obstArr.filter(o=>isPlatformObs(o)).length} Plattformen`}</div>
