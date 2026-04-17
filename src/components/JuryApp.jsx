@@ -708,6 +708,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const globalAthletesMap=useFbVal(`ogn/${compId}/athletes`);
   const stageAthletesRaw=useFbVal(isPipeline?`ogn/${compId}/pipeline/${stageId}/athletes`:`ogn/${compId}/stages/${stNum}/athletes`);
   const pipelineStageCfg=useFbVal(isPipeline?`ogn/${compId}/pipeline/${stageId}`:null);
+  const pipelineData=useFbVal(isPipeline?`ogn/${compId}/pipeline`:null);
   // Per-stage data overrides global with fallback
   const obstacles=stageObstaclesRaw||globalObstacles;
   // Always prefer global athletes (contains all registered athletes across all stages)
@@ -992,7 +993,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
         {!inRun&&topView==='jury'&&tab==='rules'&&<Regelwerk/>}
         {!inRun&&topView==='results'&&<ResultsView compId={compId} athletes={athletesMap}/>}
         {!inRun&&topView==='queue'&&<AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap}/>}
-        {!inRun&&topView==='stats'&&<div style={{padding:'8px 12px'}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap}/></div>}
+        {!inRun&&topView==='stats'&&<div style={{padding:'8px 12px'}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} pipelineData={pipelineData}/></div>}
       </div>
       {/* Bottom navbar only for jury sub-view */}
       {!inRun&&topView==='jury'&&(
