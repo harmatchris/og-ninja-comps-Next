@@ -659,7 +659,9 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
       doc.text(`${compName}  \u00B7  ${stageName}  \u00B7  ${q.length} Athleten`,mx,y);
       doc.text('OG Ninja Competition Tool',pw-mx,y,{align:'right'});
     });
-    doc.save(`Startreihenfolge-${compName.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
+    const safeName=compName.replace(/[^a-zA-Z0-9äöüÄÖÜß .-]/g,'').replace(/\s+/g,'-');
+    const safeDate=(compDate||'').replace(/[^a-zA-Z0-9.-]/g,'_').replace(/_+/g,'-');
+    doc.save(`Startliste_${safeName}_${safeDate}.pdf`);
   };
   const handleQuickAddAth=async()=>{
     if(!quickAth.name.trim())return;
