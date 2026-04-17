@@ -567,71 +567,97 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const countryCodes=[...new Set(Object.values(athletes||{}).map(a=>a.country).filter(Boolean))];
     await Promise.all(countryCodes.map(c=>loadFlag(c)));
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const pw=210,ph=297,mx=14,my=16,cw=pw-2*mx;
-    const rh=5.8;
-    const cols={num:mx,bib:mx+9,name:mx+21,country:mx+85,team:mx+100,div:mx+135};
-    const headers=['#','Nr','Name','Land','Team','Division'];
-    const headerX=[cols.num,cols.bib,cols.name,cols.country,cols.team,cols.div];
-    const drawHeader=(doc,y)=>{
-      doc.setFillColor(240,240,240);doc.rect(mx,y-3.5,cw,6.5,'F');
-      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(90,90,90);
-      headers.forEach((h,i)=>doc.text(h,headerX[i],y));
-      doc.setDrawColor(180,180,180);doc.setLineWidth(0.4);doc.line(mx,y+2.5,mx+cw,y+2.5);
-      return y+5;
+    const pw=210,ph=297,mx=15,my=18,cw=pw-2*mx;
+    const rh=7;
+    const C={pos:mx+1,bib:mx+10,flag:mx+22,name:mx+30,team:mx+95,time:mx+130,div:mx+148};
+    const drawTableHead=(d,y,stageName,pageNum)=>{
+      if(pageNum>1){d.setFont('helvetica','normal');d.setFontSize(7);d.setTextColor(160);d.text(`${stageName} (Forts.)`,mx,y-1);y+=3;}
+      d.setFillColor(42,42,48);d.rect(mx,y-4,cw,7,'F');
+      d.setFont('helvetica','bold');d.setFontSize(7);d.setTextColor(255,255,255);
+      [['Pos',C.pos],['Nr',C.bib],['',''],['Athlet',C.name],['Team',C.team],['ca. Start',C.time],['Division',C.div]].forEach(([t,x])=>{if(t)d.text(t,x,y);});
+      return y+6;
+    };
+    const drawDivisionBanner=(d,y,cat)=>{
+      const hex=cat.color;const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+      d.setFillColor(r,g,b);d.rect(mx,y-4,cw,6.5,'F');
+      d.setFont('helvetica','bold');d.setFontSize(8);d.setTextColor(255,255,255);
+      d.text(cat.name?.de||cat.id,mx+3,y);
+      return y+5.5;
     };
     stageIds.forEach((sid,sIdx)=>{
       if(sIdx>0)doc.addPage();
       const stage=pipelineStages.find(s=>s.id===sid);
       const stageName=stage?.name||sid;
       const q=orders[sid]||[];
-      let y=my;
-      doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(25,25,25);
-      doc.text(compName,mx,y);y+=7;
-      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120,120,120);
-      doc.text(`${compDate}${loc?' \u00B7 '+loc:''}`,mx,y);y+=9;
-      doc.setFont('helvetica','bold');doc.setFontSize(14);doc.setTextColor(255,94,58);
-      doc.text(stageName,mx,y);
-      const stw=doc.getTextWidth(stageName);
-      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(150,150,150);
-      doc.text(`  (${q.length} Athleten)`,mx+stw,y);
-      y+=2.5;doc.setDrawColor(255,94,58);doc.setLineWidth(0.8);doc.line(mx,y,mx+stw+1,y);y+=7;
-      y=drawHeader(doc,y);
-      let lastCat='';let catNum=0;
+      let y=my;let pageNum=1;
+      // Header block
+      doc.setDrawColor(255,94,58);doc.setLineWidth(1);doc.line(mx,y-5,mx,y+18);
+      doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(30,30,30);
+      doc.text(compName,mx+4,y+1);
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(130,130,130);
+      doc.text(`${compDate}${loc?'  \u00B7  '+loc:''}`,mx+4,y+7);
+      doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,94,58);
+      doc.text(`STARTREIHENFOLGE  \u2014  ${stageName.toUpperCase()}`,mx+4,y+14);
+      const tl=stage?.timeLimit||info?.timeLimit||0;
+      const avgRun=tl>0?tl:120;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(160,160,160);
+      doc.text(`${q.length} Athleten${tl>0?`  \u00B7  Zeitlimit: ${Math.floor(tl/60)}:${String(tl%60).padStart(2,'0')}`:''}`,pw-mx,y+14,{align:'right'});
+      y+=24;
+      doc.setDrawColor(230,230,230);doc.setLineWidth(0.3);doc.line(mx,y-2,mx+cw,y-2);y+=2;
+      y=drawTableHead(doc,y,stageName,pageNum);
+      let lastCat='';let catIdx=-1;
       q.forEach((a,i)=>{
-        if(y>ph-18){doc.addPage();y=my;y=drawHeader(doc,y);lastCat='';}
+        const needsNewCat=a.cat!==lastCat;
+        const spaceNeeded=needsNewCat?rh+8:rh;
+        if(y+spaceNeeded>ph-14){doc.addPage();y=my;pageNum++;y=drawTableHead(doc,y,stageName,pageNum);lastCat='';}
         if(a.cat!==lastCat){
-          if(lastCat){y+=1.5;doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(mx,y-1,mx+cw,y-1);y+=1.5;}
-          lastCat=a.cat;catNum=0;
+          lastCat=a.cat;catIdx++;
+          const cat=IGN_CATS.find(c=>c.id===a.cat);
+          if(cat){y+=2;y=drawDivisionBanner(doc,y,cat);}
         }
-        catNum++;
-        if(i%2===0){doc.setFillColor(248,248,248);doc.rect(mx,y-3.5,cw,rh,'F');}
-        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(160,160,160);
-        doc.text(String(i+1),cols.num,y);
-        doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(100,100,100);
-        doc.text(String(a.num||'-'),cols.bib,y);
-        doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(25,25,25);
-        const nameStr=a.name||'';
-        doc.text(nameStr.length>28?nameStr.slice(0,27)+'..':nameStr,cols.name,y);
-        const flagData=a.country?flagCache[a.country.toLowerCase().slice(0,2)]:null;
-        if(flagData){try{doc.addImage(flagData,'PNG',cols.country,y-3,5,3.3);}catch{}}
-        else if(a.country){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(130,130,130);doc.text(a.country.toUpperCase(),cols.country,y);}
-        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(220,130,20);
-        const teamStr=a.team||'';
-        doc.text(teamStr.length>16?teamStr.slice(0,15)+'..':teamStr,cols.team,y);
+        const rowY=y;
+        if(i%2===0){doc.setFillColor(247,247,250);doc.rect(mx,rowY-4.5,cw,rh,'F');}
+        // Position
+        doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(180,180,180);
+        doc.text(String(i+1),C.pos,rowY);
+        // Bib number
+        doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(80,80,80);
+        doc.text(String(a.num||'-'),C.bib,rowY);
+        // Flag
+        const fd=a.country?flagCache[a.country.toLowerCase().slice(0,2)]:null;
+        if(fd){try{doc.addImage(fd,'PNG',C.flag,rowY-3.5,5.5,3.8);}catch{}}
+        // Name
+        doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(20,20,20);
+        const nm=a.name||'';
+        doc.text(nm.length>32?nm.slice(0,31)+'\u2026':nm,C.name,rowY);
+        // Team
+        if(a.team){
+          doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(200,130,30);
+          const tm=a.team;doc.text(tm.length>18?tm.slice(0,17)+'\u2026':tm,C.team,rowY);
+        }
+        // Estimated start time
+        const estMin=Math.round(i*avgRun/60);
+        const estH=Math.floor(estMin/60);const estM=estMin%60;
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(140,140,140);
+        doc.text(estH>0?`~${estH}h${estM>0?String(estM).padStart(2,'0'):''}`:`~${estM}min`,C.time,rowY);
+        // Division badge
         const cat=IGN_CATS.find(c=>c.id===a.cat);
         if(cat){
           const hex=cat.color;const cr=parseInt(hex.slice(1,3),16),cg=parseInt(hex.slice(3,5),16),cb=parseInt(hex.slice(5,7),16);
-          const lbl=(cat.name?.de||a.cat);
-          doc.setFont('helvetica','bold');doc.setFontSize(7);
-          const lblW=doc.getTextWidth(lbl)+5;
-          doc.setFillColor(cr,cg,cb);doc.roundedRect(cols.div,y-3,lblW,4.2,1.2,1.2,'F');
-          doc.setTextColor(255,255,255);doc.text(lbl,cols.div+2.5,y-0.2);
+          const lbl=cat.name?.de||a.cat;
+          doc.setFont('helvetica','bold');doc.setFontSize(6.5);
+          const bw=doc.getTextWidth(lbl)+5;
+          doc.setFillColor(cr,cg,cb);doc.roundedRect(C.div,rowY-3.2,bw,4.5,1.5,1.5,'F');
+          doc.setTextColor(255,255,255);doc.text(lbl,C.div+2.5,rowY+0.1);
         }
         y+=rh;
       });
-      y+=6;doc.setDrawColor(200,200,200);doc.setLineWidth(0.2);doc.line(mx,y,mx+cw,y);y+=4;
-      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(170,170,170);
-      doc.text(`${stageName}  \u00B7  ${q.length} Athleten  \u00B7  OG Ninja Competition Tool`,pw/2,y,{align:'center'});
+      // Footer
+      y=ph-10;
+      doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.line(mx,y,mx+cw,y);y+=4;
+      doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,180,180);
+      doc.text(`${compName}  \u00B7  ${stageName}  \u00B7  ${q.length} Athleten`,mx,y);
+      doc.text('OG Ninja Competition Tool',pw-mx,y,{align:'right'});
     });
     doc.save(`Startreihenfolge-${compName.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
   };

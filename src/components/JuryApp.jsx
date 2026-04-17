@@ -172,7 +172,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
                 <div className="lbl">{t('startOrder')}</div>
                 <div style={{display:'flex',alignItems:'center',gap:6}}>
-                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={shuffleQ} title={lang==='de'?'Zufällige Reihenfolge':'Random order'}><span style={{fontSize:10}}>{t('shuffle')}</span></button>
+                  <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderRadius:10}} onClick={()=>{const pin=window.prompt(lang==='de'?'PIN eingeben:':'Enter PIN:');if(pin!=='2021')return;shuffleQ();}} title={lang==='de'?'Zufällige Reihenfolge':'Random order'}><span style={{fontSize:10}}>{t('shuffle')}</span></button>
                   <div style={{fontSize:10,color:'var(--muted)'}}>{t('sortHint')}</div>
                 </div>
               </div>
