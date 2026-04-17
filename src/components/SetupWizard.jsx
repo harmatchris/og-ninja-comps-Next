@@ -50,8 +50,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
       }
       // Legacy mode
       if(initialStages?.[i+1]?.obstacles)return Object.values(initialStages[i+1].obstacles).sort((a,b)=>a.order-b.order);
-      // Fallback: global obstacles for first stage
-      if(initialObstacles&&i===0)return Object.values(initialObstacles).sort((a,b)=>a.order-b.order);
+      // Fallback: global obstacles for any stage that has no own obstacles
+      if(initialObstacles)return Object.values(initialObstacles).sort((a,b)=>a.order-b.order);
       return DEF_OBS.map(o=>({...o,id:uid()}));
     });
   });
@@ -295,7 +295,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             updates[`ogn/${id}/pipeline/${sid}/order`]=stg.order;
             updates[`ogn/${id}/pipeline/${sid}/mode`]=stg.mode||null;
             updates[`ogn/${id}/pipeline/${sid}/qualiPercent`]=stg.qualiPercent||0;
-            if(stg.obstacles)updates[`ogn/${id}/pipeline/${sid}/obstacles`]=stg.obstacles;
+            updates[`ogn/${id}/pipeline/${sid}/obstacles`]=stg.obstacles||null;
             updates[`ogn/${id}/pipeline/${sid}/isMain`]=stg.isMain||null;
             updates[`ogn/${id}/pipeline/${sid}/predecessorStages`]=stg.predecessorStages||null;
             updates[`ogn/${id}/pipeline/${sid}/continuations`]=stg.continuations||null;
