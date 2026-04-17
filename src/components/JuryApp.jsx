@@ -274,10 +274,10 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   },[remaining]);
 
   useEffect(()=>{
-    fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives});
+    fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives,livesUsed:0});
     return()=>fbRemove(`ogn/${compId}/activeRuns/${activeRunKey}`);
   },[]);
-  useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives});},[doneCP,lives]);
+  useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives,livesUsed:activeFalls.length});},[doneCP,lives]);
 
   // Auto-stop when time limit expires — treated as fall at the time limit
   useEffect(()=>{
@@ -361,7 +361,10 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
             <div style={{textAlign:'right'}}>
               <div className="lbl" style={{marginBottom:7}}>{lang==='de'?'Leben':'Lives'}</div>
               {lives>=999?(
-                <div style={{fontSize:22,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono',display:'inline-block',transform:'rotate(90deg)'}}>8</div>
+                <div style={{display:'flex',gap:4,alignItems:'center',justifyContent:'flex-end'}}>
+                  <span style={{fontSize:22,fontWeight:900,color:'var(--cor)',fontFamily:'JetBrains Mono'}}>∞</span>
+                  {activeFalls.length>0&&<span style={{fontSize:13,color:'rgba(255,255,255,.4)',fontFamily:'JetBrains Mono'}}>−{activeFalls.length}</span>}
+                </div>
               ):(
                 <div style={{display:'flex',gap:3,justifyContent:'flex-end'}}>
                   {Array.from({length:maxLives||info.lives||3},(_,i)=>(
@@ -685,13 +688,21 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const [activeFalls,setActiveFalls]=useState([]); // committed falls in current run
   const [doneResult,setDoneResult]=useState(null);
   const [completedRunKey,setCompletedRunKey]=useState(null);
-  // Lives config: pipeline stages store lives/totalLives on the stage config; fallback to global info
-  const pipelineLives=isPipeline?pipelineStageCfg?.lives:null;
-  const pipelineTotalLives=isPipeline?pipelineStageCfg?.totalLives:undefined;
-  const effectiveLives=pipelineLives??info?.stageExtraLife?.[stNum]?.lives??info?.stageLivesOverrides?.[stNum]??info?.lives??3;
-  // Infinity only when the stage itself explicitly has totalLives=0 (not from global default)
+  // Lives config: pipeline stages store livesPerSection/totalLives on the stage config; fallback to global info
+  const pipelineLivesPerSection=isPipeline?(pipelineStageCfg?.livesPerSection||pipelineStageCfg?.lives||0):0;
+  // Pipeline: totalLives 0/null/undefined in Firebase all mean infinity (UI default is ∞)
+  // Legacy: only explicit 0 means infinity
+  const _pipelineTotalLivesRaw=isPipeline&&pipelineStageCfg?pipelineStageCfg.totalLives:undefined;
+  const pipelineTotalLives=isPipeline&&pipelineStageCfg?(_pipelineTotalLivesRaw??0):undefined;
   const _rawTotalLives=pipelineTotalLives??info?.stageExtraLife?.[stNum]?.stageTotalLives??undefined;
-  const isInfinityLives=info?.mode==='lives'&&_rawTotalLives===0;
+  const isInfinityLives=info?.mode==='lives'&&(
+    (isPipeline&&pipelineStageCfg&&(_pipelineTotalLivesRaw==null||_pipelineTotalLivesRaw===0))||
+    (!isPipeline&&_rawTotalLives===0)
+  );
+  // Starting lives = totalLives from stage (the number user configured), fallback chain for legacy
+  const effectiveLives=isInfinityLives?999
+    :(pipelineTotalLives!=null&&pipelineTotalLives>0)?pipelineTotalLives
+    :info?.stageExtraLife?.[stNum]?.lives??info?.stageLivesOverrides?.[stNum]??info?.lives??3;
   const effectiveTotalLives=_rawTotalLives??info?.stageTotalLives??null;
   const [lives,setLives]=useState(isInfinityLives?999:effectiveLives);
   const [totalLivesLeft,setTotalLivesLeft]=useState(isInfinityLives?null:(effectiveTotalLives!=null&&effectiveTotalLives>0?effectiveTotalLives:null));
@@ -699,7 +710,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const [fallFreezeTime,setFallFreezeTime]=useState(null);
   const [resetActive,setResetActive]=useState(false);
   const [recoveryChecked,setRecoveryChecked]=useState(false);
-  useEffect(()=>{if(info)setLives(isInfinityLives?999:(effectiveLives||3));},[info?.lives,pipelineStageCfg?.lives]);
+  useEffect(()=>{if(info&&phase==='wait')setLives(isInfinityLives?999:(effectiveLives||3));},[info?.lives,pipelineStageCfg?.totalLives,pipelineStageCfg?.lives]);
   // ── Stage takeover: resume existing active run if found ──
   useEffect(()=>{
     if(recoveryChecked||!existingRun||!globalAthletesMap||phase!=='wait')return;
@@ -740,7 +751,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // Broadcast countdown phase to Firebase so DisplayView shows live countdown on stage card
   useEffect(()=>{
     if(phase==='countdown'&&currentAth){
-      fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat||null,phase:'countdown',countdown:3,startEpoch:Date.now()+3000,doneCP:[],livesLeft:lives});
+      fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat||null,phase:'countdown',countdown:3,startEpoch:Date.now()+3000,doneCP:[],livesLeft:lives,livesUsed:0});
       const t1=setTimeout(()=>fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{countdown:2}),1000);
       const t2=setTimeout(()=>fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{countdown:1}),2000);
       return()=>{clearTimeout(t1);clearTimeout(t2);};
@@ -839,12 +850,11 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     setActiveFalls(prev=>[...prev,newFall]);
     setFallFreezeTime(fallModal.currentTime);
     setFallModal(null);
-    setLives(l=>l-1);
-    if(totalLivesLeft!==null)setTotalLivesLeft(t=>t-1);
+    if(!isInfinityLives)setLives(l=>l-1);
+    if(totalLivesLeft!==null&&!isInfinityLives)setTotalLivesLeft(t=>t-1);
     if(info.mode==='lives'){
       setResetActive(true);
-      // Broadcast resetting phase to Firebase so Stats/LiveBanner can show countdown
-      fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:lives-1});
+      fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:true,resetUntil:Date.now()+10000,livesLeft:isInfinityLives?999:lives-1,livesUsed:activeFalls.length+1});
     }
   };
   const handleResetDone=()=>{
@@ -853,7 +863,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     setResetActive(false);
     fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:null,resetUntil:null});
   };
-  const handleRefillLives=(sectionLives)=>{if(isInfinityLives){setLives(999);return;}const refill=sectionLives!=null?sectionLives:effectiveLives;const capped=totalLivesLeft!=null?Math.min(refill,totalLivesLeft):refill;setLives(capped);};
+  const handleRefillLives=(sectionLives)=>{if(isInfinityLives){setLives(999);return;}const refill=sectionLives!=null?sectionLives:(pipelineLivesPerSection||effectiveLives);const capped=totalLivesLeft!=null?Math.min(refill,totalLivesLeft):refill;setLives(capped);};
   // Strip undefined values recursively so Firebase never rejects
   const clean=o=>{if(o===undefined)return null;if(o===null||typeof o!=='object')return o;if(Array.isArray(o))return o.map(clean);const r={};for(const[k,v]of Object.entries(o)){const c=clean(v);if(c!==undefined)r[k]=c;}return r;};
   // Confirm DNF
@@ -868,20 +878,20 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       const limitMs=effLimit*1000;
       const cappedTime=limitMs>0?Math.min(time,limitMs):time;
       const finalFalls=[...activeFalls,{obsIdx:fallModal.pendingFallIdx,time:fallModal.currentTime}];
-      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:cappedTime,lives,falls:finalFalls,protested:fallModal.protested||false,status:isTimeout?'timeout':'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()});
+      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:cappedTime,lives,initialLives:effectiveLives,falls:finalFalls,protested:fallModal.protested||false,status:isTimeout?'timeout':'fall',fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()});
       const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setFallModal(null);setDoneResult(result);setPhase('done');SFX.complete();
     }catch(err){console.error('Fall confirm error:',err);throw err;}
   };
   const handleStopConfirm=async({selCount,time,fellAtObst,dsq})=>{
     try{
       const corrected=(stopModal.doneCP||[]).slice(0,selCount);
-      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,falls:activeFalls,protested:stopModal.protested||false,status:dsq?'dsq':(stopModal.reason||'dnf'),fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()});
+      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,initialLives:effectiveLives,falls:activeFalls,protested:stopModal.protested||false,status:dsq?'dsq':(stopModal.reason||'dnf'),fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()});
       const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(null);setCurrentAth(null);setFallModal(null);setActiveFalls([]);setLives(isInfinityLives?999:effectiveLives);setGoTime(null);setPhase('wait');SFX.complete();
     }catch(err){console.error('Stop confirm error:',err);window.alert('Error: '+err.message);}
   };
   const handleComplete=async data=>{
     try{
-      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,falls:activeFalls,protested:data.protested||false,status:'complete',timestamp:Date.now()});
+      const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:data.doneCP||[],totalCPs:cpObst.length,finalTime:data.finalTime,lives:data.lives,initialLives:effectiveLives,falls:activeFalls,protested:data.protested||false,status:'complete',timestamp:Date.now()});
       const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setDoneResult(result);setPhase('done');
     }catch(err){console.error('Complete error:',err);window.alert('Error: '+err.message);}
   };

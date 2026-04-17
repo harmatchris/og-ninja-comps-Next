@@ -252,8 +252,11 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     {run.livesLeft!=null&&run.livesLeft>0&&(
                       <div style={{marginLeft:'auto',display:'flex',gap:2,alignItems:'center'}}>
                         {run.livesLeft>=999
-                          ?<div style={{fontSize:18,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1}}>8</div>
-                          :Array.from({length:run.livesLeft}).map((_,i)=><Heart key={i} alive s={10}/>)
+                          ?<div style={{display:'flex',gap:4,alignItems:'center'}}>
+                            <span style={{fontSize:18,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',lineHeight:1}}>∞</span>
+                            {(run.livesUsed||0)>0&&<span style={{fontSize:11,color:'rgba(255,255,255,.4)',fontFamily:'JetBrains Mono'}}>−{run.livesUsed}</span>}
+                          </div>
+                          :(()=>{const totalLives=(run.livesLeft||0)+(run.livesUsed||0);return totalLives>0?Array.from({length:totalLives}).map((_,i)=><Heart key={i} alive={i<run.livesLeft} s={10}/>):Array.from({length:run.livesLeft}).map((_,i)=><Heart key={i} alive s={10}/>);})()
                         }
                       </div>
                     )}

@@ -19,10 +19,10 @@ import { Spinner, EmptyState } from './shared.jsx';
 const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
 const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null})=>{
   const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
+  const rid=`rope-${(name||'n').replace(/\s/g,'')}`;
   const trick=TRICKS[doneCPCount%TRICKS.length];
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
   const allDead=livesLeft<=0&&livesUsed>0;
-  // Reset countdown
   const [resetSec,setResetSec]=useState(0);
   useEffect(()=>{
     if(!resetting||!resetUntil)return;
@@ -30,37 +30,36 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
     tick();const iv=setInterval(tick,200);return()=>clearInterval(iv);
   },[resetting,resetUntil]);
   const stumbling=livesUsed>0&&!allDead;
-  // Choose animation: all dead → fall out, resetting → hang+recover, CP → trick, idle → bob
+  const swinging=resetting||(stumbling&&!resetting);
   const anim=allDead?'ninjaFallOut 1.2s ease-in forwards'
-    :resetting?'ninjaHangRecover 3.5s ease-in-out'
-    :stumbling&&!resetting?`ninjaHangRecover 3.5s ease-in-out`
+    :swinging?`ninjaRopeSwing-${rid} 4s ease-in-out forwards`
     :doneCPCount>0?`${trick} 0.6s ease-out`
     :'ninjaBob 0.45s ease-in-out infinite alternate';
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
+  const drop=size*2.5;
+  const swingX=size*3;
   return(
     <g transform={`translate(${x-size/2},${allDead?y+300:y-size})`}>
     <g style={{animation:anim}}>
       <style>{`
         @keyframes ninjaBob{0%{transform:translateY(0)}100%{transform:translateY(-3px)}}
         @keyframes ninjaFallOut{0%{transform:translateY(0) rotate(0);opacity:1}40%{transform:translateY(${size*2}px) rotate(180deg);opacity:.8}100%{transform:translateY(${size*12}px) rotate(720deg);opacity:0}}
-        @keyframes ninjaHangRecover{
-          0%{transform:translateY(0) rotate(0)}
-          6%{transform:translateY(${size*1.2}px) rotate(12deg)}
-          12%{transform:translateY(${size*1.5}px) rotate(-5deg)}
-          16%{transform:translateY(${size*1.4}px) rotate(0) scaleY(.88)}
-          22%{transform:translateY(${size*1.4}px) rotate(2deg) scaleY(.88)}
-          26%{transform:translateY(${size*1.4}px) rotate(-2deg) scaleY(.88)}
-          32%{transform:translateY(${size*1.1}px) rotate(3deg) scaleY(.9)}
-          38%{transform:translateY(${size*1.15}px) rotate(-2deg) scaleY(.9)}
-          44%{transform:translateY(${size*.85}px) rotate(2deg) scaleY(.92)}
-          50%{transform:translateY(${size*.9}px) rotate(-1deg) scaleY(.92)}
-          56%{transform:translateY(${size*.6}px) rotate(2deg) scaleY(.95)}
-          62%{transform:translateY(${size*.65}px) rotate(-1deg) scaleY(.95)}
-          70%{transform:translateY(${size*.3}px) rotate(1deg) scaleY(.98)}
-          78%{transform:translateY(${size*.1}px) rotate(-3deg)}
-          86%{transform:translateY(0) rotate(4deg)}
-          93%{transform:translateY(0) rotate(-1deg)}
-          100%{transform:translateY(0) rotate(0)}
+        @keyframes ninjaRopeSwing-${rid}{
+          0%{transform:translateY(0) translateX(0) rotate(0)}
+          8%{transform:translateY(${drop}px) translateX(${size*.3}px) rotate(15deg)}
+          12%{transform:translateY(${drop}px) translateX(0) rotate(-5deg)}
+          18%{transform:translateY(${drop*.9}px) translateX(-${swingX*.3}px) rotate(-20deg)}
+          28%{transform:translateY(${drop*.4}px) translateX(-${swingX*.7}px) rotate(-35deg)}
+          38%{transform:translateY(-${size*.8}px) translateX(-${swingX}px) rotate(-15deg)}
+          48%{transform:translateY(-${size*1.5}px) translateX(-${swingX*.85}px) rotate(5deg)}
+          55%{transform:translateY(-${size*.3}px) translateX(-${swingX*.6}px) rotate(0)}
+          65%{transform:translateY(0) translateX(-${swingX*.3}px) rotate(0)}
+          78%{transform:translateY(${size*.15}px) translateX(-${swingX*.1}px) rotate(0)}
+          88%{transform:translateY(-${size*.1}px) translateX(0) rotate(0)}
+          100%{transform:translateY(0) translateX(0) rotate(0)}
+        }
+        @keyframes ropeAppear-${rid}{
+          0%{opacity:0}8%{opacity:0}12%{opacity:1}55%{opacity:1}65%{opacity:.3}78%{opacity:0}100%{opacity:0}
         }
         @keyframes ninjaFlip{0%{transform:rotate(0)}30%{transform:translateY(-${size*.6}px) rotate(-180deg)}60%{transform:translateY(-${size*.3}px) rotate(-360deg)}100%{transform:rotate(-360deg)}}
         @keyframes ninjaSpinKick{0%{transform:rotate(0) scale(1)}40%{transform:translateY(-${size*.5}px) rotate(180deg) scale(1.1)}100%{transform:rotate(360deg) scale(1)}}
@@ -75,6 +74,8 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
       `}</style>
       <defs><filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      {/* Rope — visible only during swing recovery */}
+      {swinging&&<line x1={size/2} y1={-size*4} x2={size/2} y2={size*.3} stroke="#C8A96E" strokeWidth="1.5" strokeLinecap="round" opacity=".7" style={{animation:`ropeAppear-${rid} 4s ease-in-out forwards`}}/>}
       {/* glow */}
       <circle cx={size/2} cy={size*.5} r={size*.6} fill="none" stroke={color} strokeWidth="2.5" opacity=".3" style={{animation:'ninjaGlow 1s ease-in-out infinite'}} filter={`url(#${fid})`}/>
       <circle cx={size/2} cy={size*.5} r={size*.35} fill={color} opacity=".12" filter={`url(#${fid})`}/>
@@ -83,19 +84,24 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
       <rect x={size*.3} y={size*.24} width={size*.4} height={size*.06} fill="rgba(0,0,0,.55)"/>
       {/* body */}
       <rect x={size*.35} y={size*.42} width={size*.3} height={size*.35} rx={size*.08} fill={color}/>
-      {/* arms */}
-      <rect x={size*.18} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(-20 ${size*.26} ${size*.52})`}/>
-      <rect x={size*.66} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(20 ${size*.74} ${size*.52})`}/>
+      {/* arms — reach up during swing */}
+      {swinging?<>
+        <rect x={size*.35} y={size*.2} width={size*.08} height={size*.24} rx={size*.04} fill={color} transform={`rotate(-10 ${size*.39} ${size*.32})`}/>
+        <rect x={size*.57} y={size*.2} width={size*.08} height={size*.24} rx={size*.04} fill={color} transform={`rotate(10 ${size*.61} ${size*.32})`}/>
+      </>:<>
+        <rect x={size*.18} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(-20 ${size*.26} ${size*.52})`}/>
+        <rect x={size*.66} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(20 ${size*.74} ${size*.52})`}/>
+      </>}
       {/* legs */}
-      <g style={{transformOrigin:`${size*.45}px ${size*.77}px`,animation:allDead?'none':'legA 0.35s linear infinite'}}>
-        <rect x={size*.38} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color}/>
+      <g style={{transformOrigin:`${size*.45}px ${size*.77}px`,animation:allDead?'none':swinging?'none':'legA 0.35s linear infinite'}}>
+        <rect x={size*.38} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color} transform={swinging?'rotate(15)':''}/>
       </g>
-      <g style={{transformOrigin:`${size*.55}px ${size*.77}px`,animation:allDead?'none':'legB 0.35s linear infinite'}}>
-        <rect x={size*.52} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color}/>
+      <g style={{transformOrigin:`${size*.55}px ${size*.77}px`,animation:allDead?'none':swinging?'none':'legB 0.35s linear infinite'}}>
+        <rect x={size*.52} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color} transform={swinging?'rotate(-15)':''}/>
       </g>
       {/* Hearts for lives */}
       {livesLeft>=999
-        ?<text x={size/2} y={-4} textAnchor="middle" fontSize={size*.5} fontWeight="900" fill="#FF3B60" fontFamily="JetBrains Mono" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:2}} transform={`rotate(90,${size/2},-4)`}>8</text>
+        ?<text x={size/2} y={-4} textAnchor="middle" fontSize={size*.5} fontWeight="900" fill="#FF3B60" fontFamily="JetBrains Mono" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:2}}>∞</text>
         :(livesLeft+livesUsed)>0&&Array.from({length:livesLeft+livesUsed}).map((_,i)=>{
           const alive=i<livesLeft;
           const hx=size/2+(i-(livesLeft+livesUsed-1)/2)*9;
@@ -168,10 +174,28 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
     if(cpIdx!==prevCPRef.current){setAnimX(xs(cpIdx));startRef.current=null;prevCPRef.current=cpIdx;}
   },[cpIdx]);
   // Animate forward from current CP toward next CP, decelerating
-  // Also animate ghost ninja based on best run's CP times
+  // When resetting after fall: animate back to last CP position
+  const resetStartX=useRef(null);
   useEffect(()=>{
-    // Don't animate during countdown — ninja waits at start
-    if(isCountdown||cpIdx>=nPts-1||lr.fallen)return;
+    if(isCountdown||cpIdx>=nPts-1)return;
+    // Resetting: swing back to last CP
+    if(lr.resetting){
+      const snapBackFrom=animX;
+      resetStartX.current=snapBackFrom;
+      const targetX=xs(cpIdx);
+      const dur=2500;
+      const t0=performance.now();
+      let raf;
+      const tick=()=>{
+        const t=Math.min((performance.now()-t0)/dur,1);
+        const ease=1-Math.pow(1-t,3);
+        setAnimX(snapBackFrom+(targetX-snapBackFrom)*ease);
+        if(t<1)raf=requestAnimationFrame(tick);
+      };
+      raf=requestAnimationFrame(tick);
+      return()=>cancelAnimationFrame(raf);
+    }
+    if(lr.fallen)return;
     const segDuration=12000;
     let raf;
     const tick=()=>{
@@ -201,7 +225,7 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
     };
     raf=requestAnimationFrame(tick);
     return()=>cancelAnimationFrame(raf);
-  },[isCountdown,cpIdx,fromX,toX,lr.fallen,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
+  },[isCountdown,cpIdx,fromX,toX,lr.fallen,lr.resetting,nPts,lr.startEpoch,lr.bestRunCPs?.length]);
   const runnerLeads=animX>=ghostX;
   // Leader is green, trailer is red — applies to BOTH ninjas
   const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
@@ -218,7 +242,7 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   </>;
 };
 
-const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
+const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=>{
   if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
   const W=1000,H=tvMode?420:300;
   const ML=46,MR=16,MT=20,MB=tvMode?90:80;
@@ -263,6 +287,15 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[]})=>{
             {i===0?'Platform':(p.label||'').substring(0,20)}
           </text>
         ))}
+        {livesUsedPerObs.map((count,i)=>{
+          if(!count)return null;
+          const xi=xs(i+1);
+          const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
+          return<g key={`h${i}`} transform={`translate(${xi-7},${MT+PH+4})`}>
+            <g transform="scale(0.65)"><path d={heartD} fill="#FF3B60" stroke="#FF1744" strokeWidth=".5" opacity=".7"/></g>
+            {count>1&&<text x={12} y={8} fontSize={tvMode?10:8} fontWeight="800" fill="#FF3B60" fontFamily="JetBrains Mono">{count}</text>}
+          </g>;
+        })}
         {/* Live ninja runners — smooth forward run along top line */}
         {liveRunners.map((lr,idx)=>{
           const catData=data.find(d=>d.cat.id===lr.catId);
@@ -439,6 +472,10 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const points=[{x:-1,y:100,label:'Platform'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
       return{cat,points,total};
     }).filter(Boolean);
+    const livesUsedPerObs=obsArr.map((_,i)=>stageRuns.reduce((sum,r)=>{
+      if(!Array.isArray(r.falls))return sum;
+      return sum+r.falls.filter(f=>f.obsIdx===i).length;
+    },0));
     const difficultyData=obsArr.map((obs,i)=>{
       const reached=stageRuns.filter(r=>r.status!=='dsq'&&((r.doneCP?.length||0)>=i||r.status==='complete')).length;
       const falls=stageRuns.filter(r=>r.fellAt?.id===obs.id).length;
@@ -458,20 +495,20 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const a=athletesMap?.[r.athleteId];
       const catId=r.catId||(a?.cat)||null;
       const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
-      const totalLives=info?.lives||3;
-      const livesLeft=r.livesLeft!=null?r.livesLeft:totalLives;
-      const livesUsed=livesLeft>=999?0:Math.max(0,totalLives-livesLeft);
+      const stageTotalLives=pStage.totalLives!=null&&pStage.totalLives>0?pStage.totalLives:(info?.lives||3);
+      const livesLeft=r.livesLeft!=null?r.livesLeft:stageTotalLives;
+      const livesUsed=r.livesUsed!=null?r.livesUsed:(livesLeft>=999?0:Math.max(0,stageTotalLives-livesLeft));
       const cpArr=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
       const lastCPTime=cpArr.length>0?cpArr[cpArr.length-1]?.time:null;
-      const limitSec=info?.stageLimits?.[stageKey]??info?.timeLimit??0;
+      const limitSec=pStage.timeLimit||info?.stageLimits?.[stageKey]||info?.timeLimit||0;
       const elapsed=r.startEpoch?Date.now()-r.startEpoch:0;
       const timeRemaining=limitSec>0?Math.max(0,limitSec*1000-elapsed):null;
       const bestRun=stageRuns.filter(x=>x.catId===catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((a,b)=>(Array.isArray(b.doneCP)?b.doneCP.length:Object.keys(b.doneCP||{}).length)-(Array.isArray(a.doneCP)?a.doneCP.length:Object.keys(a.doneCP||{}).length)||(a.finalTime||Infinity)-(b.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
+      return{id:r.athleteId,catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives:stageTotalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
-    return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners};
+    return{sn:stageKey,stageName,catId:configCatIds[0]||null,obsArr,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
   }).filter(Boolean):[];
 
   // ── LEGACY MODE ──
@@ -511,6 +548,11 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       return{cat,points,total};
     }).filter(Boolean);
 
+    const livesUsedPerObs=obsArr.map((_,i)=>stageRuns.reduce((sum,r)=>{
+      if(!Array.isArray(r.falls))return sum;
+      return sum+r.falls.filter(f=>f.obsIdx===i).length;
+    },0));
+
     // ── Difficulty (fall rate per obstacle, this stage only) ──
     const difficultyData=obsArr.map((obs,i)=>{
       const reached=stageRuns.filter(r=>r.status!=='dsq'&&((r.doneCP?.length||0)>=i||r.status==='complete')).length;
@@ -533,6 +575,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const a=athletesMap?.[r.athleteId];
       const doneCPCount=r.doneCPCount||(Array.isArray(r.doneCP)?r.doneCP.length:(r.doneCP&&typeof r.doneCP==='object'?Object.keys(r.doneCP).length:0));
       const totalLives=info?.lives||3;const livesLeft=r.livesLeft!=null?r.livesLeft:totalLives;
+      const livesUsed=r.livesUsed!=null?r.livesUsed:(livesLeft>=999?0:Math.max(0,totalLives-livesLeft));
       const cpArr=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
       const lastCPTime=cpArr.length>0?cpArr[cpArr.length-1]?.time:null;
       const limitSec=info?.stageLimits?.[sn]??info?.timeLimit??0;
@@ -542,10 +585,10 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===_catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((x,y)=>(Array.isArray(y.doneCP)?y.doneCP.length:Object.keys(y.doneCP||{}).length)-(Array.isArray(x.doneCP)?x.doneCP.length:Object.keys(x.doneCP||{}).length)||(x.finalTime||Infinity)-(y.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed:livesLeft>=999?0:Math.max(0,totalLives-livesLeft),totalLives,fallen:livesLeft<=0&&livesLeft<999&&(totalLives-livesLeft)>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
+      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
 
-    return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners};
+    return{sn,catId,obsArr,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
   });
 
   const stageDataArr=isPipeline?pipelineStageDataArr:legacyStageDataArr;
@@ -585,7 +628,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         gap:tvMode?16:10,
         height:tvMode&&stageDataArr.length>1?'calc(100vh - 160px)':'auto'
       }:{display:'flex',flexDirection:'column',gap:tvMode?20:12}}>
-        {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr})=>{
+        {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr,livesUsedPerObs})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
           const stageName=pipelineStageName||(info?.stageNames?.[sn]||`Stage ${sn}`);
           return(
@@ -601,7 +644,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
                   </div>
                 </div>
               )}
-              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr}/>}
+              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr} livesUsedPerObs={livesUsedPerObs||[]}/>}
               {chartTab==='difficulty'&&<>
                 <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
                 <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>

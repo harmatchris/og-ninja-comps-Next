@@ -75,16 +75,32 @@ const Heart=({alive,s=7})=>(
     <path d="M6 10.2C3.6 8.4.5 6.2.5 3.5.5 1.6 2 .5 3.5.5c1 0 1.9.5 2.5 1.3C6.6 1 7.5.5 8.5.5 10 .5 11.5 1.6 11.5 3.5c0 2.7-3.1 4.9-5.5 6.7z" fill={alive?'#FF3B60':'#555'} stroke={alive?'#FF1744':'#444'} strokeWidth=".5"/>
   </svg>
 );
-const LifeDots=({run,size=7})=>{
+const LifeDots=({run,size=7,showObstacles=false,obsArr})=>{
   if(run.mode!=='lives')return null;
-  const used=Array.isArray(run.falls)?run.falls.length:0;
-  const total=run.lives||3;
-  const remaining=total-used;
-  if(total>=999)return<div style={{fontSize:size+3,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',transform:'rotate(90deg)',lineHeight:1,flexShrink:0}}>8</div>;
-  if(used===0)return null;
+  const falls=Array.isArray(run.falls)?run.falls:[];
+  const used=falls.length;
+  const remaining=run.lives!=null?run.lives:0;
+  const total=run.initialLives||(remaining+used)||0;
+  if(total>=999||remaining>=999)return(
+    <div style={{display:'flex',gap:4,alignItems:'center',flexShrink:0}}>
+      <span style={{fontSize:size+4,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',lineHeight:1}}>∞</span>
+      {used>0&&<span style={{fontSize:size,color:'rgba(255,255,255,.4)',fontFamily:'JetBrains Mono'}}>−{used}</span>}
+    </div>
+  );
+  if(total===0)return null;
   return(
-    <div style={{display:'flex',gap:1,alignItems:'center',flexShrink:0}}>
-      {Array.from({length:total},(_,i)=><Heart key={i} alive={i<remaining} s={size}/>)}
+    <div style={{display:'flex',gap:1,alignItems:'center',flexShrink:0,flexWrap:'wrap'}}>
+      {Array.from({length:total},(_,i)=>{
+        const isUsed=i>=remaining;
+        const fall=isUsed?falls[i-remaining]:null;
+        const obsName=showObstacles&&fall&&obsArr?obsArr[fall.obsIdx]?.name:null;
+        return obsName
+          ?<span key={i} title={obsName} style={{display:'inline-flex',alignItems:'center',gap:1}}>
+            <Heart alive={false} s={size}/>
+            <span style={{fontSize:Math.max(size-2,7),color:'rgba(255,255,255,.3)',maxWidth:50,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{obsName}</span>
+          </span>
+          :<Heart key={i} alive={!isUsed} s={size}/>;
+      })}
     </div>
   );
 };
