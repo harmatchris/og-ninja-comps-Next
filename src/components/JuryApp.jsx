@@ -306,15 +306,15 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
         for(let i=fullIdx-1;i>=0;i--){
           if(isPlatformObs(obstArr[i])){lastPlatFullIdx=i;break;}
         }
+        // No platform found = back to start (trimTo=0)
+        let trimTo=0;
         if(lastPlatFullIdx>=0){
-          // Count cpObst-eligible items up to and including the platform
-          let trimTo=0;
           for(let i=0;i<=lastPlatFullIdx;i++){if(isCpOrPlat(obstArr[i]))trimTo++;}
-          if(trimTo<doneCP.length){
-            const trimmed=doneCP.slice(0,trimTo);
-            doneCPRef.current=trimmed;setDoneCP(trimmed);
-            fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
-          }
+        }
+        if(trimTo<doneCP.length){
+          const trimmed=doneCP.slice(0,trimTo);
+          doneCPRef.current=trimmed;setDoneCP(trimmed);
+          fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP:trimmed,doneCPCount:trimmed.length});
         }
       }
     }catch(e){console.error('Platform trim error:',e);}
