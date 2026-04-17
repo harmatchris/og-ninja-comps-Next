@@ -760,6 +760,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const pipelineStageCfg=useFbVal(isPipeline?`ogn/${compId}/pipeline/${stageId}`:null);
   const pipelineData=useFbVal(isPipeline?`ogn/${compId}/pipeline`:null);
   // Per-stage data overrides global with fallback
+  useEffect(()=>{const iv=setInterval(()=>SFX.wake(),10000);return()=>clearInterval(iv);},[]);
   const obstacles=stageObstaclesRaw||globalObstacles;
   // Always prefer global athletes (contains all registered athletes across all stages)
   const athletesMap=globalAthletesMap||stageAthletesRaw;
@@ -915,7 +916,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
 
-  const handleStart=ath=>{setCurrentAth(ath);setLives(isInfinityLives?999:effectiveLives);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
+  const handleStart=ath=>{SFX.wake();setCurrentAth(ath);setLives(isInfinityLives?999:effectiveLives);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
   const handleDsqAth=async(ath)=>{
     const result=clean({athleteId:ath.id,athleteName:ath.name,catId:ath.cat||catId,stNum,...(isPipeline?{stageId}:{}),mode:info.mode||'cp',doneCP:[],totalCPs:cpObst.length,finalTime:0,lives:isInfinityLives?999:effectiveLives,falls:0,status:'dsq',timestamp:Date.now()});
     const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);SFX.click();
@@ -1013,14 +1014,11 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
       <TopBar title={isPipeline?(pipelineStageCfg?.name||stageId||`Stage`):`Stage ${stNum}`} sub={cat?catName(cat):compId}
         onBack={(!inRun&&onBack)?onBack:undefined}
-        right={<div style={{display:'flex',alignItems:'center',gap:6}}>
-          <button style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',borderRadius:8,cursor:'pointer',padding:'4px 8px',fontSize:16,lineHeight:1}} onClick={()=>{SFX.wake();SFX.click();}} title="Sound aktivieren">🔊</button>
-          {inRun&&<div className="live-badge"><div className="live-dot"/>LIVE</div>}
-        </div>}/>
+        right={inRun?<div className="live-badge"><div className="live-dot"/>LIVE</div>:null}/>
       {/* ── Top 3-way toggle: Jury | Ranking | Athleten ── */}
       {!inRun&&(
-        <div style={{padding:'8px 12px',background:'rgba(13,15,20,.97)',borderBottom:'1px solid var(--border)',flexShrink:0}}>
-          <div style={{display:'flex',background:'rgba(255,255,255,.07)',borderRadius:26,padding:3,gap:2}}>
+        <div style={{padding:'8px 12px',background:'rgba(13,15,20,.97)',borderBottom:'1px solid var(--border)',flexShrink:0,display:'flex',gap:6,alignItems:'center'}}>
+          <div style={{display:'flex',background:'rgba(255,255,255,.07)',borderRadius:26,padding:3,gap:2,flex:1}}>
             {[
               {k:'jury',   ic:<I.Bolt s={13}/>,    lb:t('tabJury')},
               {k:'results',ic:<I.Trophy s={13}/>,  lb:t('tabRanking')},
@@ -1037,6 +1035,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
               </button>
             ))}
           </div>
+          <button style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',borderRadius:12,cursor:'pointer',padding:'6px 8px',fontSize:15,lineHeight:1,flexShrink:0}} onClick={()=>{SFX.wake();SFX.click();}}>🔊</button>
         </div>
       )}
       <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
