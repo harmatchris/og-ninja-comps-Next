@@ -765,7 +765,7 @@ const handleDeleteAth=async(a)=>{
     const initialStages=stages||null;
     const initialObstacles=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):null;
     const initialAthletes=athletes?athletes:null;
-    return<SetupWizard existingId={compId} initialInfo={info} initialStages={initialStages} initialObstacles={initialObstacles?{...Object.fromEntries(initialObstacles.map(o=>[o.id,o]))}:null} initialAthletes={initialAthletes} onDone={()=>setEditing(false)} onBack={()=>setEditing(false)}/>;
+    return<SetupWizard existingId={compId} initialInfo={info} initialStages={initialStages} initialObstacles={initialObstacles?{...Object.fromEntries(initialObstacles.map(o=>[o.id,o]))}:null} initialAthletes={initialAthletes} initialPipelineData={pipelineData} onDone={()=>setEditing(false)} onBack={()=>setEditing(false)}/>;
   }
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   // Pipeline stages as sorted array [{id, name, mode, categories, predecessorStages, qualiPercent, minPerDivision}, ...]

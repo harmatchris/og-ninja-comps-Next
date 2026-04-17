@@ -477,7 +477,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const configCatIds=pStage.categories==='all'||!pStage.categories?IGN_CATS.map(c=>c.id):Array.isArray(pStage.categories)?pStage.categories:[];
     const unionIds=[...new Set([...configCatIds,...runCatIds,...activeRunCatIds])];
     const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
-    const obsArr=(()=>{const raw=pipelineData?.[stageKey]?.obstacles||globalObstacles;if(!raw)return DEF_OBS;return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);})();
+    const obsArr=(()=>{
+      const stageObs=pipelineData?.[stageKey]?.obstacles;
+      const raw=stageObs&&Object.keys(stageObs).length>0?stageObs:globalObstacles;
+      if(!raw)return DEF_OBS;
+      return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);
+    })();
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;

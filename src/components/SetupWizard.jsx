@@ -9,7 +9,7 @@ import { AutocompleteInput, TopBar, EmptyState, DragList, TimePicker } from './s
 /* ── colour palette for main-stage frames ── */
 const FRAME_COLORS=['#FF5E3A','#5E9CFF','#34C759','#FF9F0A','#BF5AF2','#FF375F','#30D158','#64D2FF'];
 
-const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null})=>{
+const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages=null,initialObstacles=null,initialAthletes=null,initialPipelineData=null})=>{
   const {t,lang}=useLang();
   const [step,setStep]=useState(0);
 
@@ -41,8 +41,16 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   },[]);
 
   const [stageObs,setStageObs]=useState(()=>{
+    const pipeStages=initialInfo?.pipeline||[];
     return Array.from({length:8},(_,i)=>{
+      // Pipeline mode: load per-stage obstacles from pipelineData
+      const pStage=pipeStages[i];
+      if(pStage&&initialPipelineData?.[pStage.id]?.obstacles){
+        return Object.values(initialPipelineData[pStage.id].obstacles).sort((a,b)=>a.order-b.order);
+      }
+      // Legacy mode
       if(initialStages?.[i+1]?.obstacles)return Object.values(initialStages[i+1].obstacles).sort((a,b)=>a.order-b.order);
+      // Fallback: global obstacles for first stage
       if(initialObstacles&&i===0)return Object.values(initialObstacles).sort((a,b)=>a.order-b.order);
       return DEF_OBS.map(o=>({...o,id:uid()}));
     });
