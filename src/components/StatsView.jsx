@@ -496,7 +496,8 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     })();
     const obsArr=allObs.filter(o=>o.isCP!==false);
     const isPlatO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.name.toLowerCase().includes('section')||o.name.toLowerCase().includes('sektion'))||o?.type==='section';
-    const cpIdxMap=[];let ci=0;allObs.forEach((o,i)=>{cpIdxMap[i]=o.isCP!==false?ci++:-1;});
+    const isCpOrPlat=o=>o&&(o.isCP||isPlatO(o));
+    const cpIdxMap=[];let ci=0;allObs.forEach((o,i)=>{cpIdxMap[i]=isCpOrPlat(o)?ci++:-1;});
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;
