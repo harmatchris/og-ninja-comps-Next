@@ -174,6 +174,9 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
       return()=>cancelAnimationFrame(raf);
     }
     if(lr.fallen)return;
+    // After reset ends: start fresh from current CP position
+    startRef.current=null;
+    setAnimX(xs(cpIdx));
     const segDuration=12000;
     let raf;
     const tick=()=>{
