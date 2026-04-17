@@ -542,57 +542,68 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     SFX.complete();
     return Object.fromEntries(stageIds.map(sid=>[sid,orders[sid].list]));
   };
-  const exportStartOrderPDF=()=>{
+  const exportStartOrderPDF=async()=>{
     const orders=generateStartOrder();
     if(!orders)return;
+    const {jsPDF}=await import('jspdf');
     const compName=info?.name||info?.emoji||compId;
-    const w=window.open('','_blank');
-    if(!w)return;
+    const compDate=info?.date||new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
+    const loc=info?.location||'';
     const stageIds=pipelineStages.map(s=>s.id);
-    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Startreihenfolge — ${compName}</title>
-<style>
-@page{size:A4;margin:15mm 12mm;}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-.page{page-break-after:always;padding:8px 0;}
-.page:last-child{page-break-after:auto;}
-h1{font-size:18px;margin-bottom:2px;}
-h2{font-size:14px;color:#555;margin-bottom:10px;border-bottom:2px solid #ff5e3a;padding-bottom:4px;display:inline-block;}
-.meta{color:#888;font-size:10px;margin-bottom:12px;}
-table{width:100%;border-collapse:collapse;margin-bottom:8px;}
-th{background:#f5f5f5;padding:5px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #ddd;}
-td{padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;}
-tr:nth-child(even){background:#fafafa;}
-.num{font-family:'JetBrains Mono',monospace;font-weight:700;color:#888;width:35px;}
-.name{font-weight:600;}
-.flag{font-size:14px;margin-right:3px;}
-.team{color:#ff9500;font-weight:600;font-size:10px;}
-.cat{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;}
-.divider{border:none;border-top:2px solid #e0e0e0;margin:6px 0;}
-.footer{text-align:center;color:#bbb;font-size:9px;margin-top:12px;}
-</style></head><body>`;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pw=210,ph=297,mx=12,my=15,cw=pw-2*mx;
     stageIds.forEach((sid,sIdx)=>{
+      if(sIdx>0)doc.addPage();
       const stage=pipelineStages.find(s=>s.id===sid);
       const stageName=stage?.name||sid;
       const q=orders[sid]||[];
-      const compDate=info?.date||new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
-      html+=`<div class="page"><h1>${compName}</h1><div class="meta">${compDate}${info?.location?' · '+info.location:''}</div><h2>${stageName}</h2>`;
-      html+=`<table><thead><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Division</th></tr></thead><tbody>`;
+      let y=my;
+      doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(30,30,30);
+      doc.text(compName,mx,y);y+=6;
+      doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(130,130,130);
+      doc.text(`${compDate}${loc?' · '+loc:''}`,mx,y);y+=8;
+      doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(255,94,58);
+      doc.text(stageName,mx,y);y+=2;
+      doc.setDrawColor(255,94,58);doc.setLineWidth(0.6);doc.line(mx,y,mx+doc.getTextWidth(stageName),y);y+=6;
+      const colX=[mx,mx+10,mx+22,mx+22,mx+cw*0.65,mx+cw*0.82];
+      doc.setFillColor(245,245,245);doc.rect(mx,y-3,cw,6,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+      ['#','Nr','Name','','Team','Division'].forEach((h,hi)=>{if(h)doc.text(h,colX[hi],y);});
+      y+=5;doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.line(mx,y-2,mx+cw,y-2);
       let lastCat='';
       q.forEach((a,i)=>{
-        const cat=IGN_CATS.find(c=>c.id===a.cat);
-        const catLabel=cat?.name?.de||a.cat;
-        const flag=toFlag(a.country);
-        if(a.cat!==lastCat&&lastCat){html+=`<tr><td colspan="5"><hr class="divider"/></td></tr>`;}
+        if(y>ph-20){doc.addPage();y=my;
+          doc.setFillColor(245,245,245);doc.rect(mx,y-3,cw,6,'F');
+          doc.setFont('helvetica','bold');doc.setFontSize(7);doc.setTextColor(100,100,100);
+          ['#','Nr','Name','','Team','Division'].forEach((h,hi)=>{if(h)doc.text(h,colX[hi],y);});
+          y+=5;doc.setDrawColor(200,200,200);doc.line(mx,y-2,mx+cw,y-2);lastCat='';
+        }
+        if(a.cat!==lastCat&&lastCat){doc.setDrawColor(210,210,210);doc.setLineWidth(0.4);doc.line(mx,y-1,mx+cw,y-1);y+=1;}
         lastCat=a.cat;
-        html+=`<tr><td class="num">${i+1}</td><td class="num">${a.num||'—'}</td><td class="name">${flag?`<span class="flag">${flag}</span>`:''}${a.name}</td><td class="team">${a.team||''}</td><td><span class="cat" style="background:${cat?.color||'#888'}">${catLabel}</span></td></tr>`;
+        const cat=IGN_CATS.find(c=>c.id===a.cat);
+        const flag=toFlag(a.country);
+        const even=i%2===0;
+        if(even){doc.setFillColor(250,250,250);doc.rect(mx,y-3,cw,5.5,'F');}
+        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(140,140,140);
+        doc.text(String(i+1),colX[0],y);
+        doc.text(a.num||'—',colX[1],y);
+        doc.setTextColor(30,30,30);doc.setFont('helvetica','bold');doc.setFontSize(9);
+        doc.text(`${flag?flag+' ':''}${a.name}`,colX[2],y);
+        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(255,149,0);
+        doc.text(a.team||'',colX[4],y);
+        if(cat){
+          const cl=cat.color;const r=parseInt(cl.slice(1,3),16),g=parseInt(cl.slice(3,5),16),b=parseInt(cl.slice(5,7),16);
+          const lbl=cat.name?.de||a.cat;const tw2=doc.getTextWidth(lbl)+4;
+          doc.setFillColor(r,g,b);doc.roundedRect(colX[5],y-3,tw2,4.5,1,1,'F');
+          doc.setTextColor(255,255,255);doc.setFontSize(6.5);doc.setFont('helvetica','bold');
+          doc.text(lbl,colX[5]+2,y-0.3);
+        }
+        y+=5.5;
       });
-      html+=`</tbody></table><div class="footer">${stageName} · ${q.length} Athleten · OG Ninja Competition Tool</div></div>`;
+      y+=4;doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(180,180,180);
+      doc.text(`${stageName} · ${q.length} Athleten · OG Ninja Competition Tool`,pw/2,y,{align:'center'});
     });
-    html+=`</body></html>`;
-    w.document.write(html);
-    w.document.close();
-    setTimeout(()=>w.print(),400);
+    doc.save(`Startreihenfolge-${compName.replace(/[^a-zA-Z0-9]/g,'_')}.pdf`);
   };
   const handleQuickAddAth=async()=>{
     if(!quickAth.name.trim())return;
