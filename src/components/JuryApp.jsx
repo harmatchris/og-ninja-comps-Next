@@ -1014,7 +1014,10 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
       <TopBar title={isPipeline?(pipelineStageCfg?.name||stageId||`Stage`):`Stage ${stNum}`} sub={cat?catName(cat):compId}
         onBack={(!inRun&&onBack)?onBack:undefined}
-        right={inRun?<div className="live-badge"><div className="live-dot"/>LIVE</div>:null}/>
+        right={<div style={{display:'flex',alignItems:'center',gap:6}}>
+          <button className="btn btn-ghost" style={{padding:'5px 7px',borderRadius:10,flexShrink:0}} onClick={()=>{SFX.wake();SFX.click();}}><I.Volume s={16} c="rgba(255,255,255,.5)"/></button>
+          {inRun&&<div className="live-badge"><div className="live-dot"/>LIVE</div>}
+        </div>}/>
       {/* ── Top 3-way toggle: Jury | Ranking | Athleten ── */}
       {!inRun&&(
         <div style={{padding:'8px 12px',background:'rgba(13,15,20,.97)',borderBottom:'1px solid var(--border)',flexShrink:0,display:'flex',gap:6,alignItems:'center'}}>
@@ -1035,7 +1038,6 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
               </button>
             ))}
           </div>
-          <button style={{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',borderRadius:12,cursor:'pointer',padding:'6px 8px',fontSize:15,lineHeight:1,flexShrink:0}} onClick={()=>{SFX.wake();SFX.click();}}>🔊</button>
         </div>
       )}
       <div style={{flex:1,overflowY:'auto',display:'flex',flexDirection:'column'}}>
