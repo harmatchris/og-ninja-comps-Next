@@ -197,7 +197,7 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
   useEffect(()=>{if(!liveEntries.length)return;const iv=setInterval(()=>setNow(Date.now()),500);return()=>clearInterval(iv);},[liveEntries.length]);
   if(!liveEntries.length)return null;
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
-  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
+  const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})):[];
   const fmtT=ms=>{const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}`;};
   return(
     <div style={{display:'flex',flexDirection:'column',gap:0}}>
@@ -418,7 +418,7 @@ const ResultsView=({compId,athletes})=>{
   const comp=useFbVal(`ogn/${compId}/info`);
   const pipelineData=useFbVal(comp?.pipelineEnabled?`ogn/${compId}/pipeline`:null);
   const isPipeline=!!(comp?.pipelineEnabled&&pipelineData);
-  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const catsWithRuns=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
   useEffect(()=>{if(!selCat&&catsWithRuns.length>0)setSelCat(catsWithRuns[0].id);},[catsWithRuns.length]);
   const getRunKey=(r)=>r._fbKey||Object.entries(runs||{}).find(([,v])=>v.timestamp!=null&&v.timestamp===r.timestamp&&v.athleteId===r.athleteId)?.[0];

@@ -53,7 +53,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   };
 
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
-  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const stages=isPipeline?pipelineStages.map(s=>s.id):Array.from({length:numStages},(_,i)=>i+1);
   const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(ps?.categories)?ps.categories:[]);const catSet=new Set(catIds);return catIds.length>0&&athList.some(a=>catSet.has(a.cat));}):stages.filter(sn=>allStations?.[sn]?.cat);
 

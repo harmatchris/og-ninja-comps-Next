@@ -462,7 +462,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
   const athList=athletesMap?Object.values(athletesMap):[];
 
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
-  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
 
   // ── PIPELINE MODE: build stage data from pipeline stages ──
   const pipelineStageDataArr=isPipeline?pipelineStages.map(pStage=>{
@@ -475,7 +475,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const unionIds=[...new Set([...configCatIds,...runCatIds,...activeRunCatIds])];
     const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
     if(stageRuns.length===0&&!activeRuns?.[stageKey]?.athleteId)return null;
-    const obsArr=(()=>{const raw=globalObstacles;if(!raw)return DEF_OBS;return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);})();
+    const obsArr=(()=>{const raw=pipelineData?.[stageKey]?.obstacles||globalObstacles;if(!raw)return DEF_OBS;return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);})();
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;if(!total)return null;

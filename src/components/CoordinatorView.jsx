@@ -159,7 +159,7 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
   const bestSplits=useRef({});
   const liveEntries=activeRuns?Object.entries(activeRuns).filter(([,r])=>r?.athleteId&&r.phase!=='done'):[];
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
-  const pipelineStages=isPipeline?Object.entries(pipelineData).map(([id,v])=>({id,...v})):[];
+  const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})):[];
   const obsArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false):[];
   const totalCPs=obsArr.length;
   const fmtT=ms=>{if(ms<0)ms=0;const t=Math.floor(ms/1000);const m=Math.floor(t/60);const s=t%60;const ms3=String(Math.floor((ms%1000))).padStart(3,'0');return`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${ms3}`;};
@@ -611,7 +611,7 @@ const handleDeleteAth=async(a)=>{
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   // Pipeline stages as sorted array [{id, name, mode, categories, predecessorStages, qualiPercent, minPerDivision}, ...]
   const pipelineStages=isPipeline
-    ?Object.entries(pipelineData).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0))
+    ?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0))
     :[];
   const numSt=isPipeline?pipelineStages.length:(info.numStations||0);
   const base=window.location.href.split('?')[0];
