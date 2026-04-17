@@ -550,6 +550,22 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const compDate=info?.date||new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
     const loc=info?.location||'';
     const stageIds=pipelineStages.map(s=>s.id);
+    const flagCache={};
+    const loadFlag=async(code)=>{
+      if(!code||code.length<2)return null;
+      const cc=code.toLowerCase().slice(0,2);
+      if(flagCache[cc])return flagCache[cc];
+      try{
+        const img=new Image();img.crossOrigin='anonymous';
+        img.src=`https://flagcdn.com/w40/${cc}.png`;
+        await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;setTimeout(rej,2000);});
+        const c=document.createElement('canvas');c.width=img.width;c.height=img.height;
+        c.getContext('2d').drawImage(img,0,0);
+        flagCache[cc]=c.toDataURL('image/png');return flagCache[cc];
+      }catch{flagCache[cc]=null;return null;}
+    };
+    const countryCodes=[...new Set(Object.values(athletes||{}).map(a=>a.country).filter(Boolean))];
+    await Promise.all(countryCodes.map(c=>loadFlag(c)));
     const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const pw=210,ph=297,mx=14,my=16,cw=pw-2*mx;
     const rh=5.8;
@@ -596,8 +612,9 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
         doc.setFont('helvetica','bold');doc.setFontSize(9.5);doc.setTextColor(25,25,25);
         const nameStr=a.name||'';
         doc.text(nameStr.length>28?nameStr.slice(0,27)+'..':nameStr,cols.name,y);
-        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(130,130,130);
-        doc.text((a.country||'').toUpperCase(),cols.country,y);
+        const flagData=a.country?flagCache[a.country.toLowerCase().slice(0,2)]:null;
+        if(flagData){try{doc.addImage(flagData,'PNG',cols.country,y-3,5,3.3);}catch{}}
+        else if(a.country){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(130,130,130);doc.text(a.country.toUpperCase(),cols.country,y);}
         doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(220,130,20);
         const teamStr=a.team||'';
         doc.text(teamStr.length>16?teamStr.slice(0,15)+'..':teamStr,cols.team,y);
