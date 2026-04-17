@@ -17,11 +17,19 @@ import { Spinner, EmptyState } from './shared.jsx';
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
 // Tricks: each CP triggers a different trick animation
 const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
-const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null})=>{
+// Realistic runner silhouette paths (viewBox 0 0 100 100, running pose)
+const MALE_RUN='M52 8a8 8 0 1 0-4 0c1.3.2 3 .2 4 0zM38 18c-2 1-3.5 4-3 7l3 14c.5 2 2 3.5 4 4l-8 16c-1.5 3-.5 5 1 6l2-1 10-17 4 5-2 18c-.3 3 1 5 3 5h2l3-20c.5-3-.5-5.5-2-7l-5-7 3-9 6 5c2 1.5 4 1.5 5 0l1-2-9-9c-2-2-4-3-6.5-3l-6-.5c-2 0-3.5.5-5 2z';
+const MALE_SWING='M52 8a8 8 0 1 0-4 0c1.3.2 3 .2 4 0zM44 18c-1.5.5-3 2-3 4l1 6-1 3-10 2c-2 .5-3 2-2 4l2 1 12-3 3-8 4 2 0 12c0 3 1 5 3 5.5l2-.5 1-14c0-3-1.5-5-3.5-6l-3-2 0-5 3 1c2 .5 3-.5 3.5-2l0-2-7-3c-2-.8-3.5-.5-5 .5z';
+const FEMALE_RUN='M53 7a7.5 7.5 0 1 0-6 0l-3-2c-2-1.5-4-.5-4 1l2 3 5 1 5-1 2-3c0-1.5-2-2.5-4-1l-3 2h6zM37 19c-1.5 1-2.5 3.5-2 6l2 10c.3 1.5 1 3 2.5 4l1 3-9 15c-1.5 2.5-.5 5 1 5.5l2-.5 10-16 3 4-1 18c-.2 3 1.5 5 3.5 4.5l2-.5 2-19c.3-3-.5-5.5-2-7l-4-6 2-7 5 4c2 1.5 4 1 5-.5l.5-2-8-8c-2-2-3.5-2.5-6-2.5l-5-.5c-2 0-3.5.5-5 1.5z';
+const FEMALE_SWING='M53 7a7.5 7.5 0 1 0-6 0l-3-2c-2-1.5-4-.5-4 1l2 3 5 1 5-1 2-3c0-1.5-2-2.5-4-1l-3 2h6zM43 19c-1.5.5-2.5 2-2.5 4l.5 5-1 3-9 2c-2 .5-2.5 2-1.5 3.5l2 .5 11-3 2-7 3.5 2-.5 11c0 3 1.5 5 3.5 5l1.5-.5 1-13c0-3-1.5-5-3-5.5l-3-2 .5-5 2.5 1c2 .5 3-.5 3.5-2l-.5-2-6-2.5c-2-.8-3-.5-4.5.5z';
+const isFemale=catId=>catId&&(catId.includes('w')||catId.includes('W')||catId.endsWith('f'));
+
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId=''})=>{
   const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
   const rid=`rope-${(name||'n').replace(/\s/g,'')}`;
   const trick=TRICKS[doneCPCount%TRICKS.length];
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
+  const female=isFemale(catId);
   const allDead=livesLeft<=0&&livesUsed>0;
   const [resetSec,setResetSec]=useState(0);
   useEffect(()=>{
@@ -38,6 +46,8 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
   const drop=size*2.5;
   const swingX=size*3;
+  const silhouette=swinging?(female?FEMALE_SWING:MALE_SWING):(female?FEMALE_RUN:MALE_RUN);
+  const sc=size/100;
   return(
     <g transform={`translate(${x-size/2},${allDead?y+300:y-size})`}>
     <g style={{animation:anim}}>
@@ -68,36 +78,17 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes ninjaStarJump{0%{transform:scale(1)}30%{transform:translateY(-${size*.5}px) scale(1.3)}60%{transform:scale(.9)}100%{transform:scale(1)}}
         @keyframes ninjaWallRun{0%{transform:translateX(0)}25%{transform:translateX(${size*.3}px) translateY(-${size*.5}px)}75%{transform:translateX(-${size*.3}px) translateY(-${size*.3}px)}100%{transform:translateX(0)}}
         @keyframes ninjaGlow{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
-        @keyframes legA{0%{transform:rotate(25deg)}50%{transform:rotate(-25deg)}100%{transform:rotate(25deg)}}
-        @keyframes legB{0%{transform:rotate(-25deg)}50%{transform:rotate(25deg)}100%{transform:rotate(-25deg)}}
-        @keyframes splitFlash{0%{opacity:0;transform:translateY(4px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1}100%{opacity:0;transform:translateY(-4px)}}
         @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
       `}</style>
       <defs><filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       {/* Rope — visible only during swing recovery */}
-      {swinging&&<line x1={size/2} y1={-size*4} x2={size/2} y2={size*.3} stroke="#C8A96E" strokeWidth="1.5" strokeLinecap="round" opacity=".7" style={{animation:`ropeAppear-${rid} 4s ease-in-out forwards`}}/>}
+      {swinging&&<line x1={size/2} y1={-size*4} x2={size/2} y2={size*.15} stroke="#C8A96E" strokeWidth="1.5" strokeLinecap="round" opacity=".7" style={{animation:`ropeAppear-${rid} 4s ease-in-out forwards`}}/>}
       {/* glow */}
-      <circle cx={size/2} cy={size*.5} r={size*.6} fill="none" stroke={color} strokeWidth="2.5" opacity=".3" style={{animation:'ninjaGlow 1s ease-in-out infinite'}} filter={`url(#${fid})`}/>
-      <circle cx={size/2} cy={size*.5} r={size*.35} fill={color} opacity=".12" filter={`url(#${fid})`}/>
-      {/* head */}
-      <circle cx={size/2} cy={size*.28} r={size*.18} fill={color}/>
-      <rect x={size*.3} y={size*.24} width={size*.4} height={size*.06} fill="rgba(0,0,0,.55)"/>
-      {/* body */}
-      <rect x={size*.35} y={size*.42} width={size*.3} height={size*.35} rx={size*.08} fill={color}/>
-      {/* arms — reach up during swing */}
-      {swinging?<>
-        <rect x={size*.35} y={size*.2} width={size*.08} height={size*.24} rx={size*.04} fill={color} transform={`rotate(-10 ${size*.39} ${size*.32})`}/>
-        <rect x={size*.57} y={size*.2} width={size*.08} height={size*.24} rx={size*.04} fill={color} transform={`rotate(10 ${size*.61} ${size*.32})`}/>
-      </>:<>
-        <rect x={size*.18} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(-20 ${size*.26} ${size*.52})`}/>
-        <rect x={size*.66} y={size*.48} width={size*.16} height={size*.08} rx={size*.04} fill={color} transform={`rotate(20 ${size*.74} ${size*.52})`}/>
-      </>}
-      {/* legs */}
-      <g style={{transformOrigin:`${size*.45}px ${size*.77}px`,animation:allDead?'none':swinging?'none':'legA 0.35s linear infinite'}}>
-        <rect x={size*.38} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color} transform={swinging?'rotate(15)':''}/>
-      </g>
-      <g style={{transformOrigin:`${size*.55}px ${size*.77}px`,animation:allDead?'none':swinging?'none':'legB 0.35s linear infinite'}}>
-        <rect x={size*.52} y={size*.75} width={size*.1} height={size*.22} rx={size*.04} fill={color} transform={swinging?'rotate(-15)':''}/>
+      <circle cx={size/2} cy={size*.5} r={size*.6} fill="none" stroke={color} strokeWidth="2.5" opacity=".25" style={{animation:'ninjaGlow 1s ease-in-out infinite'}} filter={`url(#${fid})`}/>
+      <circle cx={size/2} cy={size*.5} r={size*.4} fill={color} opacity=".1" filter={`url(#${fid})`}/>
+      {/* Athlete silhouette */}
+      <g transform={`scale(${sc})`}>
+        <path d={silhouette} fill={color} stroke="rgba(0,0,0,.3)" strokeWidth="1" strokeLinejoin="round"/>
       </g>
       {/* Hearts for lives */}
       {livesLeft>=999
@@ -115,40 +106,27 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         <text x={size/2} y={-22} textAnchor="middle" fontSize={size*.8} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill={resetSec<=3?'#FF3B30':'#FF9500'} style={{animation:'countPulse .6s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3}}>{resetSec}</text>
         <text x={size/2} y={size+14} textAnchor="middle" fontSize="8" fontWeight="700" fontFamily="system-ui" fill="rgba(255,149,0,.8)">RESET</text>
       </>}
-      {/* Split time below ninja — always visible when there's a CP */}
+      {/* Split time below */}
       {!resetting&&lastCPTime&&<text x={size/2} y={size+14} textAnchor="middle" fontSize="10" fontWeight="700" fontFamily="JetBrains Mono,monospace" fill={color} opacity=".8">{fmtSplit(lastCPTime)}</text>}
-      {/* Time remaining (small) */}
       {timeRemaining!=null&&!resetting&&<text x={size/2} y={size+24} textAnchor="middle" fontSize="8" fontWeight="600" fontFamily="JetBrains Mono,monospace" fill={timeRemaining<15000?'#FF3B30':'rgba(255,214,10,.7)'}>{fmtSplit(timeRemaining)}</text>}
     </g>
     </g>
   );
 };
 
-// Ghost ninja: semi-transparent, follows the best run's timeline
-// ahead = ghost is leading (best time is faster) → green. behind = runner overtook ghost → red
-const GhostNinja=({x,y,size=24,name='',ahead=false})=>{
+// Ghost runner: semi-transparent, follows the best run's timeline
+const GhostNinja=({x,y,size=24,name='',ahead=false,catId=''})=>{
   const c=ahead?'#30D158':'#FF3B30';
   const gid=`gg-${(name||'g').replace(/\s/g,'')}`;
+  const female=isFemale(catId);
+  const sc=size/100;
   return(
   <g transform={`translate(${x-size/2},${y-size})`} opacity={.55}>
     <g style={{animation:'ninjaBob 0.5s ease-in-out infinite alternate'}}>
       <defs><filter id={gid} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-      {/* glow */}
       <circle cx={size/2} cy={size*.5} r={size*.5} fill={c} opacity=".18" filter={`url(#${gid})`}/>
-      {/* head */}
-      <circle cx={size/2} cy={size*.28} r={size*.16} fill={c}/>
-      <rect x={size*.32} y={size*.26} width={size*.36} height={size*.05} fill="rgba(0,0,0,.4)"/>
-      {/* body */}
-      <rect x={size*.36} y={size*.42} width={size*.28} height={size*.32} rx={size*.07} fill={c}/>
-      {/* arms */}
-      <rect x={size*.2} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={c} transform={`rotate(-15 ${size*.27} ${size*.51})`}/>
-      <rect x={size*.66} y={size*.48} width={size*.14} height={size*.07} rx={size*.03} fill={c} transform={`rotate(15 ${size*.73} ${size*.51})`}/>
-      {/* legs */}
-      <g style={{transformOrigin:`${size*.44}px ${size*.74}px`,animation:'legA 0.4s linear infinite'}}>
-        <rect x={size*.38} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={c}/>
-      </g>
-      <g style={{transformOrigin:`${size*.56}px ${size*.74}px`,animation:'legB 0.4s linear infinite'}}>
-        <rect x={size*.52} y={size*.72} width={size*.09} height={size*.2} rx={size*.03} fill={c}/>
+      <g transform={`scale(${sc})`}>
+        <path d={female?FEMALE_RUN:MALE_RUN} fill={c} stroke="rgba(0,0,0,.3)" strokeWidth="1" strokeLinejoin="round"/>
       </g>
       {name&&<text x={size/2} y={-6} textAnchor="middle" fontSize={size*.3} fontWeight="800" fill={c} fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.7)',strokeWidth:2.5,strokeLinejoin:'round'}}>{name}</text>}
     </g>
@@ -231,8 +209,8 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
   const countdownNum=isCountdown?(lr.countdown||3):0;
   return<>
-    {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads}/>}
-    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil}/>
+    {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads} catId={lr.catId}/>}
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId}/>
     {/* Big countdown number above ninja */}
     {isCountdown&&(
       <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
