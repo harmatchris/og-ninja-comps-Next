@@ -294,27 +294,21 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
           );
         })}
         {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
-        {/* Platform zone highlights */}
-        {(allObs||[]).length>0&&(()=>{
-          const isPlatformO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.name.toLowerCase().includes('section')||o.name.toLowerCase().includes('sektion')||o.type==='section');
-          let cpI=0;
-          return(allObs||[]).map((o,oi)=>{
-            if(!o||o.isCP===false)return null;
-            cpI++;
-            if(!isPlatformO(o)||cpI>=nPts)return null;
-            const xi=xs(cpI);
-            return<g key={`pf-${oi}`}>
-              <rect x={xi-8} y={MT-2} width={16} height={PH+4} rx={3} fill="rgba(52,199,89,.04)" stroke="rgba(52,199,89,.15)" strokeWidth="1" strokeDasharray="3 3"/>
-              <rect x={xi-10} y={MT-8} width={20} height={10} rx={3} fill="rgba(52,199,89,.15)"/>
-              <text x={xi} y={MT-1} textAnchor="middle" fontSize={tvMode?7:5.5} fontWeight="800" fill="rgba(52,199,89,.9)" fontFamily="system-ui">P</text>
-            </g>;
-          });
-        })()}
+        {/* Platform zone highlights — orange columns */}
         {data[0]?.points?.map((p,i)=>{
-          const isPlatform=i>0&&obsArr[i-1]&&(obsArr[i-1].name?.toLowerCase().includes('platform')||obsArr[i-1].name?.toLowerCase().includes('plattform')||obsArr[i-1].type==='section');
-          return<text key={i} x={xs(i)} y={H-MB+16} fill={isPlatform?'rgba(52,199,89,.7)':'rgba(255,255,255,.4)'} fontSize={tvMode?11:9} fontWeight={isPlatform?'700':'400'} textAnchor="end" fontFamily="system-ui"
+          if(!p.isPlat||i===0)return null;
+          const xi=xs(i);
+          return<g key={`pf-${i}`}>
+            <rect x={xi-6} y={MT} width={12} height={PH} rx={2} fill="rgba(255,149,0,.06)" stroke="rgba(255,149,0,.2)" strokeWidth="1" strokeDasharray="4 3"/>
+            <rect x={xi-8} y={MT-7} width={16} height={8} rx={2.5} fill="rgba(255,149,0,.25)"/>
+            <text x={xi} y={MT-1.5} textAnchor="middle" fontSize={tvMode?7:5.5} fontWeight="900" fill="#FF9500" fontFamily="system-ui">P</text>
+          </g>;
+        })}
+        {data[0]?.points?.map((p,i)=>{
+          const isPlat=p.isPlat;
+          return<text key={i} x={xs(i)} y={H-MB+16} fill={isPlat?'#FF9500':'rgba(255,255,255,.4)'} fontSize={tvMode?11:9} fontWeight={isPlat?'800':'400'} textAnchor="end" fontFamily="system-ui"
             transform={`rotate(-48,${xs(i)},${H-MB+16})`}>
-            {i===0?'Platform':(p.label||'').substring(0,20)}
+            {(isPlat?'▮ ':'')+(i===0?'Start':(p.label||'').substring(0,20))}
           </text>;
         })}
         {livesUsedPerObs.map((count,i)=>{
@@ -501,12 +495,20 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       return Object.values(raw).sort((a,b)=>a.order-b.order);
     })();
     const obsArr=allObs.filter(o=>o.isCP!==false);
+    const isPlatO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.name.toLowerCase().includes('section')||o.name.toLowerCase().includes('sektion'))||o?.type==='section';
+    const cpIdxMap=[];let ci=0;allObs.forEach((o,i)=>{cpIdxMap[i]=o.isCP!==false?ci++:-1;});
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
       const total=cr.length;
-      if(!total)return{cat,points:[{x:-1,y:100,label:'Platform'},...obsArr.map((obs)=>({x:0,y:100,label:obsShortName(obs.name)}))],total:0};
-      const points=[{x:-1,y:100,label:'Platform'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
-      return{cat,points,total};
+      const pts=allObs.map((obs,i)=>{
+        const cIdx=cpIdxMap[i];
+        const isPlat=isPlatO(obs);
+        let surv=100;
+        if(total>0&&cIdx>=0)surv=(cr.filter(r=>(r.doneCP?.length||0)>cIdx).length/total)*100;
+        else if(total>0&&cIdx<0){const prevCp=cpIdxMap.slice(0,i).reverse().find(c=>c>=0);surv=prevCp!=null?(cr.filter(r=>(r.doneCP?.length||0)>prevCp).length/total)*100:100;}
+        return{x:i,y:surv,label:obsShortName(obs.name),isPlat};
+      });
+      return{cat,points:[{x:-1,y:100,label:'Start',isPlat:true},...pts],total};
     }).filter(Boolean);
     const livesUsedPerObs=obsArr.map((_,i)=>stageRuns.reduce((sum,r)=>{
       if(!Array.isArray(r.falls))return sum;
