@@ -28,6 +28,8 @@ const ObsLabel=({obs,size=10})=>{
 };
 
 // ════════════════════════════════════════════════════════════
+const isPlatformName=n=>{if(!n)return false;const l=n.toLowerCase();return l.includes('platform')||l.includes('plattform')||l.includes('section')||l.includes('sektion');};
+const isPlatformObs=o=>o&&(isPlatformName(o.name)||o.type==='section');
 // JURY — WAIT
 
 const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset,onDsq,stageId,isPipeline,stNum})=>{
@@ -126,9 +128,9 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
             <div className="lbl" style={{marginBottom:10}}>{t('nextAthlete')}</div>
             <div style={{fontSize:26,fontWeight:900,letterSpacing:'-.6px',marginBottom:4}}>{next.country&&<span style={{marginRight:6}}>{toFlag(next.country)}</span>}{next.name}</div>
             <div style={{fontSize:13,color:'var(--muted)',fontFamily:'JetBrains Mono',marginBottom:14}}>#{next.num}{next.team&&<span style={{marginLeft:8,color:'var(--cor2)',fontWeight:600,fontFamily:'Inter,sans-serif',fontSize:12}}>{next.team}</span>}</div>
-            {/* CP obstacle name pills */}
+            {/* CP obstacle name pills — platforms highlighted green */}
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
-              {cpObst.map(o=><div key={o.id} className="cp-pill future"><ObsLabel obs={o} size={9}/></div>)}
+              {cpObst.map(o=>{const plat=isPlatformName(o.name)||o.type==='section';return<div key={o.id} className="cp-pill future" style={plat?{background:'rgba(52,199,89,.15)',borderColor:'rgba(52,199,89,.4)',color:'var(--green)'}:{}}>{plat?'▮ ':''}<ObsLabel obs={o} size={9}/></div>;})}
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
               <div style={{fontSize:11,color:'var(--muted)',flex:1}}>{cpObst.length} Checkpoints · {obstArr.length} {t('obstacles')}</div>
@@ -284,11 +286,12 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   const prevFallCount=useRef(0);
   useEffect(()=>{
     try{
-      if(activeFalls.length>prevFallCount.current&&doneCP.length>0&&cpObst.length>0){
-        const isPlatformObs=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
+      if(activeFalls.length>prevFallCount.current&&doneCP.length>0){
         let trimTo=0;
-        for(let i=Math.min(doneCP.length,cpObst.length)-1;i>=0;i--){
-          if(isPlatformObs(cpObst[i])){trimTo=i+1;break;}
+        for(let i=doneCP.length-1;i>=0;i--){
+          const cpEntry=doneCP[i];
+          const obsMatch=cpObst[i];
+          if(isPlatformName(cpEntry?.name)||isPlatformObs(obsMatch)){trimTo=i+1;break;}
         }
         if(trimTo<doneCP.length){
           const trimmed=doneCP.slice(0,trimTo);
@@ -392,7 +395,6 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives,protested}),400);
     else if(onRefillLives&&nextCp.type==='section'){onRefillLives(nextCp.lives);if(nextCp.restTime>0){clearInterval(restIntervalRef.current);setRestSecs(nextCp.restTime);setRestActive(true);let s=nextCp.restTime;restIntervalRef.current=setInterval(()=>{s--;setRestSecs(s);if(s<=0){clearInterval(restIntervalRef.current);setRestActive(false);}},1000);}} // section marker: refill lives
   };
-  const isPlatform=o=>o&&(o.name?.toLowerCase().includes('platform')||o.name?.toLowerCase().includes('plattform')||o.type==='section');
   const handleFall=()=>{
     SFX.fall();
     const elapsed=Math.round(performance.now()-startPerf);

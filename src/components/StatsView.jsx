@@ -296,7 +296,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
         {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
         {/* Platform zone highlights */}
         {(allObs||[]).length>0&&(()=>{
-          const isPlatformO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.type==='section');
+          const isPlatformO=o=>o?.name&&(o.name.toLowerCase().includes('platform')||o.name.toLowerCase().includes('plattform')||o.name.toLowerCase().includes('section')||o.name.toLowerCase().includes('sektion')||o.type==='section');
           let cpI=0;
           return(allObs||[]).map((o,oi)=>{
             if(!o||o.isCP===false)return null;
