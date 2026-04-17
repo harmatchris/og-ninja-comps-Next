@@ -448,7 +448,14 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const [editAthDraft,setEditAthDraft]=useState(null);
   const [editTimeLimitStage,setEditTimeLimitStage]=useState(null);
   const [timeLimitDraft,setTimeLimitDraft]=useState(0);
-  const saveTimeLimit=async(n)=>{const val=timeLimitDraft!=null?timeLimitDraft:0;await fbSet(`ogn/${compId}/info/stageLimits/${n}`,val===0?null:val);setEditTimeLimitStage(null);SFX.complete();};
+  const saveTimeLimit=async(n)=>{
+    const val=timeLimitDraft!=null?timeLimitDraft:0;
+    const updates={};
+    updates[`ogn/${compId}/info/stageLimits/${n}`]=val===0?null:val;
+    if(isPipeline)updates[`ogn/${compId}/pipeline/${n}/timeLimit`]=val===0?null:val;
+    await db.ref().update(updates);
+    setEditTimeLimitStage(null);SFX.complete();
+  };
   if(!info)return<Spinner/>;
   const openObsEdit=(n)=>{
     const stObs=stages?.[n]?.obstacles;
