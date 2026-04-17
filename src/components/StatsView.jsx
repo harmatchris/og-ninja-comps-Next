@@ -259,6 +259,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=
   const PW=W-ML-MR,PH=H-MT-MB;
   const nPts=data[0]?.points?.length||0;
   if(nPts<2)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Noch zu wenig Läufe für eine Kurve</div>;
+  const hasRuns=data.some(d=>d.total>0);
   const xs=i=>ML+(i/(nPts-1))*PW;
   const ys=v=>MT+PH-(v/100)*PH;
   return(
@@ -282,7 +283,8 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=
         {data[0]?.points?.map((_,i)=>(
           <line key={i} x1={xs(i)} y1={MT} x2={xs(i)} y2={MT+PH} stroke="rgba(255,255,255,.04)" strokeWidth="1"/>
         ))}
-        {data.map(({cat,points})=>{
+        {hasRuns&&data.map(({cat,points,total})=>{
+          if(!total)return null;
           const d=points.map((p,i)=>`${i===0?'M':'L'}${xs(i).toFixed(1)},${ys(p.y).toFixed(1)}`).join(' ');
           return(
             <g key={cat.id}>
@@ -291,6 +293,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],livesUsedPerObs=[]})=
             </g>
           );
         })}
+        {!hasRuns&&<text x={W/2} y={MT+PH/2} textAnchor="middle" fontSize={tvMode?18:14} fontWeight="700" fill="rgba(255,255,255,.2)" fontFamily="system-ui">Warten auf Läufer …</text>}
         {data[0]?.points?.map((p,i)=>(
           <text key={i} x={xs(i)} y={H-MB+16} fill="rgba(255,255,255,.4)" fontSize={tvMode?11:9} textAnchor="end" fontFamily="system-ui"
             transform={`rotate(-48,${xs(i)},${H-MB+16})`}>
@@ -471,14 +474,14 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     const stageRuns=runList.filter(r=>r.stageId===stageKey);
     const runCatIds=[...new Set(stageRuns.map(r=>r.catId).filter(Boolean))];
     const activeRunCatIds=activeRuns?Object.entries(activeRuns).filter(([snKey,r])=>snKey===stageKey&&r?.catId&&(r.phase==='active'||r.phase==='countdown')).map(([,r])=>r.catId):[];
-    const configCatIds=pStage.categories==='all'?[]:Array.isArray(pStage.categories)?pStage.categories:[];
+    const configCatIds=pStage.categories==='all'||!pStage.categories?IGN_CATS.map(c=>c.id):Array.isArray(pStage.categories)?pStage.categories:[];
     const unionIds=[...new Set([...configCatIds,...runCatIds,...activeRunCatIds])];
     const activeCats=unionIds.map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
-    if(stageRuns.length===0&&!activeRuns?.[stageKey]?.athleteId)return null;
     const obsArr=(()=>{const raw=pipelineData?.[stageKey]?.obstacles||globalObstacles;if(!raw)return DEF_OBS;return Object.values(raw).sort((a,b)=>a.order-b.order).filter(o=>o.isCP!==false);})();
     const survivalData=activeCats.map(cat=>{
       const cr=stageRuns.filter(r=>r.catId===cat.id&&r.status!=='dsq');
-      const total=cr.length;if(!total)return null;
+      const total=cr.length;
+      if(!total)return{cat,points:[{x:-1,y:100,label:'Platform'},...obsArr.map((obs)=>({x:0,y:100,label:obsShortName(obs.name)}))],total:0};
       const points=[{x:-1,y:100,label:'Platform'},...obsArr.map((obs,i)=>({x:i,y:(cr.filter(r=>(r.doneCP?.length||0)>i).length/total)*100,label:obsShortName(obs.name)}))];
       return{cat,points,total};
     }).filter(Boolean);
