@@ -861,8 +861,8 @@ const handleDeleteAth=async(a)=>{
               </button>
             </>}
             {completedRuns&&Object.keys(completedRuns).length>0&&(
-              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)'}} onClick={handleDeleteAllRuns}>
-                <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
+              <button className="btn btn-ghost" style={{padding:'6px 14px',fontSize:12,gap:5,borderRadius:8,borderColor:'rgba(255,100,40,.4)',color:'rgba(255,120,60,.9)',cursor:'pointer',minHeight:32}} onClick={handleDeleteAllRuns}>
+                <I.RefreshCw s={13}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
               </button>
             )}
           </div>
