@@ -17,11 +17,29 @@ import { Spinner, EmptyState } from './shared.jsx';
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
 // Tricks: each CP triggers a different trick animation
 const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
-// Realistic runner silhouette paths (viewBox 0 0 100 100, running pose)
-const MALE_RUN='M52 8a8 8 0 1 0-4 0c1.3.2 3 .2 4 0zM38 18c-2 1-3.5 4-3 7l3 14c.5 2 2 3.5 4 4l-8 16c-1.5 3-.5 5 1 6l2-1 10-17 4 5-2 18c-.3 3 1 5 3 5h2l3-20c.5-3-.5-5.5-2-7l-5-7 3-9 6 5c2 1.5 4 1.5 5 0l1-2-9-9c-2-2-4-3-6.5-3l-6-.5c-2 0-3.5.5-5 2z';
-const MALE_SWING='M52 8a8 8 0 1 0-4 0c1.3.2 3 .2 4 0zM44 18c-1.5.5-3 2-3 4l1 6-1 3-10 2c-2 .5-3 2-2 4l2 1 12-3 3-8 4 2 0 12c0 3 1 5 3 5.5l2-.5 1-14c0-3-1.5-5-3.5-6l-3-2 0-5 3 1c2 .5 3-.5 3.5-2l0-2-7-3c-2-.8-3.5-.5-5 .5z';
-const FEMALE_RUN='M53 7a7.5 7.5 0 1 0-6 0l-3-2c-2-1.5-4-.5-4 1l2 3 5 1 5-1 2-3c0-1.5-2-2.5-4-1l-3 2h6zM37 19c-1.5 1-2.5 3.5-2 6l2 10c.3 1.5 1 3 2.5 4l1 3-9 15c-1.5 2.5-.5 5 1 5.5l2-.5 10-16 3 4-1 18c-.2 3 1.5 5 3.5 4.5l2-.5 2-19c.3-3-.5-5.5-2-7l-4-6 2-7 5 4c2 1.5 4 1 5-.5l.5-2-8-8c-2-2-3.5-2.5-6-2.5l-5-.5c-2 0-3.5.5-5 1.5z';
-const FEMALE_SWING='M53 7a7.5 7.5 0 1 0-6 0l-3-2c-2-1.5-4-.5-4 1l2 3 5 1 5-1 2-3c0-1.5-2-2.5-4-1l-3 2h6zM43 19c-1.5.5-2.5 2-2.5 4l.5 5-1 3-9 2c-2 .5-2.5 2-1.5 3.5l2 .5 11-3 2-7 3.5 2-.5 11c0 3 1.5 5 3.5 5l1.5-.5 1-13c0-3-1.5-5-3-5.5l-3-2 .5-5 2.5 1c2 .5 3-.5 3.5-2l-.5-2-6-2.5c-2-.8-3-.5-4.5.5z';
+// Running gait cycle frames (viewBox 0 0 100 100) — 4 poses per gender
+const MALE_FRAMES=[
+  // Frame 1: Right leg far forward, left arm forward (contact)
+  'M52 8a7.5 7.5 0 1 0-4 0zM42 17l-3 1-2 14c0 2 1 3 2 4l-12 14c-1 2 0 4 2 4l1-1 13-14 2 3-6 20c-1 3 1 5 3 5l2-1 7-21c1-3 0-5-1-7l-2-4 2-8 8 6c2 1 4 1 5-1l0-2-10-9c-2-2-4-3-6-3z',
+  // Frame 2: Right leg passing under, arms mid (drive)
+  'M52 8a7.5 7.5 0 1 0-4 0zM42 17l-3 1-2 14c0 2 1 3 2 4l-6 18c-1 2 0 4 2 4l1-1 7-18 4 6-3 17c0 3 1 5 3 5l2-1 4-18c1-3 0-5-1-7l-4-7 2-8 5 3c2 1 4 0 4-2l0-2-7-6c-2-2-4-3-6-3z',
+  // Frame 3: Left leg far forward, right arm forward (contact opposite)
+  'M52 8a7.5 7.5 0 1 0-4 0zM42 17l-3 1-2 14c0 2 1 3 2 4l-4 20c0 3 1 5 3 5l2-1 5-20 3 2-10 16c-1 2 0 4 2 4l2-1 11-17c1-2 1-4 0-6l-5-7 2-8 10 8c2 1 4 1 5-1l0-2-12-10c-2-2-4-3-6-3z',
+  // Frame 4: Left leg passing under, arms mid (drive opposite)
+  'M52 8a7.5 7.5 0 1 0-4 0zM42 17l-3 1-2 14c0 2 1 3 2 4l-2 18c0 3 1 5 3 5l2-1 3-18 5 5-7 18c-1 2 0 4 2 4l1-1 8-19c1-2 1-4 0-6l-3-6 2-8 6 4c2 1 4 0 4-2l0-2-8-7c-2-2-4-3-6-3z'
+];
+const FEMALE_FRAMES=[
+  // Frame 1: Right leg far forward, left arm forward — ponytail trailing
+  'M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM41 17l-2.5 1-2 13c0 2 1 3 2 3.5l-11 14c-1 2 0 4 2 4l1-.5 12-14 2 3-6 19c0 3 1 5 3 4.5l2-.5 7-20c.5-3 0-5-1-6.5l-2-4 1.5-7 7 5c2 1.5 4 1 5-1l0-2-9-8c-2-2-3.5-2.5-5.5-2.5z',
+  // Frame 2: Drive phase
+  'M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM41 17l-2.5 1-2 13c0 2 1 3 2 3.5l-5 17c-.5 2.5.5 4 2.5 4l1-.5 6-17 4 5-3 17c0 3 1 5 3 4.5l2-.5 4-18c.5-3 0-5-1-6.5l-4-6 1.5-7 5 3c2 1 3.5 0 4-2l0-2-7-6c-2-2-3.5-2.5-5.5-2.5z',
+  // Frame 3: Left leg forward, right arm forward
+  'M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM41 17l-2.5 1-2 13c0 2 1 3 2 3.5l-3 19c0 3 1 5 3 4.5l2-.5 4-19 3 2-10 15c-1 2 0 4 2 4l1-.5 11-16c1-2 1-4 0-6l-4-6 1.5-7 9 7c2 1.5 4 1 5-1l0-2-11-9c-2-2-3.5-2.5-5.5-2.5z',
+  // Frame 4: Drive opposite
+  'M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM41 17l-2.5 1-2 13c0 2 1 3 2 3.5l-2 17c0 3 1 5 3 4.5l2-.5 3-17 5 5-7 17c-.5 2.5.5 4 2.5 4l1-.5 8-18c.5-2.5.5-4 0-6l-3-5 1.5-7 6 4c2 1 3.5 0 4-2l0-2-8-7c-2-2-3.5-2.5-5.5-2.5z'
+];
+const MALE_SWING='M52 8a7.5 7.5 0 1 0-4 0zM44 17c-1.5.5-3 2-3 4l1 6-1 3-10 2c-2 .5-3 2-2 4l2 1 12-3 3-8 4 2 0 12c0 3 1 5 3 5.5l2-.5 1-14c0-3-1.5-5-3.5-6l-3-2 0-5 3 1c2 .5 3-.5 3.5-2l0-2-7-3c-2-.8-3.5-.5-5 .5z';
+const FEMALE_SWING='M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM43 17c-1.5.5-2.5 2-2.5 4l.5 5-1 3-9 2c-2 .5-2.5 2-1.5 3.5l2 .5 11-3 2-7 3.5 2-.5 11c0 3 1.5 5 3.5 5l1.5-.5 1-13c0-3-1.5-5-3-5.5l-3-2 .5-5 2.5 1c2 .5 3-.5 3.5-2l-.5-2-6-2.5c-2-.8-3-.5-4.5.5z';
 const isFemale=catId=>catId&&(catId.includes('w')||catId.includes('W')||catId.endsWith('f'));
 
 const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId=''})=>{
@@ -30,6 +48,8 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   const trick=TRICKS[doneCPCount%TRICKS.length];
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
   const female=isFemale(catId);
+  const frames=female?FEMALE_FRAMES:MALE_FRAMES;
+  const [frame,setFrame]=useState(0);
   const allDead=livesLeft<=0&&livesUsed>0;
   const [resetSec,setResetSec]=useState(0);
   useEffect(()=>{
@@ -39,14 +59,20 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   },[resetting,resetUntil]);
   const stumbling=livesUsed>0&&!allDead;
   const swinging=resetting||(stumbling&&!resetting);
+  const isRunning=!allDead&&!swinging;
+  useEffect(()=>{
+    if(!isRunning)return;
+    const iv=setInterval(()=>setFrame(f=>(f+1)%4),150);
+    return()=>clearInterval(iv);
+  },[isRunning]);
   const anim=allDead?'ninjaFallOut 1.2s ease-in forwards'
     :swinging?`ninjaRopeSwing-${rid} 4s ease-in-out forwards`
     :doneCPCount>0?`${trick} 0.6s ease-out`
-    :'ninjaBob 0.45s ease-in-out infinite alternate';
+    :'';
   const fmtSplit=ms=>{if(!ms)return'';const s=Math.floor(ms/1000);const m=Math.floor(s/60);return`${m}:${String(s%60).padStart(2,'0')}.${String(Math.floor((ms%1000))).padStart(3,'0')}`;};
   const drop=size*2.5;
   const swingX=size*3;
-  const silhouette=swinging?(female?FEMALE_SWING:MALE_SWING):(female?FEMALE_RUN:MALE_RUN);
+  const silhouette=swinging?(female?FEMALE_SWING:MALE_SWING):frames[frame];
   const sc=size/100;
   return(
     <g transform={`translate(${x-size/2},${allDead?y+300:y-size})`}>
@@ -119,14 +145,17 @@ const GhostNinja=({x,y,size=24,name='',ahead=false,catId=''})=>{
   const c=ahead?'#30D158':'#FF3B30';
   const gid=`gg-${(name||'g').replace(/\s/g,'')}`;
   const female=isFemale(catId);
+  const gFrames=female?FEMALE_FRAMES:MALE_FRAMES;
+  const [gf,setGf]=useState(0);
+  useEffect(()=>{const iv=setInterval(()=>setGf(f=>(f+1)%4),180);return()=>clearInterval(iv);},[]);
   const sc=size/100;
   return(
   <g transform={`translate(${x-size/2},${y-size})`} opacity={.55}>
-    <g style={{animation:'ninjaBob 0.5s ease-in-out infinite alternate'}}>
+    <g>
       <defs><filter id={gid} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
       <circle cx={size/2} cy={size*.5} r={size*.5} fill={c} opacity=".18" filter={`url(#${gid})`}/>
       <g transform={`scale(${sc})`}>
-        <path d={female?FEMALE_RUN:MALE_RUN} fill={c} stroke="rgba(0,0,0,.3)" strokeWidth="1" strokeLinejoin="round"/>
+        <path d={gFrames[gf]} fill={c} stroke="rgba(0,0,0,.3)" strokeWidth="1" strokeLinejoin="round"/>
       </g>
       {name&&<text x={size/2} y={-6} textAnchor="middle" fontSize={size*.3} fontWeight="800" fill={c} fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.7)',strokeWidth:2.5,strokeLinejoin:'round'}}>{name}</text>}
     </g>
