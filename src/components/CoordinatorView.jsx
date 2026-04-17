@@ -505,6 +505,103 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     await fbRemove(`ogn/${compId}/activeRuns`);
     SFX.complete();
   };
+  const generateStartOrder=()=>{
+    if(!isPipeline||pipelineStages.length<2){window.alert('Mindestens 2 Stages nötig');return;}
+    const allAths=Object.values(athletes||{});
+    const stageQueues={};
+    pipelineStages.forEach(ps=>{
+      const cIds=ps.categories==='all'||!ps.categories?IGN_CATS.map(c=>c.id):(Array.isArray(ps.categories)?ps.categories:[]);
+      const cs=new Set(cIds);
+      const stageAths=allAths.filter(a=>cs.has(a.cat));
+      const byCat={};stageAths.forEach(a=>{(byCat[a.cat]=byCat[a.cat]||[]).push(a);});
+      Object.values(byCat).forEach(arr=>arr.sort((a,b)=>(a.num||'').localeCompare(b.num||'',undefined,{numeric:true})));
+      stageQueues[ps.id]={cats:cIds.filter(c=>byCat[c]?.length),byCat};
+    });
+    const stageIds=pipelineStages.map(s=>s.id);
+    const allCats=[...new Set(stageIds.flatMap(sid=>stageQueues[sid].cats))];
+    const catPairs=[];
+    for(let i=0;i<allCats.length;i+=2){
+      if(i+1<allCats.length)catPairs.push([allCats[i],allCats[i+1]]);
+      else catPairs.push([allCats[i]]);
+    }
+    const orders={};stageIds.forEach(sid=>{orders[sid]=[];});
+    catPairs.forEach((pair,pi)=>{
+      stageIds.forEach((sid,si)=>{
+        const catIdx=(si+pi)%pair.length;
+        const rCats=si%2===0?pair:[...pair].reverse();
+        rCats.forEach(cat=>{
+          const aths=stageQueues[sid].byCat[cat];
+          if(aths)orders[sid].push(...aths);
+        });
+      });
+    });
+    const stageIds2=new Set();
+    stageIds.forEach(sid=>{
+      const seen=new Set();
+      orders[sid]=orders[sid].filter(a=>{if(seen.has(a.id))return false;seen.add(a.id);return true;});
+    });
+    const updates={};
+    stageIds.forEach(sid=>{
+      orders[sid].forEach((a,i)=>{
+        updates[`ogn/${compId}/athletes/${a.id}/pipelineQueueOrder/${sid}`]=i;
+        if(sid===stageIds[0])updates[`ogn/${compId}/athletes/${a.id}/queueOrder`]=i;
+      });
+    });
+    db.ref().update(updates);
+    SFX.complete();
+    return orders;
+  };
+  const exportStartOrderPDF=()=>{
+    const orders=generateStartOrder();
+    if(!orders)return;
+    const compName=info?.name||info?.emoji||compId;
+    const w=window.open('','_blank');
+    if(!w)return;
+    const stageIds=pipelineStages.map(s=>s.id);
+    let html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Startreihenfolge — ${compName}</title>
+<style>
+@page{size:A4;margin:15mm 12mm;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;font-size:11px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.page{page-break-after:always;padding:8px 0;}
+.page:last-child{page-break-after:auto;}
+h1{font-size:18px;margin-bottom:2px;}
+h2{font-size:14px;color:#555;margin-bottom:10px;border-bottom:2px solid #ff5e3a;padding-bottom:4px;display:inline-block;}
+.meta{color:#888;font-size:10px;margin-bottom:12px;}
+table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+th{background:#f5f5f5;padding:5px 8px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid #ddd;}
+td{padding:4px 8px;border-bottom:1px solid #eee;font-size:11px;}
+tr:nth-child(even){background:#fafafa;}
+.num{font-family:'JetBrains Mono',monospace;font-weight:700;color:#888;width:35px;}
+.name{font-weight:600;}
+.flag{font-size:14px;margin-right:3px;}
+.team{color:#ff9500;font-weight:600;font-size:10px;}
+.cat{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:700;color:#fff;}
+.divider{border:none;border-top:2px solid #e0e0e0;margin:6px 0;}
+.footer{text-align:center;color:#bbb;font-size:9px;margin-top:12px;}
+</style></head><body>`;
+    stageIds.forEach((sid,sIdx)=>{
+      const stage=pipelineStages.find(s=>s.id===sid);
+      const stageName=stage?.name||sid;
+      const q=orders[sid]||[];
+      html+=`<div class="page"><h1>${compName}</h1><div class="meta">${new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'})}</div><h2>${stageName}</h2>`;
+      html+=`<table><thead><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Division</th></tr></thead><tbody>`;
+      let lastCat='';
+      q.forEach((a,i)=>{
+        const cat=IGN_CATS.find(c=>c.id===a.cat);
+        const catLabel=cat?.name?.de||a.cat;
+        const flag=toFlag(a.country);
+        if(a.cat!==lastCat&&lastCat){html+=`<tr><td colspan="5"><hr class="divider"/></td></tr>`;}
+        lastCat=a.cat;
+        html+=`<tr><td class="num">${i+1}</td><td class="num">${a.num||'—'}</td><td class="name">${flag?`<span class="flag">${flag}</span>`:''}${a.name}</td><td class="team">${a.team||''}</td><td><span class="cat" style="background:${cat?.color||'#888'}">${catLabel}</span></td></tr>`;
+      });
+      html+=`</tbody></table><div class="footer">${stageName} · ${q.length} Athleten · OG Ninja Competition Tool</div></div>`;
+    });
+    html+=`</body></html>`;
+    w.document.write(html);
+    w.document.close();
+    setTimeout(()=>w.print(),400);
+  };
   const handleQuickAddAth=async()=>{
     if(!quickAth.name.trim())return;
     setAddingAth(true);
@@ -686,13 +783,18 @@ const handleDeleteAth=async(a)=>{
           </div>
         ):(
         <>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,flexWrap:'wrap',gap:4}}>
           <div className="lbl" style={{marginBottom:0}}>Stages — direkt starten</div>
-          {completedRuns&&Object.keys(completedRuns).length>0&&(
-            <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)'}} onClick={handleDeleteAllRuns}>
-              <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
-            </button>
-          )}
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            {isPipeline&&pipelineStages.length>=2&&<button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
+              <I.Download s={11}/> {lang==='de'?'Startreihenfolge PDF':'Start order PDF'}
+            </button>}
+            {completedRuns&&Object.keys(completedRuns).length>0&&(
+              <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:10,gap:4,borderRadius:8,borderColor:'rgba(255,100,40,.3)',color:'rgba(255,120,60,.8)'}} onClick={handleDeleteAllRuns}>
+                <I.RefreshCw s={11}/> {lang==='de'?`Alle ${Object.keys(completedRuns).length} Läufe löschen`:`Delete all ${Object.keys(completedRuns).length} runs`}
+              </button>
+            )}
+          </div>
         </div>
         {isPipeline
           /* ── PIPELINE MODE: render pipeline stage cards ── */
