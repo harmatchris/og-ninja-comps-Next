@@ -243,12 +243,13 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
             <div style={{textAlign:'center'}}>
               {isResetting?(
                 <div>
-                  <div style={{fontSize:9,fontWeight:700,color:'#FF9500',letterSpacing:'.12em',marginBottom:4}}>OBSTACLE RESET</div>
-                  <div style={{fontFamily:'JetBrains Mono',fontSize:36,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:resetSec<=3?'#FF3B30':'#FF9500',
-                    textShadow:`0 0 16px rgba(255,149,0,.4)`}}>
-                    {resetSec>0?resetSec:'GO'}
+                  <div style={{fontFamily:'JetBrains Mono',fontSize:28,fontWeight:900,lineHeight:1,letterSpacing:'-1.5px',color:'rgba(255,180,120,.9)',marginBottom:6}}>
+                    {fmtT(elapsed)}
                   </div>
-                  <div style={{fontSize:9,color:'rgba(255,149,0,.6)',marginTop:4}}>{lang==='de'?'Athlet setzt zurück zum Hindernis':'Athlete resetting to obstacle'}</div>
+                  <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'4px 12px',borderRadius:8,background:'rgba(255,149,0,.1)',border:'1px solid rgba(255,149,0,.25)'}}>
+                    <span style={{fontSize:9,fontWeight:700,color:'#FF9500',letterSpacing:'.08em'}}>RESET</span>
+                    <span style={{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:900,color:resetSec<=3?'#FF3B30':'#FF9500'}}>{resetSec>0?resetSec:'GO'}</span>
+                  </div>
                 </div>
               ):(
                 <div>
