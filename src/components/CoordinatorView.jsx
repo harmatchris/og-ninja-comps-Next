@@ -575,7 +575,8 @@ tr:nth-child(even){background:#fafafa;}
       const stage=pipelineStages.find(s=>s.id===sid);
       const stageName=stage?.name||sid;
       const q=orders[sid]||[];
-      html+=`<div class="page"><h1>${compName}</h1><div class="meta">${new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'})}</div><h2>${stageName}</h2>`;
+      const compDate=info?.date||new Date().toLocaleDateString('de-AT',{day:'2-digit',month:'long',year:'numeric'});
+      html+=`<div class="page"><h1>${compName}</h1><div class="meta">${compDate}${info?.location?' · '+info.location:''}</div><h2>${stageName}</h2>`;
       html+=`<table><thead><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Division</th></tr></thead><tbody>`;
       let lastCat='';
       q.forEach((a,i)=>{
