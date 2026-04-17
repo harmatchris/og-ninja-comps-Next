@@ -540,7 +540,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   );
 };
 
-const ResetCountdown=({frozenTime,onDone})=>{
+const ResetCountdown=({frozenTime,onDone,onEndRun})=>{
   const {lang}=useLang();
   const [count,setCount]=useState(10);
   useEffect(()=>{
@@ -557,6 +557,9 @@ const ResetCountdown=({frozenTime,onDone})=>{
       <div style={{fontSize:11,color:'rgba(255,255,255,.3)',marginTop:2}}>{lang==='de'?'Timer läuft danach weiter':'Timer resumes after this'}</div>
       <div className="timer-grad" style={{fontSize:32,marginTop:6}}>{fmtMs(frozenTime)}</div>
       {count<=3&&<div style={{fontSize:14,fontWeight:800,color:'var(--green)',marginTop:8,animation:'pulse 0.8s infinite'}}>{lang==='de'?'BEREIT MACHEN!':'GET READY!'}</div>}
+      {onEndRun&&<button className="btn" style={{marginTop:24,padding:'14px 32px',fontSize:15,gap:8,borderRadius:14,background:'rgba(255,59,48,.2)',border:'2px solid rgba(255,59,48,.5)',color:'#FF3B6B'}} onClick={onEndRun}>
+        <I.StopOct s={15}/> {lang==='de'?'Lauf beenden':'End run'}
+      </button>}
     </div>
   );
 };
@@ -1080,7 +1083,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
           {buzzerName?buzzerName:(lang==='de'?'Buzzer verbinden':'Connect buzzer')}
         </button>
       </div>}
-      {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone}/>}
+      {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone} onEndRun={info.mode==='lives'?handleEndRun:null}/>}
       {fallModal&&phase==='active'&&(
         <FallModal athlete={currentAth} doneCP={fallModal.doneCP} cpObst={cpObst} obstArr={obstArr} currentTime={fallModal.currentTime}
           mode={info.mode} lives={lives} reason={fallModal.reason}
