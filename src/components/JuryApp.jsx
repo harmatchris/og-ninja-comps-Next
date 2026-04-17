@@ -35,7 +35,7 @@ const isPlatformObs=o=>o&&(isPlatformName(o.name)||o.type==='section');
 const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onForceReset,onDsq,stageId,isPipeline,stNum})=>{
   const {t,catName,lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
-  const cpObst=obstArr.filter(o=>o.isCP);
+  const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
   const [editObs,setEditObs]=useState(false);
   const [newObsName,setNewObsName]=useState('');
   const obsPath=isPipeline?`ogn/${compId}/pipeline/${stageId}/obstacles`:`ogn/${compId}/obstacles`;
@@ -282,7 +282,7 @@ const JuryCountdown=({onGo})=>{
 const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLives,totalLivesLeft,activeFalls,startPerf:startPerfProp,frozenAt,onFall,onComplete,onStop,onRefillLives,stageCfgTimeLimit})=>{
   const {lang}=useLang();
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
-  const cpObst=obstArr.filter(o=>o.isCP);
+  const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
   const [doneCP,setDoneCP]=useState([]);
   const [restSecs,setRestSecs]=useState(0);
   const [restActive,setRestActive]=useState(false);
@@ -910,7 +910,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   };
 
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
-  const cpObst=obstArr.filter(o=>o.isCP);
+  const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
 
   const handleStart=ath=>{setCurrentAth(ath);setLives(isInfinityLives?999:effectiveLives);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
   const handleDsqAth=async(ath)=>{
