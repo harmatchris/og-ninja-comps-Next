@@ -599,7 +599,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
       doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,94,58);
       doc.text(`STARTREIHENFOLGE  \u2014  ${stageName.toUpperCase()}`,mx+4,y+14);
       const tl=stage?.timeLimit||info?.timeLimit||0;
-      const avgRun=tl>0?tl:120;
+      const avgRun=tl>0?Math.round(tl*0.6):90;
       doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(160,160,160);
       doc.text(`${q.length} Athleten${tl>0?`  \u00B7  Zeitlimit: ${Math.floor(tl/60)}:${String(tl%60).padStart(2,'0')}`:''}`,pw-mx,y+14,{align:'right'});
       y+=24;
