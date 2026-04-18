@@ -158,7 +158,7 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
         </div>
         <div className="sh-card" style={{padding:12,marginBottom:10}}>
           <div className="lbl" style={{marginBottom:8}}>{lang==='de'?'Letzter erreichter Checkpoint':'Last reached checkpoint'}</div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,maxHeight:'50vh',overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+          <div style={{display:'flex',flexDirection:'column',gap:4}}>
             <button className={`chip${selCpIdx===-1?' active':''}`} style={{justifyContent:'space-between',padding:'8px 12px'}} onClick={()=>{setSelCpIdx(-1);setFellAtId(null);}}>
               <span style={{fontWeight:600}}>{lang==='de'?'Kein CP erreicht':'No CP reached'}</span>
               <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>—</span>
