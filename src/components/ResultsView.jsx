@@ -76,6 +76,10 @@ const Regelwerk=()=>{
 };
 
 // ════════════════════════════════════════════════════════════
+// Checkpoint helpers (mirrored from JuryApp)
+const isPlatformName=n=>{if(!n)return false;const l=n.toLowerCase();return l.includes('platform')||l.includes('plattform')||l.includes('section')||l.includes('sektion');};
+const isPlatformObs=o=>o&&(isPlatformName(o.name)||o.type==='section');
+
 // EDIT RUN MODAL
 
 const EditRunModal=({run,runKey,compId,onClose})=>{
@@ -86,17 +90,26 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
   const obstArr=Object.values(pipeObstRaw||stObstRaw||globObstRaw||{}).sort((a,b)=>a.order-b.order);
   // Firebase may return doneCP as object — normalize to array
   const doneCP=Array.isArray(run.doneCP)?run.doneCP:(run.doneCP&&typeof run.doneCP==='object'?Object.values(run.doneCP):[]);
+  // Build full CP list from current obstacle data, merged with recorded doneCP
+  const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
+  const doneCPById={};doneCP.forEach(cp=>{if(cp.obsId)doneCPById[cp.obsId]=cp;});
+  const allCPs=cpObst.map(obs=>({obsId:obs.id,name:obs.name,order:obs.order,time:doneCPById[obs.id]?.time??null,wasRecorded:!!doneCPById[obs.id]}));
+  // Fall back to doneCP if obstacle data not loaded yet
+  const cpList=allCPs.length>0?allCPs:doneCP.map((cp,i)=>({obsId:cp.obsId,name:cp.name||`CP ${i+1}`,order:cp.order??i,time:cp.time,wasRecorded:true}));
   const [status,setStatus]=useState(run.status||'fall');
   const [selCpIdx,setSelCpIdx]=useState(doneCP.length>0?doneCP.length-1:-1);
   const [fellAtId,setFellAtId]=useState(run.fellAt?.id||null);
   const [saving,setSaving]=useState(false);
   const [manualTime,setManualTime]=useState('');
-  const autoTime=selCpIdx>=0?(doneCP[selCpIdx]?.time||run.finalTime||0):(run.finalTime||0);
+  // Adjust selCpIdx once when obstacle data loads (map doneCP index → allCPs index)
+  const adjustedRef=useRef(false);
+  useEffect(()=>{if(!adjustedRef.current&&allCPs.length>0&&doneCP.length>0){const lastObsId=doneCP[doneCP.length-1]?.obsId;if(lastObsId){const idx=allCPs.findIndex(cp=>cp.obsId===lastObsId);if(idx>=0)setSelCpIdx(idx);}adjustedRef.current=true;}},[allCPs.length]);
+  const autoTime=selCpIdx>=0?(cpList[selCpIdx]?.time||run.finalTime||0):(run.finalTime||0);
   const parseTimeStr=s=>{const m=s.match(/^(\d+):(\d{2})\.(\d{1,3})$/);if(!m)return null;return +m[1]*60000+ +m[2]*1000+ +m[3].padEnd(3,'0');};
   const selectedTime=manualTime?parseTimeStr(manualTime)||autoTime:autoTime;
-  const newDoneCP=doneCP.slice(0,selCpIdx+1);
+  const newDoneCP=cpList.slice(0,selCpIdx+1).map(cp=>({obsId:cp.obsId,name:cp.name,time:cp.time??selectedTime}));
   const fellAtObst=obstArr.find(o=>o.id===fellAtId)||null;
-  const lastCpOrder=selCpIdx>=0?(doneCP[selCpIdx]?.order??-1):-1;
+  const lastCpOrder=selCpIdx>=0?(cpList[selCpIdx]?.order??-1):-1;
   const candidateObst=obstArr.filter(o=>(o.order??999)>lastCpOrder);
   // Strip undefined values so Firebase never rejects
   const clean=o=>{if(o===undefined)return null;if(o===null||typeof o!=='object')return o;if(Array.isArray(o))return o.map(clean);const r={};for(const[k,v]of Object.entries(o)){const c=clean(v);if(c!==undefined)r[k]=c;}return r;};
@@ -104,6 +117,7 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
     try{
       setSaving(true);
       const updated=clean({...run,status,finalTime:selectedTime,doneCP:newDoneCP,
+        totalCPs:cpObst.length>0?cpObst.length:(run.totalCPs||0),
         fellAt:(status==='complete'||status==='dsq')?null:(fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null),
         corrected:true,correctedAt:Date.now()});
       await fbSet(`ogn/${compId}/completedRuns/${runKey}`,updated);
@@ -149,14 +163,14 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
               <span style={{fontWeight:600}}>{lang==='de'?'Kein CP erreicht':'No CP reached'}</span>
               <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>—</span>
             </button>
-            {doneCP.map((cp,i)=>(
-              <button key={i} className={`chip${selCpIdx===i?' active':''}`}
-                style={{justifyContent:'space-between',padding:'8px 12px',background:selCpIdx===i?'rgba(255,94,58,.18)':'rgba(255,255,255,.04)'}}
+            {cpList.map((cp,i)=>{const isNew=!cp.wasRecorded;const isIncluded=selCpIdx>=i;return(
+              <button key={cp.obsId||i} className={`chip${selCpIdx===i?' active':''}`}
+                style={{justifyContent:'space-between',padding:'8px 12px',background:selCpIdx===i?'rgba(255,94,58,.18)':isIncluded&&isNew?'rgba(52,199,89,.08)':'rgba(255,255,255,.04)',borderColor:isNew&&isIncluded?'rgba(52,199,89,.35)':undefined}}
                 onClick={()=>{setSelCpIdx(i);setFellAtId(null);}}>
-                <span style={{fontWeight:600}}><span style={{color:'var(--cor)',marginRight:5,fontSize:10}}>✓</span>{i+1}. {cp.name||`CP ${i+1}`}</span>
-                <span style={{fontSize:12,fontFamily:'JetBrains Mono',fontWeight:700,color:'var(--text)',marginLeft:8,flexShrink:0}}>{cp.time!=null?fmtMs(cp.time):'—'}</span>
+                <span style={{fontWeight:600}}>{isIncluded?<span style={{color:isNew?'var(--green)':'var(--cor)',marginRight:5,fontSize:10}}>{isNew?'+':'✓'}</span>:null}{i+1}. {cp.name||`CP ${i+1}`}{isNew&&isIncluded?<span style={{fontSize:9,color:'var(--green)',marginLeft:5,fontWeight:400}}>{lang==='de'?'(neu)':'(new)'}</span>:null}</span>
+                <span style={{fontSize:12,fontFamily:'JetBrains Mono',fontWeight:700,color:isNew?'var(--muted)':'var(--text)',marginLeft:8,flexShrink:0}}>{cp.time!=null?fmtMs(cp.time):'—'}</span>
               </button>
-            ))}
+            );})}
           </div>
           {(selCpIdx>=0||run.finalTime>0)&&<div style={{marginTop:8,padding:'8px 10px',background:'rgba(255,94,58,.08)',borderRadius:8}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
