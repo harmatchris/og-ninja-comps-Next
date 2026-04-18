@@ -651,8 +651,8 @@ return(<React.Fragment key={r.athleteId}>
                     ?<div className="buzzer-badge"><I.Bolt s={11} c="#FFD700"/> Buzzer</div>
                     :r.status==='dsq'
                       ?<div style={{fontSize:10,color:'#FF3B6B',fontWeight:600}}>{lang==='de'?'Disqualifiziert':'Disqualified'}</div>
-                    :r.fellAt?.name
-                      ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,textAlign:'right'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt.name}</div>
+                    :r.fellAt?.name||(Array.isArray(r.doneCP)&&r.doneCP.length>0&&r.doneCP[r.doneCP.length-1]?.name)
+                      ?<div style={{fontSize:10,color:'var(--red)',fontWeight:600,display:'flex',alignItems:'center',gap:3,textAlign:'right'}}><I.XCircle s={10} c="var(--red)"/>{r.fellAt?.name||(Array.isArray(r.doneCP)&&r.doneCP[r.doneCP.length-1]?.name)||'DNF'}</div>
                       :<div style={{fontSize:10,color:'var(--muted)'}}>DNF</div>
                   }
                   {!isOverall&&<LifeDots run={r} size={7}/>}
