@@ -9,6 +9,62 @@ export const storage = {
   get: (k, d = null) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
+
+// ── PASSWORT-SCHUTZ (Phase A) ────────────────────────────────────────
+// Lazy migration: Comps ohne info.password werden behandelt, als wäre '2021' gesetzt.
+// Existierende Hardcoded-2021-Checks (ResultsView, CoordinatorView) bleiben dadurch
+// rückwärtskompatibel — alle bisherigen Wettkämpfe öffnen weiterhin mit '2021'.
+export const DEFAULT_COMP_PASSWORD = '2021';
+
+/** Liefert das effektive Passwort eines Wettkampfs (info.password ODER '2021'). */
+export const getCompPassword = (comp) => {
+  if (!comp) return DEFAULT_COMP_PASSWORD;
+  const info = comp.info || comp; // unterstützt {info:{...}} und {password:...}
+  return (info && typeof info.password === 'string' && info.password.length > 0)
+    ? info.password
+    : DEFAULT_COMP_PASSWORD;
+};
+
+/** Prüft eine Passwort-Eingabe gegen einen Wettkampf. */
+export const verifyCompPassword = (comp, input) =>
+  (input || '').trim() === getCompPassword(comp);
+
+/** Kleiner deterministischer Hash (FNV-1a, 32-bit) für sessionStorage. */
+const simpleHash = (s) => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h.toString(36);
+};
+
+const sessionKey = (compId) => `ogn-unlock-${compId}`;
+
+/** Markiert einen Wettkampf in dieser Browser-Session als entsperrt. */
+export const unlockSession = (compId, password) => {
+  try { sessionStorage.setItem(sessionKey(compId), simpleHash(password)); } catch {}
+};
+
+/** Entfernt den Unlock-Status (z.B. nach Passwort-Change). */
+export const lockSession = (compId) => {
+  try { sessionStorage.removeItem(sessionKey(compId)); } catch {}
+};
+
+/**
+ * Prüft, ob ein Comp in dieser Session entsperrt ist UND der gespeicherte
+ * Hash zum aktuellen Passwort passt (so wird nach einem Passwort-Change
+ * automatisch re-locked auf anderen Tabs / Geräten).
+ */
+export const isUnlocked = (compId, comp) => {
+  if (!compId || !comp) return false;
+  try {
+    const stored = sessionStorage.getItem(sessionKey(compId));
+    if (!stored) return false;
+    return stored === simpleHash(getCompPassword(comp));
+  } catch { return false; }
+};
+
 export const fmtMs = ms => {
   if (ms == null || ms < 0) return '--:--.---';
   const m = Math.floor(ms / 60000), s = Math.floor((ms % 60000) / 1000), ms3 = Math.floor(ms % 1000);

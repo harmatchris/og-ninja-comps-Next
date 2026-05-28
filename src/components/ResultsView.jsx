@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag, verifyCompPassword } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -440,7 +440,7 @@ const ResultsView=({compId,athletes})=>{
   useEffect(()=>{if(!selCat&&catsWithRuns.length>0)setSelCat(catsWithRuns[0].id);},[catsWithRuns.length]);
   const getRunKey=(r)=>r._fbKey||Object.entries(runs||{}).find(([,v])=>v.timestamp!=null&&v.timestamp===r.timestamp&&v.athleteId===r.athleteId)?.[0];
   const openEdit=(r)=>{if(!editMode)return;const key=getRunKey(r);if(key)setEditRun({key,run:r});};
-  const handlePwSubmit=()=>{if(pwInput==='2021'){setEditMode(true);setShowPwModal(false);setPwInput('');setPwError(false);SFX.complete();}else{setPwError(true);SFX.fall();}};
+  const handlePwSubmit=()=>{if(verifyCompPassword(comp,pwInput)){setEditMode(true);setShowPwModal(false);setPwInput('');setPwError(false);SFX.complete();}else{setPwError(true);SFX.fall();}};
   const EditBtn=({r})=>editMode?<button style={{padding:'4px 8px',borderRadius:7,border:'1px solid rgba(255,200,80,.35)',background:'rgba(255,200,80,.08)',color:'var(--gold)',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,fontFamily:'Inter,sans-serif'}} onClick={e=>{e.stopPropagation();openEdit(r);}}><I.Edit s={12} c="var(--gold)"/></button>:null;
   // Reset stage selection when category changes
   // Don't reset stage selection when division changes — keep "All Stages" etc.

@@ -16,6 +16,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   /* ── info state ── */
   const [info,setInfo]=useState(initialInfo||{
     name:'',date:today(),location:'',
+    password:'',
     modes:[],
     mode:'classic',
     pipelineEnabled:true,
@@ -269,7 +270,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     });
     const om0={};(stageObs[0]||[]).forEach((o,i)=>{om0[o.id]={...o,order:i};});
     const am0={};flatStages.forEach((_,i)=>{(stageAths[i]||[]).forEach(a=>{am0[a.id]=a;});});
-    const finalInfo={...info,mode:primaryMode,numStations:hasAnyStage?0:0,pipelineEnabled:hasAnyStage,skillPhase:{...(info.skillPhase||{}),enabled:hasSkill},createdAt:info.createdAt||Date.now()};
+    const finalInfo={...info,mode:primaryMode,numStations:hasAnyStage?0:0,pipelineEnabled:hasAnyStage,skillPhase:{...(info.skillPhase||{}),enabled:hasSkill},password:((info.password||'').trim())||'2021',createdAt:info.createdAt||Date.now()};
     const data={info:finalInfo,obstacles:om0,athletes:Object.keys(am0).length?am0:null,stages:stagesData};
     if(hasAnyStage&&pipeline.length>0){
       const pipelineData={};
@@ -400,6 +401,16 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               <div style={lblStyle}>{t('compLocation')}</div>
               <input value={info.location} onChange={e=>sI('location',e.target.value)} placeholder="Zurich Ninja Park" style={{width:'100%'}}/>
             </div>
+          </div>
+
+          {/* ── PHASE A: Wettkampf-Passwort ── */}
+          <div style={{marginTop:4}}>
+            <div style={{...lblStyle,display:'flex',alignItems:'center',gap:6}}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              {lang==='de'?'Wettkampf-Passwort':'Competition password'}
+            </div>
+            <input value={info.password||''} onChange={e=>sI('password',e.target.value)} placeholder={lang==='de'?'Leer lassen = 2021':'Leave empty = 2021'} autoComplete="off" style={{width:'100%'}}/>
+            <div style={{fontSize:10,color:'var(--dim)',marginTop:4}}>{lang==='de'?'Schützt Coordinator + Jury. Später änderbar in den Einstellungen.':'Protects coordinator + jury. Changeable later in settings.'}</div>
           </div>
 
           {/* ── MODE SELECTION (multi-select) – #4 Skill Phase at mode ── */}

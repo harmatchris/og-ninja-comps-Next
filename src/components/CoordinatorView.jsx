@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../i18n.js';
 import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, db, fbSet, fbUpdate, fbRemove } from '../config.js';
-import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes } from '../utils.js';
+import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes, verifyCompPassword, unlockSession, isUnlocked } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, CompEmoji, Heart, DragList, AutocompleteInput, QRCodeComp, TimePicker } from './shared.jsx';
+import { PasswordModal } from './PasswordModal.jsx';
 import { SetupWizard } from './SetupWizard.jsx';
 import { ResultsView } from './ResultsView.jsx';
 import { AthleteQueueView } from './QueueView.jsx';
@@ -461,7 +462,50 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     await db.ref().update(updates);
     setEditTimeLimitStage(null);SFX.complete();
   };
+
+  // ── PHASE A: Passwort-Gate ──────────────────────────────────────────
+  // Gate sitzt hier (nicht nur in HomeView), weil main.jsx beim Refresh
+  // direkt lastCompId in die Coordinator-View öffnet — würde ein HomeView-Gate
+  // umgehen. Alle Hooks stehen VOR dem `if(!info)return` (Rules of Hooks!).
+  const [unlocked,setUnlocked]=useState(false);
+  useEffect(()=>{ if(info) setUnlocked(isUnlocked(compId,{info})); },[info,compId]);
+
+  // Passwort-Settings (nachträglich ändern)
+  const [showPwSettings,setShowPwSettings]=useState(false);
+  const [pwCur,setPwCur]=useState(''); const [pwNew,setPwNew]=useState(''); const [pwConfirm,setPwConfirm]=useState('');
+  const [pwErr,setPwErr]=useState(''); const [pwSaving,setPwSaving]=useState(false); const [pwToast,setPwToast]=useState('');
+  const resetPwForm=()=>{setPwCur('');setPwNew('');setPwConfirm('');setPwErr('');};
+  const submitPwChange=async()=>{
+    const cur=pwCur.trim(), nw=pwNew.trim();
+    if(!verifyCompPassword({info},cur)){setPwErr(lang==='de'?'Aktuelles Passwort ist falsch.':'Current password is wrong.');return;}
+    if(nw.length<4){setPwErr(lang==='de'?'Neues Passwort: mind. 4 Zeichen.':'New password: min. 4 characters.');return;}
+    if(nw!==pwConfirm.trim()){setPwErr(lang==='de'?'Bestätigung stimmt nicht überein.':'Confirmation does not match.');return;}
+    setPwSaving(true);
+    try{
+      await fbUpdate(`ogn/${compId}/info`,{password:nw});
+      unlockSession(compId,nw); setUnlocked(true);
+      setPwSaving(false); setShowPwSettings(false); resetPwForm();
+      setPwToast(lang==='de'?'Passwort geändert':'Password changed'); setTimeout(()=>setPwToast(''),2600);
+      SFX.complete();
+    }catch(e){ setPwSaving(false); setPwErr(String(e&&e.message||e)); }
+  };
+
+  // compDone: alle Stages geschlossen → bei abgeschlossenem Wettkampf direkt auf Ranking landen
+  const autoLandedRef=useRef(false);
+  useEffect(()=>{
+    if(autoLandedRef.current)return; if(!info)return;
+    const isPipe=!!(info.pipelineEnabled&&pipelineData);
+    const numStLocal=isPipe?Object.keys(pipelineData||{}).length:(info.numStations||0);
+    let closed=0;
+    if(isPipe){ closed=Object.values(pipelineData||{}).filter(p=>p&&p.closed).length; }
+    else{ for(let i=1;i<=numStLocal;i++){ if(stages?.[i]?.closed) closed++; } }
+    autoLandedRef.current=true;
+    if(numStLocal>0&&closed===numStLocal) setCoordView('results');
+  },[info,pipelineData,stages]);
+
   if(!info)return<Spinner/>;
+  // Gate: bei gesperrtem Comp Passwort-Modal anzeigen, bevor irgendwas gerendert wird
+  if(!unlocked)return<PasswordModal comp={{id:compId,info}} onUnlock={()=>setUnlocked(true)} onCancel={onBack}/>;
   const openObsEdit=(n)=>{
     const stObs=stages?.[n]?.obstacles;
     const src=stObs
@@ -493,7 +537,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const handleStageReset=async(stN,catId,pipeStageId)=>{
     const pin=window.prompt(lang==='de'?`PIN für Stage-Reset eingeben:`:`Enter PIN to reset stage:`);
     if(pin===null)return;
-    if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
+    if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
     const label=pipeStageId?(pipeline.find(s=>s.id===pipeStageId)?.name||pipeStageId):`Stage ${stN}`;
     const delCount=completedRuns?Object.values(completedRuns).filter(r=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&stN!=null&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum))).length:0;
     if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\n${delCount} Läufe werden gelöscht.`:`Really reset ${label}?\n${delCount} runs will be deleted.`))return;
@@ -510,7 +554,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
   const handleDeleteAllRuns=async()=>{
     const pin=window.prompt(lang==='de'?'PIN eingeben um ALLE Läufe zu löschen:':'Enter PIN to delete ALL runs:');
     if(pin===null)return;
-    if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
+    if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
     const total=completedRuns?Object.keys(completedRuns).length:0;
     if(!window.confirm(lang==='de'?`ALLE ${total} Läufe des gesamten Wettkampfs löschen?\nDiese Aktion kann nicht rückgängig gemacht werden!`:`Delete ALL ${total} runs of the entire competition?\nThis cannot be undone!`))return;
     await fbRemove(`ogn/${compId}/completedRuns`);
@@ -785,6 +829,11 @@ const handleDeleteAth=async(a)=>{
     ?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0))
     :[];
   const numSt=isPipeline?pipelineStages.length:(info.numStations||0);
+  // compDone: alle Stages geschlossen → "Abgeschlossen"-Badge
+  const stagesClosedCount=isPipeline
+    ?pipelineStages.filter(p=>pipelineData?.[p.id]?.closed).length
+    :(()=>{let n=0;for(let i=1;i<=numSt;i++){if(stages?.[i]?.closed)n++;}return n;})();
+  const compDone=numSt>0&&stagesClosedCount===numSt;
   const base=window.location.href.split('?')[0];
   const athList=athletes?Object.values(athletes):[];
   const runList=completedRuns?Object.values(completedRuns):[];
@@ -792,8 +841,11 @@ const handleDeleteAth=async(a)=>{
   const copyUrl=(url,k)=>{navigator.clipboard?.writeText(url);setCopied(k);setTimeout(()=>setCopied(null),2200);SFX.click();};
   return(
     <div style={{minHeight:'100vh',paddingBottom:40}}>
-      <TopBar title={<div style={{display:'flex',alignItems:'center',gap:8}}>{info.logo&&<img src={info.logo} style={{width:28,height:28,borderRadius:7,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>}<span>{info.name||'Wettkampf'}</span></div>} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
+      <TopBar title={<div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{info.logo&&<img src={info.logo} style={{width:28,height:28,borderRadius:7,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>}<span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{info.name||'Wettkampf'}</span>{compDone&&<span className="done-badge">{lang==='de'?'Abgeschlossen':'Finished'}</span>}</div>} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
         right={<div style={{display:'flex',gap:6}}>
+          <button className="btn btn-ghost" style={{padding:'7px'}} title={lang==='de'?'Passwort ändern':'Change password'} onClick={()=>{SFX.click();resetPwForm();setShowPwSettings(true);}}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </button>
           <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setShowExport(true)} title="Export / Druck"><I.FileText s={15}/></button>
           <button className="btn btn-ghost" style={{padding:'7px'}} onClick={()=>setEditing(true)}><I.Settings s={15}/></button>
           <button className="btn btn-ghost" style={{padding:'5px 10px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>
@@ -863,7 +915,7 @@ const handleDeleteAth=async(a)=>{
             {isPipeline&&pipelineStages.length>=2&&<>
               <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)',whiteSpace:'nowrap'}} onClick={()=>{
                 const pin=window.prompt(lang==='de'?'PIN eingeben:':'Enter PIN:');
-                if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
+                if(pin===null)return;if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
                 generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert!':'Start order generated!');
               }}>⚡ Startliste</button>
               <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
@@ -987,7 +1039,7 @@ const handleDeleteAth=async(a)=>{
                       {lang==='de'?'Stage läuft — besetzt':'Stage occupied — running'}
                     </button>
                   :stageClosed
-                    ?<button className="btn btn-ghost" style={{width:'100%',padding:12,fontSize:13,gap:7,marginTop:2,borderColor:'rgba(255,200,80,.25)',color:'rgba(255,200,80,.7)'}} onClick={()=>{const pin=window.prompt(lang==='de'?'PIN eingeben um Stage zu öffnen:':'Enter PIN to reopen stage:');if(pin===null)return;if(pin!=='2021'){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}fbUpdate(`ogn/${compId}/pipeline/${pStage.id}`,{closed:null});SFX.complete();}}>
+                    ?<button className="btn btn-ghost" style={{width:'100%',padding:12,fontSize:13,gap:7,marginTop:2,borderColor:'rgba(255,200,80,.25)',color:'rgba(255,200,80,.7)'}} onClick={()=>{const pin=window.prompt(lang==='de'?'PIN eingeben um Stage zu öffnen:':'Enter PIN to reopen stage:');if(pin===null)return;if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}fbUpdate(`ogn/${compId}/pipeline/${pStage.id}`,{closed:null});SFX.complete();}}>
                       <I.RefreshCw s={13}/> {lang==='de'?'Stage wieder öffnen':'Reopen stage'}
                     </button>
                     :!predsClosed
@@ -1256,6 +1308,30 @@ const handleDeleteAth=async(a)=>{
       </div>
       {/* Export / Print Modal */}
       {showExport&&<ExportModal compId={compId} info={info} athletes={athletes} completedRuns={completedRuns} pipelineData={pipelineData} isPipeline={isPipeline} pipelineStages={pipelineStages} lang={lang} onClose={()=>setShowExport(false)}/>}
+
+      {/* PHASE A: Passwort ändern */}
+      {showPwSettings&&(
+        <div className="modal-overlay modal-center" onClick={e=>{if(e.target===e.currentTarget){setShowPwSettings(false);resetPwForm();}}}>
+          <div className="modal-sheet" style={{maxWidth:420}}>
+            <div className="type-heading" style={{marginBottom:4,display:'flex',alignItems:'center',gap:8}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cor)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              {lang==='de'?'Passwort ändern':'Change password'}
+            </div>
+            <div className="type-caption" style={{marginBottom:16}}>{lang==='de'?'Schützt das Coordinator- und Jury-Panel dieses Wettkampfs.':'Protects the coordinator and jury panel of this competition.'}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <input type="password" value={pwCur} onChange={e=>{setPwCur(e.target.value);setPwErr('');}} placeholder={lang==='de'?'Aktuelles Passwort':'Current password'} autoComplete="off" style={{fontSize:16}}/>
+              <input type="password" value={pwNew} onChange={e=>{setPwNew(e.target.value);setPwErr('');}} placeholder={lang==='de'?'Neues Passwort (min. 4 Zeichen)':'New password (min. 4 chars)'} autoComplete="off" style={{fontSize:16}}/>
+              <input type="password" value={pwConfirm} onChange={e=>{setPwConfirm(e.target.value);setPwErr('');}} onKeyDown={e=>e.key==='Enter'&&submitPwChange()} placeholder={lang==='de'?'Neues Passwort bestätigen':'Confirm new password'} autoComplete="off" style={{fontSize:16}}/>
+            </div>
+            {pwErr&&<div className="type-caption" style={{color:'var(--danger)',marginTop:10,display:'flex',alignItems:'center',gap:6}}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>{pwErr}</div>}
+            <div style={{display:'flex',gap:8,marginTop:16}}>
+              <button className="btn btn-ghost" style={{flex:1,padding:12,fontSize:14}} onClick={()=>{SFX.click();setShowPwSettings(false);resetPwForm();}}>{lang==='de'?'Abbrechen':'Cancel'}</button>
+              <button className="btn btn-coral" style={{flex:1.4,padding:12,fontSize:14,fontWeight:700}} onClick={submitPwChange} disabled={pwSaving||!pwCur||!pwNew||!pwConfirm}>{pwSaving?<span className="inline-spinner"/>:(lang==='de'?'Speichern':'Save')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pwToast&&<div style={{position:'fixed',bottom:'calc(24px + env(safe-area-inset-bottom,0px))',left:'50%',transform:'translateX(-50%)',zIndex:300,background:'rgba(52,199,89,.95)',color:'#fff',padding:'10px 18px',borderRadius:'var(--radius-full)',fontSize:13,fontWeight:700,boxShadow:'var(--shadow-lg)',display:'flex',alignItems:'center',gap:8}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>{pwToast}</div>}
     </div>
   );
 };
