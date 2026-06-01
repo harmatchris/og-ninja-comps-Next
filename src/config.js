@@ -1,5 +1,6 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/database';
+import 'firebase/compat/auth';
 
 const FB_CFG = {
   apiKey: "AIzaSyBQPi4f2qWg3xA65hLL7IpxOiq3kzVk5ls",
@@ -13,10 +14,25 @@ const FB_CFG = {
 
 if (!firebase.apps.length) firebase.initializeApp(FB_CFG);
 export const db = firebase.database();
+export const auth = firebase.auth();
 
-export const fbSet = (p, v) => db.ref(p).set(v);
-export const fbUpdate = (p, v) => db.ref(p).update(v);
-export const fbRemove = (p) => db.ref(p).remove();
+// The `ogn` write rule requires `auth != null` (intentional Ninja-HQ security model:
+// licenses / athletes-profile / admin). Comp-Next signs in anonymously so it can write
+// competitions WITHOUT changing any security rule. Reads are public (`.read: true`) and
+// work regardless. `authReady` settles on success OR failure (it never rejects), so
+// writes can safely await it.
+export const authReady = (auth.currentUser
+  ? Promise.resolve(auth.currentUser)
+  : auth.signInAnonymously().then((c) => c.user)
+).catch((err) => {
+  console.error('[auth] Anonymous sign-in failed — DB writes will be denied until the Anonymous provider is enabled in Firebase Authentication.', err);
+  return null;
+});
+
+// Writes await the anonymous session so no operation fires before auth exists.
+export const fbSet = (p, v) => authReady.then(() => db.ref(p).set(v));
+export const fbUpdate = (p, v) => authReady.then(() => db.ref(p).update(v));
+export const fbRemove = (p) => authReady.then(() => db.ref(p).remove());
 
 export const IGN_CATS=[
   {id:'bam',name:{de:'Bambinis 5–7',en:'Bambinis 5–7'},color:'#FF6B6B'},

@@ -321,14 +321,30 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     const data={info:finalInfo,obstacles:om0,athletes:Object.keys(am0).length?am0:null,stages:stagesData};
     if(hasAnyStage&&pipeline.length>0){
       const pipelineData={};
+      // Derive predecessor chain + inherited categories for continuations: a continuation runs
+      // AFTER its main stage (or the previous continuation) and qualifies athletes from it.
+      const contMeta={}; // contId -> {pred, categories}
+      pipeline.forEach(main=>{
+        let prevId=main.id, prevCats=main.categories;
+        (main.continuations||[]).forEach(c=>{
+          const own=(c.categories&&!(Array.isArray(c.categories)&&c.categories.length===0))?c.categories:null;
+          const cats=own||prevCats;
+          contMeta[c.id]={pred:prevId,categories:cats};
+          prevId=c.id; prevCats=cats;
+        });
+      });
       flatStages.forEach((stg,i)=>{
         const stgObs={};(stageObs[i]||[]).forEach((o,idx)=>{stgObs[o.id]={...o,order:idx};});
-        // Filter athletes by stage's allowed categories — "all"/empty = everyone, array = only those cats
-        const stgCats=stg.categories;
-        const allowAll=!stgCats||stgCats==='all'||(Array.isArray(stgCats)&&stgCats.length===0);
-        const allowedStgSet=allowAll?null:new Set(Array.isArray(stgCats)?stgCats:[]);
+        const meta=contMeta[stg.id];
+        // Continuation inherits its predecessor's divisions; main stage uses its own selection
+        const effCats=meta?(meta.categories||stg.categories||'all'):stg.categories;
+        // Filter athletes by allowed categories — "all"/empty = everyone, array = only those cats
+        const allowAll=!effCats||effCats==='all'||(Array.isArray(effCats)&&effCats.length===0);
+        const allowedStgSet=allowAll?null:new Set(Array.isArray(effCats)?effCats:[]);
         const stgAths={};(stageAths[i]||[]).forEach(a=>{if(allowAll||allowedStgSet.has(a.cat))stgAths[a.id]=a;});
-        pipelineData[stg.id]={...stg,order:i,obstacles:Object.keys(stgObs).length?stgObs:null,athletes:Object.keys(stgAths).length?stgAths:null};
+        pipelineData[stg.id]={...stg,
+          ...(meta?{predecessorStages:[meta.pred],categories:effCats||'all'}:{}),
+          order:i,obstacles:Object.keys(stgObs).length?stgObs:null,athletes:Object.keys(stgAths).length?stgAths:null};
       });
       data.pipeline=pipelineData;
     }
@@ -354,6 +370,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             updates[`ogn/${id}/pipeline/${sid}/predecessorStages`]=stg.predecessorStages||null;
             updates[`ogn/${id}/pipeline/${sid}/continuations`]=stg.continuations||null;
             updates[`ogn/${id}/pipeline/${sid}/timeLimit`]=stg.timeLimit||null;
+            updates[`ogn/${id}/pipeline/${sid}/invertSeeding`]=stg.invertSeeding||null;   // #invert-seeding
+            updates[`ogn/${id}/pipeline/${sid}/minPerDivision`]=stg.minPerDivision??null;
             updates[`ogn/${id}/pipeline/${sid}/lives`]=stg.livesPerSection||null;
             updates[`ogn/${id}/pipeline/${sid}/totalLives`]=stg.totalLives??null;
           });
@@ -747,6 +765,11 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                         <span style={{fontFamily:'JetBrains Mono',fontSize:12,fontWeight:700,minWidth:40,textAlign:'center'}}>{Math.floor((cont.timeLimit||0)/60)}:{String((cont.timeLimit||0)%60).padStart(2,'0')}</span>
                         <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'timeLimit',(cont.timeLimit||0)+10)}>+</button>
                       </div>
+                      {/* Inverted start order – #invert-seeding (LK1 Final etc.) */}
+                      <label style={{display:'flex',alignItems:'center',gap:7,marginTop:6,cursor:'pointer',fontSize:11,color:'var(--muted)'}}>
+                        <input type="checkbox" checked={!!cont.invertSeeding} onChange={e=>updateStage(cont.id,'invertSeeding',e.target.checked)} style={{width:15,height:15,accentColor:frameColor,cursor:'pointer',flexShrink:0}}/>
+                        <span>{lang==='de'?'Invertierte Startreihenfolge (schwächster Quali startet zuerst)':'Inverted start order (lowest qualifier starts first)'}</span>
+                      </label>
                       {/* Obstacles for continuation */}
                       {contFlatIdx>=0&&(<>
                         <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>{lang==='de'?'Hindernisse':'Obstacles'} ({(stageObs[contFlatIdx]||[]).length})</div>
@@ -801,7 +824,36 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           <div style={{maxHeight:260,overflowY:'auto'}}>
             {curAths.length===0?<EmptyState icon={<I.User s={28} c="rgba(255,255,255,.3)"/>} text="Noch keine Athleten"/>:
               <DragList items={curAths} onReorder={arr=>reorderAth(asi,arr)} keyFn={a=>a.id}
-                renderItem={(a,i)=>{const cat=IGN_CATS.find(c=>c.id===a.cat);return(
+                renderItem={(a,i)=>{const cat=IGN_CATS.find(c=>c.id===a.cat);
+                  if(editAthId===a.id&&editAth){                                              {/* #athlete-inline-edit */}
+                    const editCats=curAllowedCatIds.includes(editAth.cat)?curAllowedCats:[...curAllowedCats,IGN_CATS.find(c=>c.id===editAth.cat)].filter(Boolean);
+                    return(
+                      <div style={{background:'rgba(255,94,58,.06)',border:'1px solid rgba(255,94,58,.25)',borderRadius:10,padding:'10px 12px',display:'flex',flexDirection:'column',gap:8}}>
+                        <div style={{display:'flex',gap:6}}>
+                          <input value={editAth.num||''} onChange={e=>setEditAth(d=>({...d,num:e.target.value}))} placeholder="#" style={{width:54,flexShrink:0,fontSize:13,padding:'6px 8px'}}/>
+                          <input value={editAth.name} onChange={e=>setEditAth(d=>({...d,name:e.target.value}))} placeholder={t('athName')} style={{flex:1,fontSize:13,padding:'6px 8px'}} onKeyDown={e=>{if(e.key==='Enter')saveEditAth(asi);if(e.key==='Escape')cancelEditAth();}} autoFocus/>
+                        </div>
+                        <div style={{display:'flex',gap:6}}>
+                          <select value={editCats.some(c=>c.id===editAth.cat)?editAth.cat:(editCats[0]?.id||editAth.cat)} onChange={e=>setEditAth(d=>({...d,cat:e.target.value}))} style={{flex:1,fontSize:12,padding:'5px 7px'}}>
+                            {editCats.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
+                          </select>
+                          <select value={editAth.gender||'m'} onChange={e=>setEditAth(d=>({...d,gender:e.target.value}))} style={{width:70,fontSize:12,padding:'5px 7px'}}>
+                            <option value="m">♂ m</option>
+                            <option value="f">♀ f</option>
+                          </select>
+                        </div>
+                        <div style={{display:'flex',gap:6}}>
+                          <input value={editAth.country||''} onChange={e=>setEditAth(d=>({...d,country:e.target.value}))} placeholder={lang==='de'?'Land (z.B. CH)':'Country'} style={{flex:1,fontSize:12,padding:'5px 8px'}}/>
+                          <input value={editAth.team||''} onChange={e=>setEditAth(d=>({...d,team:e.target.value}))} placeholder="Team" style={{flex:1,fontSize:12,padding:'5px 8px'}}/>
+                        </div>
+                        <div style={{display:'flex',gap:6}}>
+                          <button className="btn btn-coral" style={{flex:1,padding:'7px',fontSize:13,gap:5}} onClick={()=>saveEditAth(asi)}><I.Check s={13}/>{lang==='de'?'Speichern':'Save'}</button>
+                          <button className="btn" style={{padding:'7px 12px',fontSize:13}} onClick={cancelEditAth}><I.X s={13}/></button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return(
                   <div style={{padding:'8px 12px',display:'flex',alignItems:'center',gap:8}}>
                     <div className="drag-handle"><I.Drag s={15}/></div>
                     <div style={{fontSize:11,color:'var(--cor)',minWidth:16,fontWeight:700}}>{i+1}</div>
@@ -811,9 +863,10 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                       {(a.country||a.team)&&<div style={{fontSize:10,color:'var(--muted)'}}>{[a.country,a.team].filter(Boolean).join(' · ')}</div>}
                     </div>
                     <div style={{fontSize:10,padding:'2px 6px',borderRadius:8,background:`${cat?.color||'#888'}1A`,color:cat?.color||'#888',border:`1px solid ${cat?.color||'#888'}44`,fontWeight:600,flexShrink:0}}>{cat?.name[lang]||'?'}</div>
+                    <button style={{background:'none',border:'none',cursor:'pointer',padding:4,flexShrink:0}} onClick={()=>startEditAth(a)}><I.Edit s={13} c="var(--muted)"/></button>
                     <button style={{background:'none',border:'none',cursor:'pointer',padding:4,flexShrink:0}} onClick={()=>removeAth(asi,a.id)}><I.Trash s={13} c="var(--red)"/></button>
                   </div>
-                );}}/>
+                  );}}/>
             }
           </div>
           {isSkillSeededStage&&(

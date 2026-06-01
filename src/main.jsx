@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './styles.css';
 import { LangCtx } from './i18n.js';
 import { storage } from './utils.js';
+import { authReady } from './config.js';
 import { HomeView } from './components/HomeView.jsx';
 import { CoordinatorView } from './components/CoordinatorView.jsx';
 import { JuryApp } from './components/JuryApp.jsx';
@@ -51,4 +52,7 @@ const App=()=>{
 };
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// Wait for the anonymous auth session before first render so every DB write (including
+// the direct db.ref().update() calls in the views) is authenticated under the `ogn`
+// rule. Falls back after 3s so the UI never hangs if auth is slow/unavailable.
+Promise.race([authReady, new Promise((res) => setTimeout(res, 3000))]).finally(() => root.render(<App />));

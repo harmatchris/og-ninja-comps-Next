@@ -538,7 +538,7 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
     const pin=window.prompt(lang==='de'?`PIN für Stage-Reset eingeben:`:`Enter PIN to reset stage:`);
     if(pin===null)return;
     if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN — Stage nicht zurückgesetzt.':'Wrong PIN — stage not reset.');return;}
-    const label=pipeStageId?(pipeline.find(s=>s.id===pipeStageId)?.name||pipeStageId):`Stage ${stN}`;
+    const label=pipeStageId?(pipelineData?.[pipeStageId]?.name||pipeStageId):`Stage ${stN}`;
     const delCount=completedRuns?Object.values(completedRuns).filter(r=>pipeStageId?(r.stageId===pipeStageId||(!r.stageId&&stN!=null&&String(r.stNum)===String(stN))):(String(r.stNum)===String(stN)||(r.catId===catId&&!r.stNum))).length:0;
     if(!window.confirm(lang==='de'?`${label} wirklich zurücksetzen?\n${delCount} Läufe werden gelöscht.`:`Really reset ${label}?\n${delCount} runs will be deleted.`))return;
     if(completedRuns){
@@ -768,18 +768,43 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
       await fbSet(`ogn/${compId}/pipeline/${stageId}/closed`,true);
       if(qualiPercent>0&&successors.length>0){
         const allRuns=completedRuns?Object.values(completedRuns):[];
+        // #fix: was `categoriesList` (never set anywhere) → explicit-category stages qualified 0 athletes
         const cats=pipelineStageCfg.categories==='all'
           ?[...new Set(allRuns.filter(r=>r.stageId===stageId).map(r=>r.catId))]
-          :(pipelineStageCfg.categoriesList||[]);
+          :(Array.isArray(pipelineStageCfg.categories)?pipelineStageCfg.categories:[]);
         const updates={};
-        cats.forEach(catId=>{
+        // Qualified athlete IDs per category, ranked best-first
+        const qualifiedByCat=cats.map(catId=>{
           const ranked=computeRankedPipeline(allRuns,catId,stageId);
           const {qualified}=computeQualifiedAthletes(ranked,qualiPercent,pipelineStageCfg.minPerDivision||0,athletes||{});
-          const qualSet=new Set(qualified);
-          successors.forEach(succ=>{
-            qualified.forEach(athId=>{
+          return qualified;
+        });
+        successors.forEach(succ=>{
+          // #correction-reseed: clear THIS predecessor's previously-qualified athletes from the
+          // successor before re-seeding. Without this, re-closing after a result correction leaves
+          // the displaced qualifier stranded in the successor (stale athlete + duplicate queueOrder).
+          // Only entries with qualifiedFrom===stageId are touched → multi-predecessor stages stay intact.
+          const prevSeeded=pipelineData?.[succ.id]?.athletes||{};
+          Object.entries(prevSeeded).forEach(([aid,a])=>{
+            if(a&&a.qualifiedFrom===stageId){
+              updates[`ogn/${compId}/pipeline/${succ.id}/athletes/${aid}`]=null;
+              updates[`ogn/${compId}/athletes/${aid}/pipelineQueueOrder/${succ.id}`]=null;
+            }
+          });
+          // #invert-seeding: when the successor is flagged, worst qualifier starts first (queueOrder 0),
+          // mirroring SkillPhaseView.generateSeeding ([...ranked].reverse()). queueOrder runs across all cats.
+          let qi=0;
+          qualifiedByCat.forEach(qualified=>{
+            const ordered=succ.invertSeeding?[...qualified].reverse():qualified;
+            ordered.forEach(athId=>{
               const a=(athletes||{})[athId]||{name:'?'};
-              updates[`ogn/${compId}/pipeline/${succ.id}/athletes/${athId}`]={...a,qualifiedFrom:stageId};
+              const entry={...a,qualifiedFrom:stageId};
+              if(succ.invertSeeding){
+                entry.queueOrder=qi;
+                updates[`ogn/${compId}/athletes/${athId}/pipelineQueueOrder/${succ.id}`]=qi;
+              }
+              updates[`ogn/${compId}/pipeline/${succ.id}/athletes/${athId}`]=entry;
+              qi++;
             });
           });
         });
@@ -829,6 +854,23 @@ const handleDeleteAth=async(a)=>{
     ?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0))
     :[];
   const numSt=isPipeline?pipelineStages.length:(info.numStations||0);
+  // #category-restrict (live): divisions actually participating in this comp (union of stage cats + skill-phase cats)
+  const participatingCatIds=(()=>{
+    const set=new Set();let anyAll=false;
+    if(isPipeline){
+      pipelineStages.forEach(s=>{
+        if(s.categories==='all'||!s.categories||(Array.isArray(s.categories)&&s.categories.length===0))anyAll=true;
+        else if(Array.isArray(s.categories))s.categories.forEach(c=>set.add(c));
+      });
+    } else anyAll=true; // legacy numbered stages: allow all
+    const sc=info?.skillPhase?.skillCategories;
+    if(info?.skillPhase?.enabled){
+      if(sc==='all'||!sc||(Array.isArray(sc)&&sc.length===0))anyAll=true;
+      else if(Array.isArray(sc))sc.forEach(c=>set.add(c));
+    }
+    return (anyAll||set.size===0)?IGN_CATS.map(c=>c.id):[...set];
+  })();
+  const participatingCats=IGN_CATS.filter(c=>participatingCatIds.includes(c.id));
   // compDone: alle Stages geschlossen → "Abgeschlossen"-Badge
   const stagesClosedCount=isPipeline
     ?pipelineStages.filter(p=>pipelineData?.[p.id]?.closed).length
@@ -939,7 +981,13 @@ const handleDeleteAth=async(a)=>{
             const stageName=pStage.name||`Stage ${stageLetter}`;
             const _cIds=pStage.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage.categories)?pStage.categories:[]);
             const _cs=new Set(_cIds);
-            const athsInStage=Object.values(athletes||{}).filter(a=>_cs.has(a.cat));
+            // Participants = athletes actually seeded into THIS stage (pipeline/{id}/athletes),
+            // which for continuation/quali stages is only the qualified subset — not every
+            // athlete in the categories. Fall back to category-pool only before seeding exists.
+            const _seededIds=Object.keys(pipelineData?.[stageKey]?.athletes||{});
+            const athsInStage=_seededIds.length>0
+              ?_seededIds.map(id=>(athletes||{})[id]).filter(Boolean)
+              :Object.values(athletes||{}).filter(a=>_cs.has(a.cat));
             const allRuns=completedRuns?Object.values(completedRuns):[];
             const stageRuns=allRuns.filter(r=>r.stageId===stageKey);
             const doneAthIds=new Set(stageRuns.map(r=>r.athleteId));
@@ -1229,8 +1277,8 @@ const handleDeleteAth=async(a)=>{
               <input value={quickAth.num} onChange={e=>setQuickAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:60,flexShrink:0}}/>
               <input value={quickAth.name} onChange={e=>setQuickAth(a=>({...a,name:e.target.value}))} placeholder={lang==='de'?'Name':'Name'} onKeyDown={e=>{if(e.key==='Enter')handleQuickAddAth();}} autoFocus/>
             </div>
-            <select value={quickAth.cat} onChange={e=>setQuickAth(a=>({...a,cat:e.target.value}))}>
-              {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
+            <select value={participatingCatIds.includes(quickAth.cat)?quickAth.cat:(participatingCatIds[0]||quickAth.cat)} onChange={e=>setQuickAth(a=>({...a,cat:e.target.value}))}>
+              {participatingCats.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
             </select>
             <div style={{display:'flex',gap:6}}>
               {[['m',lang==='de'?'M':'M'],['w',lang==='de'?'W':'W'],['d','D']].map(([v,lbl])=>(
@@ -1272,7 +1320,7 @@ const handleDeleteAth=async(a)=>{
                       </div>
                       <div style={{display:'flex',gap:6}}>
                         <select value={editAthDraft.cat} onChange={e=>setEditAthDraft(d=>({...d,cat:e.target.value}))} style={{flex:1,fontSize:12,padding:'5px 7px'}}>
-                          {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.id}</option>)}
+                          {(participatingCatIds.includes(editAthDraft.cat)?participatingCats:[...participatingCats,IGN_CATS.find(c=>c.id===editAthDraft.cat)].filter(Boolean)).map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.id}</option>)}
                         </select>
                         <select value={editAthDraft.gender||'m'} onChange={e=>setEditAthDraft(d=>({...d,gender:e.target.value}))} style={{width:70,fontSize:12,padding:'5px 7px'}}>
                           <option value="m">♂ m</option>
