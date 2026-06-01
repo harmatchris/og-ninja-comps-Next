@@ -28,19 +28,23 @@ const HomeView=({onOpen,lang,setLang})=>{
     setDupBusy(c.id);
     try{
       const newId=uid();
-      // Stages: closed-Flag zurücksetzen, sonst gilt die Kopie sofort als abgeschlossen
+      // Stages: closed-Flag + runtime-Felder entfernen (Frischstart)
       const cleanStages={};
       Object.entries(c.stages||{}).forEach(([k,v])=>{
         if(!v||typeof v!=='object')return;
         const {closed,...rest}=v;
         cleanStages[k]=rest;
       });
-      // Pipeline: gleiches Spiel + qualifizierte Athleten-Listen leeren (Frischstart)
+      // Pipeline: closed + runtime-Felder entfernen; Athleten aus cleanStages wiederherstellen
+      // (qualifizierte Athleten aus Folge-Stages werden bewusst geleert → Frischstart)
       const cleanPipeline={};
       Object.entries(c.pipeline||{}).forEach(([k,v])=>{
         if(!v||typeof v!=='object'||v.name==null)return;
-        const {closed,athletes:qualAths,...rest}=v;
-        cleanPipeline[k]=rest;
+        // Nur Konfig-Felder übernehmen, alle Runtime-Felder entfernen
+        const {closed,athletes:_qualAths,completedAthletes:_ca,...rest}=v;
+        // Athleten aus stages-Daten wiederherstellen (entspricht dem initialen Setup-Zustand)
+        const initialAthletes=(cleanStages[k]?.athletes)||null;
+        cleanPipeline[k]={...rest,athletes:initialAthletes};
       });
       const data={
         info:{...(c.info||{}),name:`${baseName} (Kopie)`,createdAt:Date.now()},
