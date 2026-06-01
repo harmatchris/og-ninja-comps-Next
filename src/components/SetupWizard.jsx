@@ -68,6 +68,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   const [athStage,setAthStage]=useState(0);
   const [newObs,setNewObs]=useState('');
   const [newAth,setNewAth]=useState({name:'',num:'1',cat:'am1',gender:'m',country:'',team:'',photo:null,stageNum:1});
+  const [editAthId,setEditAthId]=useState(null);   // #athlete-inline-edit
+  const [editAth,setEditAth]=useState(null);
   const [saving,setSaving]=useState(false);
   const [csvError,setCsvError]=useState('');
   const [showEmojiPicker,setShowEmojiPicker]=useState(false);
@@ -130,7 +132,9 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
     if(!newAth.name.trim())return;
     const idx=Math.min(athStage,Math.max(numSt-1,0));
     const stageNum=idx+1;
-    setStageAths(a=>{const n=[...a];n[idx]=[...n[idx],{id:uid(),...newAth,stageNum}];return n;});
+    const allowed=allowedAthCatIds(idx);                                   // #category-restrict
+    const cat=allowed.includes(newAth.cat)?newAth.cat:(allowed[0]||newAth.cat);
+    setStageAths(a=>{const n=[...a];n[idx]=[...n[idx],{id:uid(),...newAth,cat,stageNum}];return n;});
     acSave(AC_KEYS.names,newAth.name);
     if(newAth.team)acSave(AC_KEYS.teams,newAth.team);
     if(newAth.country)acSave(AC_KEYS.countries,newAth.country);
@@ -140,6 +144,18 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   };
   const removeAth=(idx,id)=>{setStageAths(a=>{const n=[...a];n[idx]=n[idx].filter(x=>x.id!==id);return n;});};
   const reorderAth=(idx,arr)=>{setStageAths(a=>{const na=[...a];na[idx]=arr;return na;});};
+  /* ── #athlete-inline-edit: correct a manually-entered athlete in place ── */
+  const startEditAth=(a)=>{setEditAthId(a.id);setEditAth({...a});SFX.click();};
+  const cancelEditAth=()=>{setEditAthId(null);setEditAth(null);};
+  const saveEditAth=(idx)=>{
+    if(!editAth||!editAth.name.trim()){cancelEditAth();return;}
+    const allowed=allowedAthCatIds(idx);                                   // #category-restrict
+    const cat=allowed.includes(editAth.cat)?editAth.cat:(allowed[0]||editAth.cat);
+    setStageAths(a=>{const n=[...a];n[idx]=(n[idx]||[]).map(x=>x.id===editAthId?{...x,...editAth,cat}:x);return n;});
+    if(editAth.team)acSave(AC_KEYS.teams,editAth.team);
+    if(editAth.country)acSave(AC_KEYS.countries,editAth.country);
+    setEditAthId(null);setEditAth(null);SFX.click();
+  };
 
   /* ── CSV import ── */
   const normalizeGender=raw=>{const g=(raw||'').trim().toLowerCase();if(['m','male'].includes(g))return 'm';if(['w','f','female'].includes(g))return 'w';if(['d','div','diverse'].includes(g))return 'd';return 'm';};
@@ -243,6 +259,37 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
   /* ── get flat list of all stages for obs/ath indexing ── */
   const flatStages=[];
   pipeline.forEach(s=>{flatStages.push(s);(s.continuations||[]).forEach(c=>flatStages.push(c));});
+
+  /* ── #category-restrict: only allow the stage's selected divisions when entering athletes ── */
+  const allowedAthCatIds=(stIdx)=>{
+    const stCats=flatStages[stIdx]?.categories;
+    return (!stCats||stCats==='all'||(Array.isArray(stCats)&&stCats.length===0))
+      ?IGN_CATS.map(c=>c.id)
+      :(Array.isArray(stCats)?stCats:[]);
+  };
+  const curAllowedCatIds=allowedAthCatIds(asi);
+  const curAllowedCats=IGN_CATS.filter(c=>curAllowedCatIds.includes(c.id));
+  // keep the "new athlete" division valid whenever the selected stage changes
+  useEffect(()=>{
+    if(curAllowedCatIds.length&&!curAllowedCatIds.includes(newAth.cat)){
+      setNewAth(a=>({...a,cat:curAllowedCatIds[0]}));
+    }
+  },[curAllowedCatIds.join(',')]);
+
+  /* ── #skill-seeded-hint: first-round stage whose divisions all run the skill phase → start order is auto-generated ── */
+  const _sp=info.skillPhase||{};
+  const _skillCatsAll=!_sp.skillCategories||_sp.skillCategories==='all'||(Array.isArray(_sp.skillCategories)&&_sp.skillCategories.length===0);
+  const _skillCatSet=_skillCatsAll?null:new Set(Array.isArray(_sp.skillCategories)?_sp.skillCategories:[]);
+  const _curStage=flatStages[asi];
+  const _curStageFirstRound=!!_curStage&&(!_curStage.predecessorStages||_curStage.predecessorStages.length===0);
+  const _curStageCatsInSkill=(()=>{
+    if(!_curStage)return false;
+    const cc=_curStage.categories;
+    const arr=(!cc||cc==='all')?IGN_CATS.map(c=>c.id):(Array.isArray(cc)?cc:[]);
+    if(!arr.length)return false;
+    return _skillCatsAll?true:arr.every(id=>_skillCatSet.has(id));
+  })();
+  const isSkillSeededStage=hasSkill&&_curStageFirstRound&&_curStageCatsInSkill;
 
   /* ── StageTabs ── */
   const StageTabs=({active,onChange})=>(
@@ -769,13 +816,21 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 );}}/>
             }
           </div>
+          {isSkillSeededStage&&(
+            <div style={{fontSize:11.5,lineHeight:1.45,color:'var(--cor)',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.25)',borderRadius:10,padding:'9px 12px',display:'flex',gap:8,alignItems:'flex-start'}}>
+              <span style={{fontSize:14,flexShrink:0}}>⚡</span>
+              <span>{lang==='de'
+                ?'Startreihenfolge wird automatisch aus den Skill-Resultaten generiert (Skill-Phase → „Seeding generieren"). Athleten hier nur erfassen – die Reihenfolge unten spielt keine Rolle.'
+                :'Start order is generated automatically from the skill results (Skill phase → "Generate seeding"). Just add athletes here – the order below does not matter.'}</span>
+            </div>
+          )}
           <div style={{...cardStyle,display:'flex',flexDirection:'column',gap:8}}>
             <div style={{display:'flex',gap:8}}>
               <input value={newAth.num} onChange={e=>setNewAth(a=>({...a,num:e.target.value}))} placeholder="#" style={{width:55,flexShrink:0}}/>
               <AutocompleteInput acKey={AC_KEYS.names} value={newAth.name} onChange={e=>setNewAth(a=>({...a,name:e.target.value}))} placeholder={t('athName')} onKeyDown={e=>{if(e.key==='Enter')addAth();}} profileKey='ogn-ac-profiles' onSelectFull={({profile})=>{if(profile?.country)setNewAth(a=>({...a,country:profile.country}));if(profile?.team)setNewAth(a=>({...a,team:profile.team}));if(profile?.photo)setNewAth(a=>({...a,photo:profile.photo}));}}/>
             </div>
-            <select value={newAth.cat} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
-              {IGN_CATS.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
+            <select value={curAllowedCatIds.includes(newAth.cat)?newAth.cat:(curAllowedCatIds[0]||newAth.cat)} onChange={e=>setNewAth(a=>({...a,cat:e.target.value}))}>
+              {curAllowedCats.map(c=><option key={c.id} value={c.id}>{c.name[lang]||c.name.de}</option>)}
             </select>
             <div style={{display:'flex',gap:8}}>
               <AutocompleteInput acKey={AC_KEYS.countries} value={newAth.country||''} onChange={e=>setNewAth(a=>({...a,country:e.target.value.toUpperCase().slice(0,3)}))} placeholder={`${toFlag('CH')} Land`} style={{flex:1}}/>
