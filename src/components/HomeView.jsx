@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
-import { fbRemove } from '../config.js';
+import { fbRemove, fbSet } from '../config.js';
 import { useFbVal, SFX } from '../hooks.js';
-import { isUnlocked } from '../utils.js';
+import { isUnlocked, uid } from '../utils.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, CompEmoji } from './shared.jsx';
 import { SetupWizard } from './SetupWizard.jsx';
@@ -16,8 +16,52 @@ const HomeView=({onOpen,lang,setLang})=>{
   const [showRulebook,setShowRulebook]=useState(false);
   const [pendingComp,setPendingComp]=useState(null); // Comp wartet auf Passwort
   const [query,setQuery]=useState('');
+  const [dupBusy,setDupBusy]=useState(null); // id of comp currently being duplicated
+  const [toast,setToast]=useState('');
   // Klick auf Karte: schon entsperrt → direkt öffnen, sonst Passwort-Gate
   const tryOpen=(c)=>{ if(isUnlocked(c.id,c)){onOpen(c.id);} else {setPendingComp(c);} };
+  // Wettkampf duplizieren: struktureller Kopie ohne Läufe/Live-State, "(Kopie)" am Namen
+  const duplicate=async(c)=>{
+    const baseName=c.info?.name||'Wettkampf';
+    if(!window.confirm(lang==='de'?`"${baseName}" als Kopie duplizieren?\n\nAthleten, Hindernisse und Stages werden übernommen — Läufe und Live-Daten nicht.`:`Duplicate "${baseName}" as copy?\n\nAthletes, obstacles and stages are copied — runs and live data are not.`))return;
+    SFX.click?.();
+    setDupBusy(c.id);
+    try{
+      const newId=uid();
+      // Stages: closed-Flag zurücksetzen, sonst gilt die Kopie sofort als abgeschlossen
+      const cleanStages={};
+      Object.entries(c.stages||{}).forEach(([k,v])=>{
+        if(!v||typeof v!=='object')return;
+        const {closed,...rest}=v;
+        cleanStages[k]=rest;
+      });
+      // Pipeline: gleiches Spiel + qualifizierte Athleten-Listen leeren (Frischstart)
+      const cleanPipeline={};
+      Object.entries(c.pipeline||{}).forEach(([k,v])=>{
+        if(!v||typeof v!=='object'||v.name==null)return;
+        const {closed,athletes:qualAths,...rest}=v;
+        cleanPipeline[k]=rest;
+      });
+      const data={
+        info:{...(c.info||{}),name:`${baseName} (Kopie)`,createdAt:Date.now()},
+        obstacles:c.obstacles||null,
+        athletes:c.athletes||null,
+        stages:Object.keys(cleanStages).length?cleanStages:null,
+      };
+      if(Object.keys(cleanPipeline).length)data.pipeline=cleanPipeline;
+      // completedRuns, activeRuns, stations, skillScores, skillPhaseStatus werden bewusst NICHT übernommen
+      await fbSet(`ogn/${newId}`,data);
+      SFX.complete?.();
+      setToast(lang==='de'?`Kopie "${baseName} (Kopie)" erstellt`:`Copy "${baseName} (Kopie)" created`);
+      setTimeout(()=>setToast(''),2800);
+    }catch(e){
+      SFX.fall?.();
+      setToast(lang==='de'?`Fehler beim Duplizieren: ${e?.message||e}`:`Duplicate failed: ${e?.message||e}`);
+      setTimeout(()=>setToast(''),3500);
+    }finally{
+      setDupBusy(null);
+    }
+  };
   if(creating)return<SetupWizard onDone={id=>{setCreating(false);onOpen(id);}} onBack={()=>setCreating(false)}/>;
   if(showRulebook)return<div style={{minHeight:'100vh'}}><TopBar title={t('rulebook')} onBack={()=>{SFX.click();setShowRulebook(false)}} right={<button className="btn btn-ghost" style={{padding:'5px 11px',fontSize:12,fontWeight:700}} onClick={()=>setLang(lang==='de'?'en':'de')}>{t('lang')}</button>}/><LangCtx.Provider value={lang}><Regelwerk/></LangCtx.Provider></div>;
   const list=comps?Object.entries(comps).map(([id,v])=>({id,...v})).sort((a,b)=>(b.info?.createdAt||0)-(a.info?.createdAt||0)):[];
@@ -66,6 +110,14 @@ const HomeView=({onOpen,lang,setLang})=>{
               <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{c.info?.date||''}{c.info?.location?` · ${c.info.location}`:''}</div>
             </div>
             <div style={{fontSize:9,fontFamily:'JetBrains Mono',padding:'2px 7px',borderRadius:7,background:'rgba(255,94,58,.12)',color:'var(--cor)',letterSpacing:'.08em',flexShrink:0}}>{c.id}</div>
+            {/* Duplizieren */}
+            <button title={lang==='de'?'Als Kopie duplizieren':'Duplicate as copy'} disabled={dupBusy===c.id}
+              style={{background:'none',border:'none',cursor:dupBusy===c.id?'wait':'pointer',padding:'5px',display:'flex',flexShrink:0,borderRadius:8,opacity:dupBusy===c.id?.4:1}}
+              onClick={e=>{e.stopPropagation();duplicate(c);}}>
+              {dupBusy===c.id
+                ?<span className="inline-spinner" style={{width:12,height:12}}/>
+                :<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>}
+            </button>
             <button style={{background:'none',border:'none',cursor:'pointer',padding:'5px',display:'flex',flexShrink:0,borderRadius:8}}
               onClick={e=>{e.stopPropagation();if(window.confirm(`"${c.info?.name||c.id}" wirklich löschen?\n\nAlle Daten werden permanent gelöscht.`)){fbRemove(`ogn/${c.id}`);SFX.fall();}}}>
               <I.Trash s={13} c="rgba(255,59,48,.45)"/>
@@ -75,6 +127,7 @@ const HomeView=({onOpen,lang,setLang})=>{
         })}
       </div>
       {pendingComp&&<PasswordModal comp={pendingComp} onUnlock={()=>{const id=pendingComp.id;setPendingComp(null);onOpen(id);}} onCancel={()=>setPendingComp(null)}/>}
+      {toast&&<div style={{position:'fixed',bottom:'calc(24px + env(safe-area-inset-bottom,0px))',left:'50%',transform:'translateX(-50%)',zIndex:300,background:'rgba(52,199,89,.95)',color:'#fff',padding:'10px 18px',borderRadius:'var(--radius-full)',fontSize:13,fontWeight:700,boxShadow:'var(--shadow-lg)',display:'flex',alignItems:'center',gap:8,maxWidth:'90vw'}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{toast}</span></div>}
     </div>
   );
 };
