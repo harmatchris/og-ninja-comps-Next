@@ -106,15 +106,36 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes ninjaGlow{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
         @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
       `}</style>
-      <defs><filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      <defs>
+        <filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        {/* Body sheen: top-lit highlight → core colour → grounded shadow, for a 3D feel */}
+        <linearGradient id={`sheen-${fid}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity=".55"/>
+          <stop offset="42%" stopColor="#fff" stopOpacity=".06"/>
+          <stop offset="100%" stopColor="#000" stopOpacity=".32"/>
+        </linearGradient>
+        {/* Soft directional halo */}
+        <radialGradient id={`halo-${fid}`} cx="50%" cy="42%" r="58%">
+          <stop offset="0%" stopColor={color} stopOpacity=".5"/>
+          <stop offset="100%" stopColor={color} stopOpacity="0"/>
+        </radialGradient>
+      </defs>
       {/* Rope — visible only during swing recovery */}
       {swinging&&<line x1={size/2} y1={-size*4} x2={size/2} y2={size*.15} stroke="#C8A96E" strokeWidth="1.5" strokeLinecap="round" opacity=".7" style={{animation:`ropeAppear-${rid} 4s ease-in-out forwards`}}/>}
-      {/* glow */}
-      <circle cx={size/2} cy={size*.5} r={size*.6} fill="none" stroke={color} strokeWidth="2.5" opacity=".25" style={{animation:'ninjaGlow 1s ease-in-out infinite'}} filter={`url(#${fid})`}/>
-      <circle cx={size/2} cy={size*.5} r={size*.4} fill={color} opacity=".1" filter={`url(#${fid})`}/>
-      {/* Athlete silhouette */}
+      {/* Soft halo */}
+      <ellipse cx={size/2} cy={size*.45} rx={size*.72} ry={size*.64} fill={`url(#halo-${fid})`} style={{animation:'ninjaGlow 1.4s ease-in-out infinite'}}/>
+      {/* Ground shadow */}
+      <ellipse cx={size/2} cy={size*.99} rx={size*(isRunning?.36:.3)} ry={size*.085} fill="rgba(0,0,0,.42)" style={{filter:`url(#${fid})`}}/>
+      {/* Motion trail — fading afterimages of the prior frames while running */}
+      {isRunning&&[2,1].map(k=>(
+        <g key={k} transform={`translate(${-k*size*.2},0) scale(${sc})`} opacity={.14*(3-k)}>
+          <path d={frames[(frame-k+4)%4]} fill={color}/>
+        </g>
+      ))}
+      {/* Athlete silhouette — core colour + rim light + gradient sheen */}
       <g transform={`scale(${sc})`}>
-        <path d={silhouette} fill={color} stroke="rgba(0,0,0,.3)" strokeWidth="1" strokeLinejoin="round"/>
+        <path d={silhouette} fill={color} stroke="rgba(255,255,255,.5)" strokeWidth="2.5" strokeLinejoin="round"/>
+        <path d={silhouette} fill={`url(#sheen-${fid})`}/>
       </g>
       {/* Hearts for lives */}
       {livesLeft>=999
@@ -241,8 +262,8 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
   const countdownNum=isCountdown?(lr.countdown||3):0;
   return<>
-    {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?28:20} name={lr.bestRunName||'Best'} ahead={!runnerLeads} catId={lr.catId}/>}
-    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?36:24} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId}/>
+    {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?34:24} name={lr.bestRunName||'Best'} ahead={!runnerLeads} catId={lr.catId}/>}
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?46:32} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId}/>
     {/* Big countdown number above ninja */}
     {isCountdown&&(
       <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
