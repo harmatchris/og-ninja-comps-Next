@@ -21,6 +21,9 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const [searchQ,setSearchQ]=useState('');
   const [showSkillMgmt,setShowSkillMgmt]=useState(false);
   const [now,setNow]=useState(Date.now());
+  const [resetFlash,setResetFlash]=useState(null); // athId briefly highlighted after a long-press reset
+  const lpTimerRef=useRef(null);     // long-press timer
+  const lpStartRef=useRef(null);     // pointer start coords (to cancel the press on scroll)
 
   // Timer state from Firebase
   const timerStartedAt=skillStatus?.timerStartedAt||null;
@@ -205,6 +208,32 @@ const SkillPhaseView=({compId,info,athletes})=>{
     await fbSet(`ogn/${compId}/skillScores/${athId}/${skillId}/a${attempt}`,success);
     SFX.checkpoint();
   };
+
+  // Reset a single athlete's score for the CURRENTLY selected skill back to 0 (unscored).
+  // Works at any time — even mid-attempt — triggered by a long-press on the athlete's name.
+  // Deleting the node is exactly what the existing "Reset" link does; this just makes it
+  // reachable as a gesture from every scoring state, not only when the athlete is "done".
+  const resetAthleteSkill=async(athId)=>{
+    if(!selSkill)return;
+    if(scoringLocked){tryUnlockScoring();return;}
+    await fbSet(`ogn/${compId}/skillScores/${athId}/${selSkill}`,null);
+    if(navigator.vibrate)navigator.vibrate([60,40,60]);
+    setResetFlash(athId);
+    setTimeout(()=>setResetFlash(f=>(f===athId?null:f)),1400);
+    SFX.fall();
+  };
+  // Long-press plumbing (pointer events = mouse + touch). A 600ms hold fires the reset;
+  // a >10px move (i.e. the start of a scroll) cancels it so list scrolling still works.
+  const lpStart=(athId,e)=>{
+    lpStartRef.current={x:e.clientX,y:e.clientY};
+    clearTimeout(lpTimerRef.current);
+    lpTimerRef.current=setTimeout(()=>{lpTimerRef.current=null;resetAthleteSkill(athId);},600);
+  };
+  const lpMove=(e)=>{
+    if(!lpTimerRef.current||!lpStartRef.current)return;
+    if(Math.abs(e.clientX-lpStartRef.current.x)>10||Math.abs(e.clientY-lpStartRef.current.y)>10){clearTimeout(lpTimerRef.current);lpTimerRef.current=null;}
+  };
+  const lpCancel=()=>{clearTimeout(lpTimerRef.current);lpTimerRef.current=null;};
 
   const getAttemptResult=(athId,skillId)=>{
     const s=skillScores?.[athId]?.[skillId];
@@ -471,15 +500,21 @@ const SkillPhaseView=({compId,info,athletes})=>{
               </div>
               <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>{catAths.length} {lang==='de'?'Athleten':'Athletes'} · {catAths.filter(a=>{const r=getAttemptResult(a.id,selSkill);return r.result!=null;}).length} {lang==='de'?'bewertet':'scored'}</div>
               <input placeholder={lang==='de'?'Suche nach Name oder #...':'Search by name or #...'} value={searchQ} onChange={e=>setSearchQ(e.target.value)} style={{width:'100%',padding:'10px 14px',borderRadius:10,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',fontSize:14,color:'var(--text)',boxSizing:'border-box'}}/>
+              <div style={{fontSize:10,color:'var(--dim)',marginTop:6,display:'flex',alignItems:'center',gap:4}}><I.RefreshCw s={10}/> {lang==='de'?'Tipp: Lange auf einen Namen drücken, um die Wertung zurückzusetzen':'Tip: long-press a name to reset its score'}</div>
             </div>
             {catAths.filter(a=>{if(!searchQ.trim())return true;const q=searchQ.toLowerCase();return a.name?.toLowerCase().includes(q)||String(a.num).includes(q);}).map(a=>{
               const res=getAttemptResult(a.id,selSkill);
               const done=res.result==='pass'||res.tries===3;
               return(
-                <div key={a.id} style={{padding:'8px 0',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8}}>
-                  <div style={{flex:1}}>
+                <div key={a.id} style={{padding:'8px 6px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:8,background:resetFlash===a.id?'rgba(255,149,0,.12)':'transparent',borderRadius:resetFlash===a.id?8:0,transition:'background .35s ease'}}>
+                  <div style={{flex:1,cursor:'pointer',userSelect:'none',WebkitUserSelect:'none',WebkitTouchCallout:'none',touchAction:'pan-y'}}
+                    onPointerDown={e=>lpStart(a.id,e)} onPointerMove={lpMove} onPointerUp={lpCancel} onPointerLeave={lpCancel} onPointerCancel={lpCancel}
+                    onContextMenu={e=>e.preventDefault()}
+                    title={lang==='de'?'Lange drücken → Wertung zurücksetzen':'Long-press → reset score'}>
                     <div style={{fontSize:13,fontWeight:600}}>{a.name}</div>
-                    <div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}</div>
+                    {resetFlash===a.id
+                      ?<div style={{fontSize:10,color:'#FF9500',fontWeight:700,display:'flex',alignItems:'center',gap:3}}><I.RefreshCw s={10} c="#FF9500"/> {lang==='de'?'zurückgesetzt':'reset'}</div>
+                      :<div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}</div>}
                   </div>
                   {done?(
                     <div style={{textAlign:'right'}}>
