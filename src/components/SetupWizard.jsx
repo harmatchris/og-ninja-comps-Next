@@ -714,16 +714,26 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   <div style={{fontSize:11,fontWeight:600,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Hindernisse':'Obstacles'} ({(stageObs[flatIdx]||[]).length})</div>
                   <div style={{maxHeight:180,overflowY:'auto',marginBottom:6}}>
                     <DragList items={stageObs[flatIdx]||[]} onReorder={arr=>{setStageObs(s=>{const n=[...s];n[flatIdx]=arr.map((o,i)=>({...o,order:i}));return n;});}} keyFn={o=>o.id}
-                      renderItem={(o,i)=>(
-                        <div style={{padding:'7px 10px',display:'flex',alignItems:'center',gap:6}}>
+                      renderItem={(o,i)=>{
+                        const isSec=o.type==='section'||isPlatName(o.name);
+                        const setObsField=(field,val)=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].map(x=>x.id===o.id?{...x,[field]:val}:x);return n;});};
+                        return(
+                        <div style={{padding:'7px 10px',display:'flex',alignItems:'center',gap:6,...(isSec?{background:'rgba(52,199,89,.08)',borderRadius:8,border:'1px solid rgba(52,199,89,.25)'}:{})}}>
                           <div className="drag-handle"><I.Drag s={14}/></div>
                           <div style={{fontSize:10,color:'var(--muted)',minWidth:16,fontFamily:'JetBrains Mono'}}>{i+1}</div>
-                          <div style={{flex:1,fontSize:12,fontWeight:500}}>{o.name}</div>
-                          <button className={`chip${o.isCP?' active':''}`} style={{padding:'1px 7px',fontSize:9}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].map(x=>x.id===o.id?{...x,isCP:!x.isCP}:x);return n;});}}>CP</button>
+                          {isSec?(<>
+                            <div style={{flex:1,fontSize:12,fontWeight:700,color:'var(--green)',display:'flex',alignItems:'center',gap:5,minWidth:0}}><span>▮</span><span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{o.name||'Plattform'}</span></div>
+                            <label style={{fontSize:9,color:'var(--muted)',display:'flex',alignItems:'center',gap:2}} title={lang==='de'?'Leben-Auffüllung an dieser Plattform (leer = ∞)':'Lives refilled at this platform (empty = ∞)'}>♥<input type="number" min={0} max={9} value={o.lives??''} placeholder="∞" onChange={e=>setObsField('lives',e.target.value===''?null:Math.max(0,Number(e.target.value)||0))} style={{width:32,textAlign:'center',fontSize:11,padding:'3px',fontFamily:'JetBrains Mono'}}/></label>
+                            <label style={{fontSize:9,color:'var(--muted)',display:'flex',alignItems:'center',gap:2}} title={lang==='de'?'Pausenzeit auf der Plattform (Sekunden)':'Rest time on the platform (seconds)'}>⏸<input type="number" min={0} max={120} value={o.restTime??0} onChange={e=>setObsField('restTime',Math.max(0,Number(e.target.value)||0))} style={{width:32,textAlign:'center',fontSize:11,padding:'3px',fontFamily:'JetBrains Mono'}}/>s</label>
+                          </>):(<>
+                            <div style={{flex:1,fontSize:12,fontWeight:500}}>{o.name}</div>
+                            <button className={`chip${o.isCP?' active':''}`} style={{padding:'1px 7px',fontSize:9}} onClick={()=>setObsField('isCP',!o.isCP)}>CP</button>
+                          </>)}
                           <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} title={lang==='de'?'Duplizieren':'Duplicate'} onClick={()=>{setStageObs(s=>{const n=[...s];const clone={...o,id:uid(),name:o.name+' (2)'};n[flatIdx]=[...n[flatIdx].slice(0,i+1),clone,...n[flatIdx].slice(i+1)].map((x,j)=>({...x,order:j}));return n;});SFX.click();}}><I.Copy s={12} c="var(--muted)"/></button>
                           <button style={{background:'none',border:'none',cursor:'pointer',padding:3}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=n[flatIdx].filter(x=>x.id!==o.id);return n;});}}><I.Trash s={12} c="var(--red)"/></button>
                         </div>
-                      )}/>
+                        );
+                      }}/>
                   </div>
                   <div style={{display:'flex',gap:6,alignItems:'center'}}>
                     <input value={obsStage===flatIdx?newObs:''} onChange={e=>{setObsStage(flatIdx);setNewObs(e.target.value);}} onFocus={()=>setObsStage(flatIdx)} placeholder={lang==='de'?'Hindernis...':'Obstacle...'} onKeyDown={e=>{if(e.key==='Enter'&&newObs.trim()){setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:newObs.trim(),isCP:true,order:n[flatIdx].length}];return n;});setNewObs('');SFX.click();}}} style={{flex:1,fontSize:12,padding:'8px 10px'}}/>
@@ -731,9 +741,9 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   </div>
                   {/* #6 Section-flag quick-add: Platform marker (life refill section boundary) */}
                   <div style={{marginTop:6}}>
-                    <button style={{width:'100%',padding:'8px 12px',borderRadius:10,border:'1px dashed rgba(52,199,89,.4)',background:'rgba(52,199,89,.06)',color:'var(--green)',cursor:'pointer',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:7}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:'Platform',type:'section',isCP:false,order:n[flatIdx].length,restTime:10}];return n;});SFX.click();}}>
+                    <button style={{width:'100%',padding:'8px 12px',borderRadius:10,border:'1px dashed rgba(52,199,89,.4)',background:'rgba(52,199,89,.06)',color:'var(--green)',cursor:'pointer',fontSize:12,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',gap:7}} onClick={()=>{setStageObs(s=>{const n=[...s];n[flatIdx]=[...n[flatIdx],{id:uid(),name:'Plattform '+((n[flatIdx]||[]).filter(o=>o.type==='section'||isPlatName(o.name)).length+1),type:'section',isCP:false,order:n[flatIdx].length,restTime:10,lives:(mainStg.livesPerSection||3)}];return n;});SFX.click();}}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="16" width="20" height="4" rx="1.5"/><path d="M12 4v8M8 8l4-4 4 4"/></svg>
-                      {lang==='de'?'+ Platform (Sektionsgrenze)':'+ Platform (section boundary)'}
+                      {lang==='de'?'+ Plattform (Sektionsgrenze, füllt Leben auf)':'+ Platform (section boundary, refills lives)'}
                     </button>
                   </div>
                 </>)}
