@@ -5,6 +5,9 @@ import { uid, toFlag } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 
+// Division groups — the scoring list is filtered by these instead of by all 8 categories.
+const GROUP_CATS={LK1:['km1','kw1','tm1','tw1'],LK2:['km2','kw2','tm2','tw2']};
+
 const SkillPhaseView=({compId,info,athletes})=>{
   const {lang}=useLang();
   const skillPhase=info?.skillPhase||{};
@@ -24,73 +27,86 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const [resetFlash,setResetFlash]=useState(null); // athId briefly highlighted after a long-press reset
   const lpTimerRef=useRef(null);     // long-press timer
   const lpStartRef=useRef(null);     // pointer start coords (to cancel the press on scroll)
+  const [selGroup,setSelGroup]=useState(null);        // 'LK1' | 'LK2' | 'all' — scoring-list division filter
+  const [countdownGroup,setCountdownGroup]=useState(null); // which group's timer the 10s countdown will start
+  const [adminUnlocked,setAdminUnlocked]=useState(false);  // PIN gate for Seeding / Finalize
+  const [scoringUnlocked,setScoringUnlocked]=useState({}); // {gid:true} — unlock scoring after that group's timer expired
 
-  // Timer state from Firebase
-  const timerStartedAt=skillStatus?.timerStartedAt||null;
-  const timerMin=skillPhase.timerMin||(skillPhase.timerHrs?skillPhase.timerHrs*60:0);
-  const timerDurationMs=timerMin*60000;
-  const timerPaused=!!skillStatus?.paused;
-  const pausedAt=skillStatus?.pausedAt||0;
-  const pausedTotal=skillStatus?.pausedTotal||0;
-  const timerStarted=!!timerStartedAt&&timerMin>0;
-  // Effective elapsed = now - startedAt - totalPausedTime - (if currently paused, time since pause start)
-  const currentPauseDur=timerPaused&&pausedAt?(now-pausedAt):0;
-  const timerElapsed=timerStarted?(now-timerStartedAt-pausedTotal-currentPauseDur):0;
-  const timerRemaining=timerStarted?Math.max(0,timerDurationMs-timerElapsed):timerDurationMs;
-  const timerExpired=timerStarted&&!timerPaused&&timerRemaining<=0;
-  // Scoring allowed = timer not expired (or no timer), unlockable with code after expiry
-  const [scoringUnlocked,setScoringUnlocked]=useState(false);
-  const scoringLocked=timerExpired&&!scoringUnlocked;
-  const tryUnlockScoring=()=>{
+  // ── Timers — LK1 and LK2 run in parallel and are started independently. ──
+  // State lives under skillPhaseStatus/timers/{LK1|LK2}; the duration falls back to the
+  // configured skillPhase.timerMin but can be overridden per group (durationMin).
+  const timerMinBase=skillPhase.timerMin||(skillPhase.timerHrs?skillPhase.timerHrs*60:0);
+  const timers=skillStatus?.timers||{};
+  const groupDurMin=(gid)=>{const d=timers?.[gid]?.durationMin;return (d===0||d)?d:timerMinBase;};
+  const deriveTimer=(gid)=>{
+    const t=timers?.[gid]||{};
+    const durMin=groupDurMin(gid);
+    const durMs=durMin*60000;
+    const startedAt=t.timerStartedAt||null;
+    const paused=!!t.paused;
+    const pausedAt=t.pausedAt||0;
+    const pausedTotal=t.pausedTotal||0;
+    const started=!!startedAt&&durMin>0;
+    const curPause=paused&&pausedAt?(now-pausedAt):0;
+    const elapsed=started?(now-startedAt-pausedTotal-curPause):0;
+    const remaining=started?Math.max(0,durMs-elapsed):durMs;
+    const expired=started&&!paused&&remaining<=0;
+    return {gid,durMin,durMs,startedAt,paused,pausedAt,pausedTotal,started,elapsed,remaining,expired};
+  };
+  const tryUnlockScoring=(gid)=>{
     const code=window.prompt(lang==='de'?'Code eingeben um Eingabe nach Zeitablauf zu entsperren:':'Enter code to unlock scoring after time expired:');
-    if(code==='2021'){setScoringUnlocked(true);SFX.complete();}
+    if(code==='2021'){setScoringUnlocked(u=>({...u,[gid]:true}));SFX.complete();}
     else if(code!==null){window.alert(lang==='de'?'Falscher Code':'Wrong code');SFX.fall();}
   };
 
+  // Tick once a second while any group timer is actively running.
+  const tickKey=['LK1','LK2'].map(gid=>{const t=timers[gid]||{};return `${gid}:${t.timerStartedAt||0}:${t.paused?1:0}:${t.durationMin??''}`;}).join('|');
   useEffect(()=>{
-    if(!timerStarted||timerExpired||timerPaused)return;
+    const run=['LK1','LK2'].some(gid=>{const T=deriveTimer(gid);return T.started&&!T.paused&&!T.expired;});
+    if(!run)return;
     const iv=setInterval(()=>setNow(Date.now()),1000);
     return()=>clearInterval(iv);
-  },[timerStarted,timerExpired,timerPaused]);
+  },[tickKey]);
 
-  // Auto-fail unattempted skills when timer expires
+  // When a group's timer expires, auto-score its still-untouched skills as 0 (once per group).
+  const lk1Expired=deriveTimer('LK1').expired, lk2Expired=deriveTimer('LK2').expired;
   useEffect(()=>{
-    if(!timerExpired||!athletes||skillStatus?.autoFailed)return;
-    const updates={};
-    athList.forEach(a=>{
-      skills.forEach(sk=>{
-        const sc=skillScores?.[a.id]?.[sk.id];
-        if(!sc||(!sc.completed&&(sc.attempts||0)===0)){
-          updates[`ogn/${compId}/skillScores/${a.id}/${sk.id}`]={attempts:0,completed:false,flashed:false,poolScore:0,autoFailed:true};
-        }
+    if(!athletes)return;
+    ['LK1','LK2'].forEach(gid=>{
+      const T=deriveTimer(gid);
+      if(!T.started||!T.expired||timers?.[gid]?.autoFailed)return;
+      const gCats=GROUP_CATS[gid];
+      const updates={};
+      athList.filter(a=>gCats.includes(a.cat)).forEach(a=>{
+        skills.forEach(sk=>{
+          const sc=skillScores?.[a.id]?.[sk.id];
+          if(sc==null){ // only fill in completely untouched skills — never overwrite a recorded attempt
+            updates[`ogn/${compId}/skillScores/${a.id}/${sk.id}`]=isOldschool?{a1:false,a2:false,a3:false,autoFailed:true}:{attempts:0,completed:false,flashed:false,poolScore:0,autoFailed:true};
+          }
+        });
       });
+      if(Object.keys(updates).length)db.ref().update(updates);
+      fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/autoFailed`,true);
     });
-    if(Object.keys(updates).length){
-      const batch={};Object.entries(updates).forEach(([p,v])=>{batch[p]=v;});
-      db.ref().update(batch);
-      fbSet(`ogn/${compId}/skillPhaseStatus/autoFailed`,true);
-    }
-  },[timerExpired]);
+  },[lk1Expired,lk2Expired]);
 
   const [countdown,setCountdown]=useState(null); // 10..1..GO
 
-  const startTimer=()=>{
-    setCountdown(10);
-    SFX.click();
-  };
+  const startTimer=(gid)=>{ setCountdownGroup(gid); setCountdown(10); SFX.click(); };
 
-  const pauseTimer=async()=>{
-    await fbSet(`ogn/${compId}/skillPhaseStatus/paused`,true);
-    await fbSet(`ogn/${compId}/skillPhaseStatus/pausedAt`,Date.now());
+  const pauseTimer=async(gid)=>{
+    await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/paused`,true);
+    await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/pausedAt`,Date.now());
     SFX.fall();
   };
 
-  const resumeTimer=async()=>{
-    const pauseDuration=Date.now()-(skillStatus?.pausedAt||Date.now());
-    const newTotal=(skillStatus?.pausedTotal||0)+pauseDuration;
-    await fbSet(`ogn/${compId}/skillPhaseStatus/pausedTotal`,newTotal);
-    await fbSet(`ogn/${compId}/skillPhaseStatus/paused`,false);
-    await fbSet(`ogn/${compId}/skillPhaseStatus/pausedAt`,null);
+  const resumeTimer=async(gid)=>{
+    const t=timers?.[gid]||{};
+    const pauseDuration=Date.now()-(t.pausedAt||Date.now());
+    const newTotal=(t.pausedTotal||0)+pauseDuration;
+    await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/pausedTotal`,newTotal);
+    await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/paused`,false);
+    await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/pausedAt`,null);
     SFX.checkpoint();
   };
 
@@ -98,10 +114,14 @@ const SkillPhaseView=({compId,info,athletes})=>{
   useEffect(()=>{
     if(countdown===null)return;
     if(countdown<=0){
-      // GO! — loud horn, start the actual timer
+      // GO! — loud horn, start the selected group's timer fresh
       SFX.complete();
-      fbSet(`ogn/${compId}/skillPhaseStatus/timerStartedAt`,Date.now());
-      setCountdown(null);
+      const gid=countdownGroup||'LK1';
+      fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/timerStartedAt`,Date.now());
+      fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/pausedTotal`,0);
+      fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/paused`,false);
+      fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/autoFailed`,null);
+      setCountdown(null); setCountdownGroup(null);
       return;
     }
     // Beep each second
@@ -131,6 +151,22 @@ const SkillPhaseView=({compId,info,athletes})=>{
   // Auto-select first skill and first category
   useEffect(()=>{if(skills.length>0&&!selSkill)setSelSkill(skills[0].id);},[skills.length]);
   useEffect(()=>{if(cats.length>0&&!selCat)setSelCat(cats[0]);},[cats.length]);
+
+  // ── Division groups for the scoring list: LK1 / LK2 / Alle (instead of all 8 cats) ──
+  const hasLK1=cats.some(c=>GROUP_CATS.LK1.includes(c));
+  const hasLK2=cats.some(c=>GROUP_CATS.LK2.includes(c));
+  const groups=[];
+  if(hasLK1)groups.push({id:'LK1',label:'LK1',cats:GROUP_CATS.LK1.filter(c=>cats.includes(c))});
+  if(hasLK2)groups.push({id:'LK2',label:'LK2',cats:GROUP_CATS.LK2.filter(c=>cats.includes(c))});
+  if(cats.length)groups.push({id:'all',label:lang==='de'?'Alle':'All',cats});
+  useEffect(()=>{if(groups.length&&!selGroup)setSelGroup(groups[0].id);},[groups.length]);
+  const activeGroup=selGroup||groups[0]?.id||'all';
+  const activeGroupObj=groups.find(g=>g.id===activeGroup)||{cats,label:lang==='de'?'Alle':'All'};
+  const activeGroupCats=activeGroupObj.cats;
+  const activeGroupLabel=activeGroupObj.label;
+  // Scoring lock follows the selected group's own timer (no lock in the combined 'Alle' view).
+  const activeTimer=activeGroup==='all'?null:deriveTimer(activeGroup);
+  const scoringLocked=!!(activeTimer&&activeTimer.expired&&!scoringUnlocked[activeGroup]);
 
   // Difficulty multipliers
   const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
@@ -204,7 +240,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
   };
 
   const setAttempt=async(athId,skillId,attempt,success)=>{
-    if(scoringLocked){tryUnlockScoring();return;}
+    if(scoringLocked){tryUnlockScoring(activeGroup);return;}
     await fbSet(`ogn/${compId}/skillScores/${athId}/${skillId}/a${attempt}`,success);
     SFX.checkpoint();
   };
@@ -215,7 +251,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
   // reachable as a gesture from every scoring state, not only when the athlete is "done".
   const resetAthleteSkill=async(athId)=>{
     if(!selSkill)return;
-    if(scoringLocked){tryUnlockScoring();return;}
+    if(scoringLocked){tryUnlockScoring(activeGroup);return;}
     await fbSet(`ogn/${compId}/skillScores/${athId}/${selSkill}`,null);
     if(navigator.vibrate)navigator.vibrate([60,40,60]);
     setResetFlash(athId);
@@ -294,7 +330,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
             <div style={{fontSize:11,color:'var(--muted)'}}>
               {isOldschool?(lang==='de'?'Jury-Modus — Versuche werden eingetragen':'Jury mode — attempts recorded'):'Boulderstyle — Athleten tragen selbst ein'}
               {' · '}{skills.length} {lang==='de'?'Skills':'skills'}
-              {skillPhase.timerMin>0&&` · ${timerMin>=60?Math.floor(timerMin/60)+"h"+(timerMin%60?timerMin%60+"m":""):timerMin+"m"} Timer`}
+              {timerMinBase>0&&` · ${timerMinBase>=60?Math.floor(timerMinBase/60)+"h"+(timerMinBase%60?timerMinBase%60+"m":""):timerMinBase+"m"} Timer`}
             </div>
           </div>
         </div>
@@ -306,19 +342,46 @@ const SkillPhaseView=({compId,info,athletes})=>{
         )}
       </div>
 
-      {/* Quick action bar — Seeding/Finalize at the top for fast access */}
+      {/* Combined, PIN-protected admin control: Seeding + Finalize (kept discreet) */}
       {(()=>{
         const hasStages=(info?.numStations||0)>0||!!(info?.pipelineEnabled);
-        return !skillStatus?.finalized?(
-          <div style={{display:'flex',gap:6}}>
-            {hasStages&&<button className="btn btn-coral" style={{flex:1,padding:'9px',fontSize:12,gap:5}} onClick={generateSeeding}>
-              <I.Sort s={13}/> {seedingAlreadyDone?(lang==='de'?'Seeding ✓ (erneut)':'Seeding ✓ (redo)'):(lang==='de'?'Seeding generieren':'Generate Seeding')}
-            </button>}
-            <button className={`btn ${hasStages?'btn-ghost':'btn-coral'}`} style={{flex:hasStages?0:1,padding:'9px 14px',fontSize:12,gap:5,...(hasStages?{borderColor:'rgba(200,168,75,.35)',color:'var(--gold)'}:{})}} onClick={openSiegerehrung}>
-              <I.Trophy s={13}/> {lang==='de'?'Abschließen':'Finalize'}
+        if(skillStatus?.finalized)return(
+          <div style={{fontSize:11,color:'var(--gold)',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:5,padding:'4px 0'}}><I.Trophy s={12} c="var(--gold)"/> {lang==='de'?'Wettkampf abgeschlossen':'Competition finalized'}</div>
+        );
+        const tryUnlockAdmin=()=>{
+          if(adminUnlocked){setAdminUnlocked(false);return;}
+          const c=window.prompt(lang==='de'?'PIN für Seeding / Abschließen:':'PIN for seeding / finalize:');
+          if(c==='2021'){setAdminUnlocked(true);SFX.complete();}
+          else if(c!=null){window.alert(lang==='de'?'Falscher Code':'Wrong code');SFX.fall();}
+        };
+        return(
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            <button className="btn btn-ghost" style={{padding:'6px 12px',fontSize:11,gap:6,alignSelf:'flex-start',opacity:.85}} onClick={tryUnlockAdmin}>
+              {adminUnlocked?<I.Unlock s={12}/>:<I.Lock s={12}/>} {lang==='de'?'Seeding / Abschließen':'Seeding / Finalize'}
+              {seedingAlreadyDone&&<span style={{color:'var(--green)',marginLeft:2,fontSize:10}}>· Seeding ✓</span>}
             </button>
+            {adminUnlocked&&(
+              <div className="sh-card" style={{padding:'10px 12px',display:'flex',flexDirection:'column',gap:8,borderColor:'rgba(200,168,75,.3)'}}>
+                {hasStages&&<>
+                  <button className="btn btn-coral" style={{padding:'10px',fontSize:12,gap:6}} onClick={generateSeeding}>
+                    <I.Sort s={13}/> {seedingAlreadyDone?(lang==='de'?'Seeding erneut generieren':'Re-generate seeding'):(lang==='de'?`Seeding → Stage (${skillPhase.seedingMode==='inverted'?'Invertiert':'Manuell'})`:`Seeding → Stage (${skillPhase.seedingMode==='inverted'?'inverted':'manual'})`)}
+                  </button>
+                  <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',lineHeight:1.4,marginTop:-2}}>
+                    {skillPhase.seedingMode==='inverted'?(lang==='de'?'Niedrigste Skill-Punkte → zuerst auf den Stage-Parcours':'Lowest skill pts → first on stage'):lang==='de'?'Reihenfolge wie im Skill-Ranking':'Order as in skill ranking'}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div style={{flex:1,height:1,background:'var(--border)'}}/>
+                    <span style={{fontSize:10,color:'var(--dim)',letterSpacing:'.08em'}}>{lang==='de'?'ODER':'OR'}</span>
+                    <div style={{flex:1,height:1,background:'var(--border)'}}/>
+                  </div>
+                </>}
+                <button className="btn btn-ghost" style={{padding:'10px',fontSize:12,gap:6,borderColor:'rgba(200,168,75,.35)',color:'var(--gold)'}} onClick={openSiegerehrung}>
+                  <I.Trophy s={13}/> {lang==='de'?'Siegerehrung / Wettkampf abschließen':'Awards / Close competition'}
+                </button>
+              </div>
+            )}
           </div>
-        ):null;
+        );
       })()}
 
       {/* 10-second countdown overlay */}
@@ -337,85 +400,66 @@ const SkillPhaseView=({compId,info,athletes})=>{
         </div>
       )}
 
-      {/* Timer */}
-      {timerMin>0&&(
-        <div className="sh-card" style={{padding:'12px 16px',
-          background:timerExpired?'rgba(255,59,48,.1)':timerPaused?'rgba(255,149,0,.1)':timerStarted?'rgba(255,214,10,.08)':'rgba(255,255,255,.03)',
-          borderColor:timerExpired?'rgba(255,59,48,.35)':timerPaused?'rgba(255,149,0,.4)':timerStarted?'rgba(255,214,10,.3)':'var(--border)'}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <I.Clock s={18} c={timerExpired?'var(--red)':timerPaused?'#FF9500':timerStarted?'var(--gold)':'var(--muted)'}/>
-            <div style={{flex:1}}>
-              <div style={{fontSize:11,color:'var(--muted)',fontWeight:600}}>{lang==='de'?'Skill Phase Timer':'Skill Phase Timer'}</div>
-              <div style={{fontSize:28,fontWeight:900,fontFamily:'JetBrains Mono',letterSpacing:'-1px',
-                color:timerExpired?'var(--red)':timerPaused?'#FF9500':timerStarted?'var(--gold)':'var(--muted)'}}>
-                {timerExpired?(lang==='de'?'ZEIT ABGELAUFEN':'TIME UP'):timerStarted?fmtTimer(timerRemaining):fmtTimer(timerDurationMs)}
+      {/* Two parallel timers — LK1 and LK2 started independently */}
+      {(()=>{
+        const present=[hasLK1&&'LK1',hasLK2&&'LK2'].filter(Boolean);
+        if(!present.length)return null;
+        const hasGroupDur=timers?.LK1?.durationMin||timers?.LK2?.durationMin;
+        if(timerMinBase<=0&&!hasGroupDur){
+          // No duration configured yet — offer a one-tap enable so the timers become settable here.
+          return(
+            <button className="btn btn-ghost" style={{padding:'6px 12px',fontSize:11,gap:5,alignSelf:'flex-start',opacity:.8}} onClick={()=>{present.forEach(g=>fbSet(`ogn/${compId}/skillPhaseStatus/timers/${g}/durationMin`,30));SFX.click();}}>
+              <I.Clock s={12}/> {lang==='de'?'Timer aktivieren ('+present.join(' / ')+')':'Enable timers ('+present.join(' / ')+')'}
+            </button>
+          );
+        }
+        return(
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {present.map(gid=>{
+            const T=deriveTimer(gid);
+            const locked=T.expired&&!scoringUnlocked[gid];
+            const counting=countdown!==null&&countdownGroup===gid;
+            const col=T.expired?'var(--red)':T.paused?'#FF9500':T.started?'var(--gold)':'var(--muted)';
+            return(
+              <div key={gid} className="sh-card" style={{flex:'1 1 230px',minWidth:200,padding:'10px 12px',
+                background:T.expired?'rgba(255,59,48,.1)':T.paused?'rgba(255,149,0,.1)':T.started?'rgba(255,214,10,.08)':'rgba(255,255,255,.03)',
+                borderColor:T.expired?'rgba(255,59,48,.35)':T.paused?'rgba(255,149,0,.4)':T.started?'rgba(255,214,10,.3)':'var(--border)'}}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:12,fontWeight:800,padding:'2px 9px',borderRadius:6,background:'rgba(255,255,255,.08)',border:'1px solid var(--border)',flexShrink:0}}>{gid}</span>
+                  <I.Clock s={15} c={col}/>
+                  <div style={{flex:1,fontSize:23,fontWeight:900,fontFamily:'JetBrains Mono',letterSpacing:'-1px',color:col}}>
+                    {T.expired?(lang==='de'?'ZEIT UM':'TIME UP'):counting?`${countdown}…`:T.started?fmtTimer(T.remaining):fmtTimer(T.durMs)}
+                  </div>
+                  {T.started&&!T.expired&&!T.paused&&<span style={{fontSize:9,color:'var(--gold)',fontWeight:700,padding:'3px 7px',background:'rgba(255,214,10,.15)',borderRadius:7,border:'1px solid rgba(255,214,10,.3)',animation:'pulse 1.6s infinite'}}>LIVE</span>}
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginTop:8,flexWrap:'wrap'}}>
+                  {!T.started&&!T.expired&&!counting&&<>
+                    <button className="btn btn-coral" style={{padding:'7px 14px',fontSize:12,gap:5}} disabled={!T.durMin} onClick={()=>startTimer(gid)}><I.Play s={13}/> Start</button>
+                    <input type="number" min="1" value={groupDurMin(gid)||''} onChange={e=>{const v=parseInt(e.target.value)||0;fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/durationMin`,v);}} style={{width:52,padding:'5px 7px',borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',color:'var(--text)',fontSize:12,boxSizing:'border-box'}}/>
+                    <span style={{fontSize:10,color:'var(--muted)'}}>min</span>
+                  </>}
+                  {counting&&<span style={{fontSize:11,color:'var(--gold)',fontWeight:700}}>{lang==='de'?'Startet…':'Starting…'}</span>}
+                  {T.started&&!T.expired&&!T.paused&&<>
+                    <button className="btn" style={{padding:'5px 11px',fontSize:11,gap:4,background:'rgba(255,149,0,.12)',border:'1.5px solid rgba(255,149,0,.4)',color:'#FF9500',fontWeight:700}} onClick={()=>pauseTimer(gid)}>⏸ {lang==='de'?'Pause':'Pause'}</button>
+                    <button className="btn btn-fall" style={{padding:'5px 10px',fontSize:11,gap:4}} onClick={async()=>{if(!window.confirm(lang==='de'?gid+'-Timer jetzt beenden?':'End '+gid+' timer now?'))return;await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/paused`,false);await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/timerStartedAt`,Date.now()-T.durMs);SFX.fall();}}><I.StopOct s={11}/></button>
+                  </>}
+                  {T.started&&!T.expired&&T.paused&&<>
+                    <span style={{fontSize:10,color:'#FF9500',fontWeight:700,padding:'3px 8px',background:'rgba(255,149,0,.15)',borderRadius:7,border:'1px solid rgba(255,149,0,.3)'}}>⏸ {lang==='de'?'PAUSE':'PAUSED'}</span>
+                    <button className="btn btn-coral" style={{padding:'5px 11px',fontSize:11,gap:4}} onClick={()=>resumeTimer(gid)}>▶ {lang==='de'?'Weiter':'Resume'}</button>
+                    <button className="btn btn-fall" style={{padding:'5px 10px',fontSize:11,gap:4}} onClick={async()=>{if(!window.confirm(lang==='de'?gid+'-Timer jetzt beenden?':'End '+gid+' timer now?'))return;await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/paused`,false);await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/timerStartedAt`,Date.now()-T.durMs);SFX.fall();}}><I.StopOct s={11}/></button>
+                  </>}
+                  {T.expired&&<>
+                    {locked&&<button className="btn btn-ghost" style={{padding:'5px 10px',fontSize:11,gap:4,borderColor:'rgba(255,59,48,.35)',color:'var(--red)'}} onClick={()=>tryUnlockScoring(gid)}><I.Unlock s={12}/> Unlock</button>}
+                    <button className="btn btn-ghost" style={{padding:'5px 10px',fontSize:11,gap:4}} onClick={async()=>{if(!window.confirm(lang==='de'?gid+'-Timer zurücksetzen?':'Reset '+gid+' timer?'))return;await fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}`,null);setScoringUnlocked(u=>({...u,[gid]:false}));SFX.click();}}><I.RefreshCw s={12}/> Reset</button>
+                  </>}
+                </div>
+                {locked&&<div style={{marginTop:6,fontSize:10,color:'var(--red)',fontWeight:600}}>{lang==='de'?'Eingabe gesperrt — Zeit abgelaufen (Unlock-Code 2021)':'Scoring locked — time up (unlock code 2021)'}</div>}
               </div>
-            </div>
-            {/* Not started yet */}
-            {!timerStarted&&!timerExpired&&countdown===null&&(
-              <button className="btn btn-coral" style={{padding:'10px 18px',fontSize:13,gap:6}} onClick={startTimer}>
-                <I.Play s={14}/> Start
-              </button>
-            )}
-            {/* Running — show Pause + Stop + Reset */}
-            {timerStarted&&!timerExpired&&!timerPaused&&(
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <div style={{fontSize:10,color:'var(--gold)',fontWeight:700,padding:'4px 10px',background:'rgba(255,214,10,.15)',borderRadius:8,border:'1px solid rgba(255,214,10,.3)',animation:'pulse 1.6s infinite'}}>LIVE</div>
-                <button className="btn" style={{padding:'6px 10px',fontSize:10,gap:4,background:'rgba(255,149,0,.12)',border:'1.5px solid rgba(255,149,0,.4)',color:'#FF9500',fontWeight:700}} onClick={pauseTimer}>
-                  ⏸ {lang==='de'?'Pause':'Pause'}
-                </button>
-                <button className="btn btn-fall" style={{padding:'6px 10px',fontSize:10,gap:4}} onClick={async()=>{
-                  if(!window.confirm(lang==='de'?'Skill Phase jetzt beenden?':'End skill phase now?'))return;
-                  await fbSet(`ogn/${compId}/skillPhaseStatus/paused`,false);
-                  const elapsed=Date.now()-timerStartedAt-(pausedTotal||0);
-                  await fbSet(`ogn/${compId}/skillPhaseStatus/timerStartedAt`,Date.now()-timerDurationMs);
-                  SFX.fall();
-                }}><I.StopOct s={11}/></button>
-              </div>
-            )}
-            {/* Paused — show Resume + End + Reset */}
-            {timerStarted&&!timerExpired&&timerPaused&&(
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <div style={{fontSize:10,color:'#FF9500',fontWeight:700,padding:'4px 10px',background:'rgba(255,149,0,.15)',borderRadius:8,border:'1px solid rgba(255,149,0,.3)'}}>⏸ {lang==='de'?'PAUSIERT':'PAUSED'}</div>
-                <button className="btn btn-coral" style={{padding:'6px 12px',fontSize:10,gap:4}} onClick={resumeTimer}>
-                  ▶ {lang==='de'?'Weiter':'Resume'}
-                </button>
-                <button className="btn btn-fall" style={{padding:'6px 10px',fontSize:10,gap:4}} onClick={async()=>{
-                  if(!window.confirm(lang==='de'?'Skill Phase jetzt beenden?':'End skill phase now?'))return;
-                  await fbSet(`ogn/${compId}/skillPhaseStatus/paused`,false);
-                  await fbSet(`ogn/${compId}/skillPhaseStatus/timerStartedAt`,Date.now()-timerDurationMs);
-                  SFX.fall();
-                }}><I.StopOct s={11}/> {lang==='de'?'Beenden':'End'}</button>
-              </div>
-            )}
-            {/* Expired */}
-            {timerExpired&&(
-              <button className="btn btn-ghost" style={{padding:'8px 14px',fontSize:11,gap:5}} onClick={async()=>{
-                if(!window.confirm(lang==='de'?'Timer zurücksetzen?':'Reset timer?'))return;
-                await fbSet(`ogn/${compId}/skillPhaseStatus`,{});
-                SFX.click();
-              }}><I.RefreshCw s={13}/> {lang==='de'?'Reset':'Reset'}</button>
-            )}
-          </div>
-          {timerPaused&&(
-            <div style={{marginTop:8,padding:'8px 12px',background:'rgba(255,149,0,.08)',borderRadius:8,border:'1px solid rgba(255,149,0,.2)',fontSize:11,color:'#FF9500',textAlign:'center',fontWeight:600}}>
-              {lang==='de'?'Wettkampf unterbrochen — keine Eingaben möglich':'Competition paused — no entries allowed'}
-            </div>
-          )}
-          {scoringLocked&&(
-            <div style={{marginTop:8,padding:'10px 14px',background:'rgba(255,59,48,.08)',borderRadius:10,border:'1px solid rgba(255,59,48,.25)',display:'flex',alignItems:'center',gap:10}}>
-              <I.Lock s={16} c="var(--red)"/>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:700,color:'var(--red)'}}>{lang==='de'?'Eingabe gesperrt — Zeit abgelaufen':'Scoring locked — time expired'}</div>
-                <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>{lang==='de'?'Code eingeben um nachträglich zu korrigieren':'Enter code to correct after expiry'}</div>
-              </div>
-              <button className="btn btn-ghost" style={{padding:'6px 12px',fontSize:11,borderColor:'rgba(255,59,48,.35)',color:'var(--red)'}} onClick={tryUnlockScoring}>
-                <I.Unlock s={13}/> Unlock
-              </button>
-            </div>
-          )}
+            );
+          })}
         </div>
-      )}
+        );
+      })()}
 
       {/* Skill management (add/remove skills after comp started) */}
       <div style={{display:'flex',alignItems:'center',gap:6}}>
@@ -473,29 +517,35 @@ const SkillPhaseView=({compId,info,athletes})=>{
         </div>
       )}
 
-      {/* Category tabs */}
-      <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-        {cats.map(catId=>{const cat=IGN_CATS.find(c=>c.id===catId);return(
-          <button key={catId} className={`chip${activeCat===catId?' active':''}`} style={{fontSize:11,padding:'3px 10px',...(activeCat===catId?{background:`${cat?.color||'var(--cor)'}1A`,borderColor:`${cat?.color||'var(--cor)'}55`,color:cat?.color||'var(--cor)'}:{})}} onClick={()=>setSelCat(catId)}>{cat?.name[lang]||catId}</button>
-        );})}
+      {/* Division group pills (LK1 / LK2 / Alle) — in their own card, clearly set apart from the skills */}
+      <div className="sh-card" style={{padding:'8px 10px',display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        <span style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',flexShrink:0}}>{lang==='de'?'Division':'Division'}</span>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+          {groups.map(g=>(
+            <button key={g.id} className={`chip${activeGroup===g.id?' active':''}`} style={{fontSize:12,fontWeight:700,padding:'4px 14px',...(activeGroup===g.id?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.5)',color:'var(--cor)'}:{})}} onClick={()=>setSelGroup(g.id)}>{g.label}</button>
+          ))}
+        </div>
       </div>
 
       {/* Skill tabs (oldschool only — jury scoring per skill) */}
       {skills.length>0&&isOldschool&&(
-        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-          {skills.map(sk=><button key={sk.id} className={`chip${selSkill===sk.id?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(selSkill===sk.id?null:sk.id)}>{sk.name||`Skill ${skills.indexOf(sk)+1}`}</button>)}
+        <div>
+          <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',margin:'2px 2px 5px'}}>{lang==='de'?'Skill / Posten':'Skill'}</div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+            {skills.map(sk=><button key={sk.id} className={`chip${selSkill===sk.id?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(selSkill===sk.id?null:sk.id)}>{sk.name||`Skill ${skills.indexOf(sk)+1}`}</button>)}
+          </div>
         </div>
       )}
 
       {/* Skill scoring view (oldschool) */}
       {selSkill&&isOldschool&&(()=>{
         const sk=skills.find(s=>s.id===selSkill);
-        const catAths=filteredAthList.filter(a=>a.cat===activeCat);
+        const catAths=filteredAthList.filter(a=>activeGroupCats.includes(a.cat));
         return(
           <div className="sh-card" style={{padding:'14px 16px'}}>
             <div style={{marginBottom:10}}>
               <div className="lbl" style={{marginBottom:4}}>
-                {sk?.name||selSkill} — {IGN_CATS.find(c=>c.id===activeCat)?.name[lang]||activeCat}
+                {sk?.name||selSkill} — {activeGroupLabel}
                 <span style={{fontSize:10,fontWeight:400,color:'var(--muted)',marginLeft:8}}>3 Versuche · 100/50/20 Punkte</span>
               </div>
               <div style={{fontSize:12,color:'var(--muted)',marginBottom:8}}>{catAths.length} {lang==='de'?'Athleten':'Athletes'} · {catAths.filter(a=>{const r=getAttemptResult(a.id,selSkill);return r.result!=null;}).length} {lang==='de'?'bewertet':'scored'}</div>
@@ -514,13 +564,13 @@ const SkillPhaseView=({compId,info,athletes})=>{
                     <div style={{fontSize:13,fontWeight:600}}>{a.name}</div>
                     {resetFlash===a.id
                       ?<div style={{fontSize:10,color:'#FF9500',fontWeight:700,display:'flex',alignItems:'center',gap:3}}><I.RefreshCw s={10} c="#FF9500"/> {lang==='de'?'zurückgesetzt':'reset'}</div>
-                      :<div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}</div>}
+                      :<div style={{fontSize:10,color:'var(--muted)'}}>#{a.num}{activeGroup==='all'?` · ${(a.cat||'').toUpperCase()}`:''}</div>}
                   </div>
                   {done?(
                     <div style={{textAlign:'right'}}>
                       <div style={{fontSize:15,fontWeight:800,color:res.result==='pass'?'var(--green)':'var(--red)',fontFamily:'JetBrains Mono'}}>{res.result==='pass'?`+${res.pts}`:'0'}</div>
                       <div style={{fontSize:9,color:'var(--muted)'}}>{res.result==='pass'?`${res.tries}. Versuch`:'Nicht geschafft'}</div>
-                      <button style={{fontSize:9,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',marginTop:2,textDecoration:'underline'}} onClick={async()=>{if(scoringLocked){tryUnlockScoring();return;}await fbSet(`ogn/${compId}/skillScores/${a.id}/${selSkill}`,null);SFX.click();}}>Reset</button>
+                      <button style={{fontSize:9,color:'var(--muted)',background:'none',border:'none',cursor:'pointer',marginTop:2,textDecoration:'underline'}} onClick={async()=>{if(scoringLocked){tryUnlockScoring(activeGroup);return;}await fbSet(`ogn/${compId}/skillScores/${a.id}/${selSkill}`,null);SFX.click();}}>Reset</button>
                     </div>
                   ):(
                     <div style={{display:'flex',gap:4,flexShrink:0}}>
@@ -544,36 +594,6 @@ const SkillPhaseView=({compId,info,athletes})=>{
               );
             })}
           </div>
-        );
-      })()}
-
-      {/* Action buttons */}
-      {(()=>{
-        const hasStages=(info?.numStations||0)>0||!!(info?.pipelineEnabled);
-        return(
-        <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:8}}>
-          {seedingAlreadyDone&&<div style={{fontSize:11,color:'var(--green)',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I.Check s={12} c="var(--green)"/> {lang==='de'?'Seeding wurde generiert':'Seeding generated'}</div>}
-          {skillStatus?.finalized&&<div style={{fontSize:11,color:'var(--gold)',textAlign:'center',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}><I.Trophy s={12} c="var(--gold)"/> {lang==='de'?'Wettkampf abgeschlossen':'Competition finalized'}</div>}
-          {hasStages&&(<>
-            <button className="btn btn-coral" style={{width:'100%',padding:'11px',fontSize:13,gap:8}} onClick={generateSeeding}>
-              <I.Sort s={14}/> {lang==='de'?`Seeding → Stage (${skillPhase.seedingMode==='inverted'?'Invertiert':'Manuell'})`:`Seeding → Stage (${skillPhase.seedingMode==='inverted'?'inverted':'manual'})`}
-            </button>
-            <div style={{fontSize:10,color:'var(--muted)',textAlign:'center',lineHeight:1.4,marginTop:-2}}>
-              {skillPhase.seedingMode==='inverted'?(lang==='de'?'Niedrigste Skill-Punkte → zuerst auf den Stage-Parcours':'Lowest skill pts → first on stage'):lang==='de'?'Reihenfolge wie im Skill-Ranking':'Order as in skill ranking'}
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{flex:1,height:1,background:'var(--border)'}}/>
-              <span style={{fontSize:10,color:'var(--dim)',letterSpacing:'.08em'}}>{lang==='de'?'ODER':'OR'}</span>
-              <div style={{flex:1,height:1,background:'var(--border)'}}/>
-            </div>
-          </>)}
-          <button className={`btn ${hasStages?'btn-ghost':'btn-coral'}`} style={{width:'100%',padding:'11px',fontSize:13,gap:8,...(!hasStages?{}:{borderColor:'rgba(200,168,75,.35)',color:'var(--gold)'})}} onClick={openSiegerehrung}>
-            <I.Trophy s={14}/> {lang==='de'?'Siegerehrung / Wettkampf abschließen':'Awards Ceremony / Close Competition'}
-          </button>
-          {!hasStages&&<div style={{fontSize:10,color:'var(--muted)',textAlign:'center',lineHeight:1.4,marginTop:-2}}>
-            {lang==='de'?'Skill-Rangliste & Podium anzeigen':'Show skill ranking & podium'}
-          </div>}
-        </div>
         );
       })()}
 
