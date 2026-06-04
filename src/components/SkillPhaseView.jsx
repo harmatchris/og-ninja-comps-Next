@@ -58,6 +58,19 @@ const SkillPhaseView=({compId,info,athletes})=>{
     if(code==='2021'){setScoringUnlocked(u=>({...u,[gid]:true}));SFX.complete();}
     else if(code!==null){window.alert(lang==='de'?'Falscher Code':'Wrong code');SFX.fall();}
   };
+  const [reminder,setReminder]=useState(null);   // {gid,mins} transient "X min left" banner
+  const shownRemRef=useRef(new Set());           // thresholds already announced (per group+duration)
+  // Extend a division timer (jury chose to keep going past time): add minutes → un-expires it.
+  const extendTimer=(gid,mins)=>{
+    const cur=groupDurMin(gid)||0;
+    fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/durationMin`,cur+mins);
+    SFX.checkpoint();
+  };
+  // Jury confirmed the division is finished → lock its scoring + auto-score untouched skills as 0.
+  const confirmCloseDivision=(gid)=>{
+    fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/closed`,true);
+    SFX.complete();
+  };
 
   // Tick once a second while any group timer is actively running.
   const tickKey=['LK1','LK2'].map(gid=>{const t=timers[gid]||{};return `${gid}:${t.timerStartedAt||0}:${t.paused?1:0}:${t.durationMin??''}`;}).join('|');
@@ -68,13 +81,32 @@ const SkillPhaseView=({compId,info,athletes})=>{
     return()=>clearInterval(iv);
   },[tickKey]);
 
-  // When a group's timer expires, auto-score its still-untouched skills as 0 (once per group).
-  const lk1Expired=deriveTimer('LK1').expired, lk2Expired=deriveTimer('LK2').expired;
+  // Reminders at 30 / 15 / 5 / 1 min before a running division timer ends.
+  useEffect(()=>{
+    ['LK1','LK2'].forEach(gid=>{
+      const T=deriveTimer(gid);
+      if(!T.started||T.paused||T.expired)return;
+      const minsLeft=Math.ceil(T.remaining/60000);
+      [30,15,5,1].forEach(th=>{
+        const key=`${gid}-${T.startedAt}-${T.durMin}-${th}`;
+        if(minsLeft<=th&&T.remaining>0&&!shownRemRef.current.has(key)){
+          shownRemRef.current.add(key);
+          setReminder({gid,mins:th});
+          if(navigator.vibrate)navigator.vibrate([80,40,80]);
+          SFX.checkpoint();
+          setTimeout(()=>setReminder(r=>(r&&r.gid===gid&&r.mins===th?null:r)),7000);
+        }
+      });
+    });
+  },[now]);
+
+  // When the JURY confirms a division is closed (not merely on expiry), auto-score its
+  // still-untouched skills as 0 (once per group). The expiry itself only prompts the jury.
+  const lk1Closed=!!timers?.LK1?.closed, lk2Closed=!!timers?.LK2?.closed;
   useEffect(()=>{
     if(!athletes)return;
     ['LK1','LK2'].forEach(gid=>{
-      const T=deriveTimer(gid);
-      if(!T.started||!T.expired||timers?.[gid]?.autoFailed)return;
+      if(!timers?.[gid]?.closed||timers?.[gid]?.autoFailed)return;
       const gCats=GROUP_CATS[gid];
       const updates={};
       athList.filter(a=>gCats.includes(a.cat)).forEach(a=>{
@@ -88,7 +120,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
       if(Object.keys(updates).length)db.ref().update(updates);
       fbSet(`ogn/${compId}/skillPhaseStatus/timers/${gid}/autoFailed`,true);
     });
-  },[lk1Expired,lk2Expired]);
+  },[lk1Closed,lk2Closed]);
 
   const [countdown,setCountdown]=useState(null); // 10..1..GO
 
@@ -166,7 +198,9 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const activeGroupLabel=activeGroupObj.label;
   // Scoring lock follows the selected group's own timer (no lock in the combined 'Alle' view).
   const activeTimer=activeGroup==='all'?null:deriveTimer(activeGroup);
-  const scoringLocked=!!(activeTimer&&activeTimer.expired&&!scoringUnlocked[activeGroup]);
+  // Scoring locks only once the JURY confirms the division closed (after the expiry prompt),
+  // not the instant the clock hits zero — so they can still finish a kid or extend.
+  const scoringLocked=!!(activeGroup!=='all'&&timers?.[activeGroup]?.closed&&!scoringUnlocked[activeGroup]);
 
   // Difficulty multipliers
   const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
@@ -399,6 +433,37 @@ const SkillPhaseView=({compId,info,athletes})=>{
           </div>
         </div>
       )}
+
+      {/* Reminder banner — fires at 30/15/5/1 min before a division's time is up */}
+      {reminder&&(
+        <div style={{position:'fixed',top:14,left:'50%',transform:'translateX(-50%)',zIndex:9998,padding:'10px 18px',borderRadius:12,background:reminder.mins<=5?'rgba(255,59,48,.95)':'rgba(255,149,0,.95)',color:'#fff',fontWeight:800,fontSize:14,boxShadow:'0 8px 28px rgba(0,0,0,.4)',display:'flex',alignItems:'center',gap:8,animation:'scaleIn .25s ease'}}>
+          <I.Clock s={17} c="#fff"/> {reminder.gid}: {lang==='de'?`noch ${reminder.mins} Min${reminder.mins===1?'ute':'uten'}!`:`${reminder.mins} min left!`}
+        </div>
+      )}
+
+      {/* Expiry prompt — when a division's clock hits 0, ask the jury to extend or close */}
+      {(()=>{
+        const gid=['LK1','LK2'].find(g=>{const T=deriveTimer(g);return T.started&&T.expired&&!timers?.[g]?.closed;});
+        if(!gid)return null;
+        return(
+          <div style={{position:'fixed',inset:0,zIndex:9997,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+            <div style={{width:'100%',maxWidth:420,background:'var(--bg2)',borderRadius:18,border:'1px solid rgba(255,59,48,.4)',padding:'24px 22px',textAlign:'center',boxShadow:'0 20px 60px rgba(0,0,0,.65)',animation:'scaleIn .3s ease'}}>
+              <div style={{fontSize:40,marginBottom:8}}>⏰</div>
+              <div style={{fontSize:12,fontWeight:700,color:'var(--red)',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:4}}>{lang==='de'?'Zeit abgelaufen':'Time is up'}</div>
+              <div style={{fontSize:20,fontWeight:900,marginBottom:6}}>{gid} — {lang==='de'?'Skill-Phase':'skill phase'}</div>
+              <div style={{fontSize:13,color:'var(--muted)',marginBottom:20,lineHeight:1.4}}>{lang==='de'?`Die Zeit für ${gid} ist um. Verlängern oder die Division jetzt abschließen?`:`Time for ${gid} is up. Extend, or close this division now?`}</div>
+              <div style={{display:'flex',gap:8,marginBottom:10}}>
+                <button className="btn btn-ghost" style={{flex:1,padding:'12px',fontSize:13,gap:5,borderColor:'rgba(255,149,0,.4)',color:'#FF9500'}} onClick={()=>extendTimer(gid,5)}><I.Play s={13}/> +5 min</button>
+                <button className="btn btn-ghost" style={{flex:1,padding:'12px',fontSize:13,gap:5,borderColor:'rgba(255,149,0,.4)',color:'#FF9500'}} onClick={()=>extendTimer(gid,10)}><I.Play s={13}/> +10 min</button>
+              </div>
+              <button className="btn btn-coral" style={{width:'100%',padding:'13px',fontSize:14,gap:6}} onClick={()=>confirmCloseDivision(gid)}>
+                <I.Check s={15}/> {lang==='de'?`${gid} abschließen & sperren`:`Close & lock ${gid}`}
+              </button>
+              <div style={{fontSize:10,color:'var(--dim)',marginTop:10,lineHeight:1.4}}>{lang==='de'?'Abschließen wertet noch nicht eingetragene Skills als 0 und sperrt die Eingabe (Entsperr-Code 2021).':'Closing scores untouched skills as 0 and locks entry (unlock code 2021).'}</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Two parallel timers — LK1 and LK2 started independently */}
       {(()=>{
