@@ -412,6 +412,19 @@ const SkillPhaseView=({compId,info,athletes})=>{
                 <button className="btn btn-ghost" style={{padding:'10px',fontSize:12,gap:6,borderColor:'rgba(200,168,75,.35)',color:'var(--gold)'}} onClick={openSiegerehrung}>
                   <I.Trophy s={13}/> {lang==='de'?'Siegerehrung / Wettkampf abschließen':'Awards / Close competition'}
                 </button>
+                <div style={{height:1,background:'var(--border)',margin:'2px 0'}}/>
+                {/* Full reset — wipe all skill scores + status so the skill competition can restart from scratch */}
+                <button className="btn btn-ghost" style={{padding:'10px',fontSize:12,gap:6,borderColor:'rgba(255,59,48,.4)',color:'var(--red)'}} onClick={async()=>{
+                  if(!window.confirm(lang==='de'?'Skill-Wettkampf KOMPLETT zurücksetzen und neu starten?\n\nAlle Skill-Wertungen, Timer und der Status werden gelöscht. Das kann NICHT rückgängig gemacht werden.':'COMPLETELY reset and restart the skill competition?\n\nAll skill scores, timers and status will be deleted. This canNOT be undone.'))return;
+                  await fbSet(`ogn/${compId}/skillScores`,null);
+                  await fbSet(`ogn/${compId}/skillPhaseStatus`,null);
+                  setScoringUnlocked({});setSeedingDone(false);setShowSiegerehrung(false);setAdminUnlocked(false);
+                  shownRemRef.current=new Set();
+                  SFX.complete();
+                }}>
+                  <I.RefreshCw s={13}/> {lang==='de'?'Skill-Wettkampf zurücksetzen / neu starten':'Reset / restart skill competition'}
+                </button>
+                <div style={{fontSize:10,color:'var(--dim)',textAlign:'center',lineHeight:1.4,marginTop:-2}}>{lang==='de'?'Löscht alle Skill-Wertungen, Timer & Status':'Deletes all skill scores, timers & status'}</div>
               </div>
             )}
           </div>

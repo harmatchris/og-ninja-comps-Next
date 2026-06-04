@@ -904,24 +904,35 @@ const handleDeleteAth=async(a)=>{
         </div>
 
 
-        {/* ── Segmented pill toggle: Jury / Ranking / Next up / Stats ── */}
-        <div style={{display:'flex',background:'rgba(255,255,255,.07)',borderRadius:26,padding:3,gap:2,marginTop:8}}>
-          {[
-            ...(numSt>0?[{k:'coordinator', ic:<I.Bolt s={13}/>, lb:'Jury'}]:[]),
-            {k:'results',     ic:<I.Trophy s={13}/>, lb:'Ranking'},
-            ...(numSt>0?[{k:'queue', ic:<I.User s={13}/>, lb:'Next up'}]:[]),
-            ...(numSt>0?[{k:'stats', ic:<I.TrendUp s={13}/>, lb:'Stats'}]:[]),
-            ...(info?.skillPhase?.enabled?[{k:'skills',ic:<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg>,lb:'Skills'}]:[]),
-          ].map(({k,ic,lb})=>(
-            <button key={k} style={{flex:1,padding:'8px 4px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
-              background:coordView===k?'var(--coral)':'transparent',
-              color:coordView===k?'#fff':'rgba(255,255,255,.4)',
-              transition:'background .18s, color .18s',
-              boxShadow:coordView===k?'0 2px 10px rgba(255,94,58,.35)':'none'}}
-              onClick={()=>{setCoordView(k);SFX.hover();}}>
-              {ic}<span className="tab-label">{lb}</span>
-            </button>
-          ))}
+        {/* ── Segmented pill: admin panels (Jury / Skills, coral) | display views (Ranking / Next up / Stats, neutral) ── */}
+        <div style={{display:'flex',background:'rgba(255,255,255,.07)',borderRadius:26,padding:3,gap:2,marginTop:8,alignItems:'stretch'}}>
+          {(()=>{
+            const tabs=[
+              ...(numSt>0?[{k:'coordinator', ic:<I.Bolt s={13}/>, lb:'Jury', admin:true}]:[]),
+              ...(info?.skillPhase?.enabled?[{k:'skills',ic:<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10.5 9l-2.5 5h4l2 4"/><path d="M8.5 21l2-4M14.5 13l2 4-3.5 1.5"/></svg>,lb:'Skills', admin:true}]:[]),
+              {k:'results',     ic:<I.Trophy s={13}/>, lb:'Ranking'},
+              ...(numSt>0?[{k:'queue', ic:<I.User s={13}/>, lb:'Next up'}]:[]),
+              ...(numSt>0?[{k:'stats', ic:<I.TrendUp s={13}/>, lb:'Stats'}]:[]),
+            ];
+            return tabs.map((tab,idx)=>{
+              const {k,ic,lb,admin}=tab;
+              const active=coordView===k;
+              const showDivider=idx>0&&tabs[idx-1].admin&&!admin; // boundary admin → display
+              return(
+                <React.Fragment key={k}>
+                  {showDivider&&<div style={{width:1,alignSelf:'stretch',background:'rgba(255,255,255,.14)',margin:'5px 3px',flexShrink:0}}/>}
+                  <button style={{flex:1,padding:'8px 4px',borderRadius:22,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5,fontSize:11,fontWeight:700,letterSpacing:'.03em',minWidth:0,
+                    background:active?(admin?'var(--cor)':'rgba(255,255,255,.16)'):'transparent',
+                    color:active?'#fff':(admin?'rgba(255,122,89,.72)':'rgba(255,255,255,.4)'),
+                    transition:'background .18s, color .18s',
+                    boxShadow:active&&admin?'0 2px 10px rgba(255,94,58,.35)':'none'}}
+                    onClick={()=>{setCoordView(k);SFX.hover();}}>
+                    {ic}<span className="tab-label">{lb}</span>
+                  </button>
+                </React.Fragment>
+              );
+            });
+          })()}
         </div>
         {coordView==='results'&&(()=>{
           const skillsActive=info?.skillPhase?.enabled&&!skillStatus?.finalized&&!skillStatus?.seedingDone;
