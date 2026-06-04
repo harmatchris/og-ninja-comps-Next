@@ -304,7 +304,9 @@ const SkillRankingLive=({compId,info,athletes})=>{
   const skills=skillPhase.skills||[];
   const isOldschool=(skillPhase.type||'oldschool')==='oldschool';
   const athList=athletes?Object.values(athletes):[];
-  const cats=[...new Set(athList.map(a=>a.cat))];
+  // Only divisions that actually take part in the skill phase (skillCategories); Bambini etc. excluded.
+  const skillCats=skillPhase.skillCategories;
+  const cats=[...new Set(athList.map(a=>a.cat))].filter(c=>!(skillCats&&skillCats!=='all'&&Array.isArray(skillCats))||skillCats.includes(c));
   const activeCat=cats[activeCatIdx%cats.length]||null;
   // #2 jury correction: edit skill results directly from the ranking
   const [editMode,setEditMode]=useState(false);
@@ -333,10 +335,10 @@ const SkillRankingLive=({compId,info,athletes})=>{
 
   // Auto-rotate categories every 8 seconds
   useEffect(()=>{
-    if(!autoRotate||cats.length<=1)return;
+    if(!autoRotate||editMode||cats.length<=1)return;
     const iv=setInterval(()=>setActiveCatIdx(i=>i+1),8000);
     return()=>clearInterval(iv);
-  },[autoRotate,cats.length]);
+  },[autoRotate,editMode,cats.length]);
 
   const DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
   const computeTotal=(athId)=>{
@@ -373,42 +375,54 @@ const SkillRankingLive=({compId,info,athletes})=>{
         </div>
       )}
 
-      {/* Category tabs */}
+      {/* Toolbar — division tabs only appear when editing a single division */}
       <div style={{display:'flex',gap:4,flexWrap:'wrap',alignItems:'center'}}>
-        {cats.map((catId,i)=>{const c=IGN_CATS.find(x=>x.id===catId);return(
+        {editMode&&cats.map((catId,i)=>{const c=IGN_CATS.find(x=>x.id===catId);return(
           <button key={catId} className={`chip${activeCat===catId?' active':''}`}
             style={{fontSize:11,padding:'3px 10px',...(activeCat===catId?{background:`${c?.color||'var(--cor)'}1A`,borderColor:`${c?.color||'var(--cor)'}55`,color:c?.color||'var(--cor)'}:{})}}
-            onClick={()=>{setActiveCatIdx(i);setAutoRotate(false);}}>{c?.name?.[lang]||catId}</button>
+            onClick={()=>{setActiveCatIdx(i);setEditAthId(null);}}>{c?.name?.[lang]||catId}</button>
         );})}
-        <button className={`chip${editMode?' active':''}`} style={{fontSize:10,padding:'3px 8px',marginLeft:'auto',gap:4,...(editMode?{background:'rgba(255,94,58,.18)',borderColor:'rgba(255,94,58,.5)',color:'var(--cor)'}:{})}} onClick={()=>{setEditMode(!editMode);setEditAthId(null);setAutoRotate(false);}}>
+        <span style={{fontSize:12,fontWeight:800,color:editMode?'var(--cor)':'var(--muted)',letterSpacing:'.05em',marginRight:'auto'}}>{editMode?(lang==='de'?'Korrektur-Modus':'Edit mode'):(lang==='de'?'SKILL-RANGLISTE':'SKILL RANKING')}</span>
+        <button className={`chip${editMode?' active':''}`} style={{fontSize:10,padding:'3px 10px',gap:4,...(editMode?{background:'rgba(255,94,58,.18)',borderColor:'rgba(255,94,58,.5)',color:'var(--cor)'}:{})}} onClick={()=>{setEditMode(!editMode);setEditAthId(null);}}>
           <I.Edit s={10}/> {lang==='de'?'Korrigieren':'Edit'}
-        </button>
-        <button className={`chip${autoRotate?' active':''}`} style={{fontSize:10,padding:'3px 8px'}} onClick={()=>setAutoRotate(!autoRotate)}>
-          <I.RefreshCw s={10}/> Auto
         </button>
       </div>
 
-      {/* Category header */}
-      {cat&&<div style={{fontSize:16,fontWeight:900,color:cat.color,display:'flex',alignItems:'center',gap:8}}>
+      {/* Columns — every participating division side by side (overview, no podium) */}
+      {!editMode&&(
+        <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+          {cats.map(catId=>{
+            const c=IGN_CATS.find(x=>x.id===catId)||{color:'var(--cor)',name:{}};
+            const list=athList.filter(a=>a.cat===catId).map(a=>({...a,skillTotal:computeTotal(a.id)})).sort((a,b)=>b.skillTotal-a.skillTotal);
+            return(
+              <div key={catId} style={{flex:'1 1 150px',minWidth:148,border:`1px solid ${c.color}33`,borderRadius:12,overflow:'hidden',background:'rgba(255,255,255,.02)'}}>
+                <div style={{padding:'6px 9px',background:`${c.color}1A`,borderBottom:`1px solid ${c.color}33`,display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:7,height:7,borderRadius:'50%',background:c.color,flexShrink:0}}/>
+                  <div style={{fontSize:11,fontWeight:800,color:c.color,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{c.name?.[lang]||catId}</div>
+                </div>
+                {list.length===0&&<div style={{padding:'10px',fontSize:10,color:'var(--dim)',textAlign:'center'}}>—</div>}
+                {list.map((a,i)=>{const medal=['var(--gold)','#C0C0C0','#CD7F32'][i];return(
+                  <div key={a.id} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 9px',borderBottom:'1px solid rgba(255,255,255,.04)'}}>
+                    <span style={{width:15,textAlign:'center',fontSize:11,fontWeight:900,color:medal||'var(--muted)',fontFamily:'JetBrains Mono',flexShrink:0}}>{i+1}</span>
+                    <span style={{flex:1,fontSize:11,fontWeight:medal?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',color:medal?'var(--text)':'rgba(255,255,255,.7)'}}>{a.name}</span>
+                    <span style={{fontSize:12,fontWeight:900,fontFamily:'JetBrains Mono',color:a.skillTotal>0?(medal||c.color):'var(--dim)',flexShrink:0}}>{a.skillTotal>0?a.skillTotal:'—'}</span>
+                  </div>
+                );})}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editMode&&(<>
+      {/* Active division header (edit mode) */}
+      {cat&&<div style={{fontSize:15,fontWeight:900,color:cat.color,display:'flex',alignItems:'center',gap:8}}>
         <div style={{width:8,height:8,borderRadius:'50%',background:cat.color,flexShrink:0}}/>
         {cat.name?.[lang]||cat.id}
         <span style={{fontSize:12,fontWeight:500,color:'var(--muted)',marginLeft:4}}>{ranking.length} {lang==='de'?'Athleten':'athletes'}</span>
       </div>}
 
-      {/* #3 Podium towers — top 3 on pedestals (2nd · 1st · 3rd), in the division colour */}
-      {ranking.length>=3&&!editMode&&(
-        <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:6,padding:'2px 0 6px'}}>
-          {[1,0,2].map(rank=>{const a=ranking[rank];if(!a||!(a.skillTotal>0))return<div key={rank} style={{flex:1,maxWidth:110}}/>;const col=podColors[rank];const h=[80,58,44][rank];return(
-            <div key={rank} style={{flex:1,maxWidth:110,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-              <div style={{fontSize:rank===0?11:10,fontWeight:800,color:col,textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{a.name}</div>
-              <div style={{fontSize:rank===0?15:13,fontWeight:900,color:col,fontFamily:'JetBrains Mono',lineHeight:1}}>{a.skillTotal}</div>
-              <div style={{width:'100%',height:h,borderRadius:'7px 7px 0 0',background:`linear-gradient(180deg,${col}28,${col}10)`,border:`1px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:5,fontSize:rank===0?22:17,fontWeight:900,color:col,boxShadow:rank===0?`0 0 16px ${col}33`:'none'}}>{rank+1}</div>
-            </div>
-          );})}
-        </div>
-      )}
-
-      {/* Ranking list — compact rows */}
+      {/* Ranking list — compact rows (editable) */}
       {ranking.length===0&&<EmptyState icon={<I.Trophy s={28} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Keine Athleten':'No athletes'}/>}
       {ranking.map((a,i)=>{
         const rankColor=podColors[i]||'var(--muted)';
@@ -469,6 +483,7 @@ const SkillRankingLive=({compId,info,athletes})=>{
           </div>
         );
       })}
+      </>)}
     </div>
   );
 };
