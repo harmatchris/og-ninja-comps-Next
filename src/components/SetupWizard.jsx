@@ -373,7 +373,9 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             updates[`ogn/${id}/pipeline/${sid}/invertSeeding`]=stg.invertSeeding||null;   // #invert-seeding
             updates[`ogn/${id}/pipeline/${sid}/minPerDivision`]=stg.minPerDivision??null;
             updates[`ogn/${id}/pipeline/${sid}/lives`]=stg.livesPerSection||null;
+            updates[`ogn/${id}/pipeline/${sid}/livesPerSection`]=stg.livesPerSection||null;
             updates[`ogn/${id}/pipeline/${sid}/totalLives`]=stg.totalLives??null;
+            updates[`ogn/${id}/pipeline/${sid}/lifeMode`]=stg.lifeMode||null;   // explicit per-stage life mode
           });
         }
         await db.ref().update(updates);
@@ -684,30 +686,39 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                   </div>}
                 </div>
 
-                {/* Extra Life config – #9 lives per section 1-5, total to infinity */}
-                {stgMode==='lives'&&(
+                {/* Extra Life config – #9 explicit per-stage life mode (independent per stage) */}
+                {stgMode==='lives'&&(()=>{
+                  const lm=mainStg.lifeMode||((mainStg.totalLives===0||mainStg.totalLives==null)?'infinite':'pool');
+                  const setMode=m=>{
+                    if(m==='infinite')updateStage(mainStg.id,'totalLives',0);
+                    if(m==='perSection'&&!(mainStg.livesPerSection>0))updateStage(mainStg.id,'livesPerSection',3);
+                    if(m==='pool'&&!(mainStg.totalLives>0))updateStage(mainStg.id,'totalLives',5);
+                    updateStage(mainStg.id,'lifeMode',m);
+                  };
+                  const modes=[{k:'infinite',lb:lang==='de'?'Unendlich':'Infinite'},{k:'perSection',lb:lang==='de'?'Pro Sektion':'Per section'},{k:'pool',lb:lang==='de'?'Gesamt-Pool':'Total pool'}];
+                  return(
                   <div style={{...cardStyle,marginBottom:8}}>
-                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>Extra Life</div>
-                    <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,display:'flex',alignItems:'center',gap:6}}>
-                          <span>{lang==='de'?'Sektions-Leben':'Section lives'}</span>
-                          <button onClick={()=>updateStage(mainStg.id,'livesPerSection',(mainStg.livesPerSection||0)>0?0:3)} style={{padding:'2px 8px',borderRadius:10,border:`1px solid ${(mainStg.livesPerSection||0)>0?'rgba(255,214,10,.5)':'var(--border)'}`,background:(mainStg.livesPerSection||0)>0?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||0)>0?'#FFD60A':'var(--muted)',fontSize:9,fontWeight:700,cursor:'pointer'}}>{(mainStg.livesPerSection||0)>0?(lang==='de'?'AN':'ON'):(lang==='de'?'AUS':'OFF')}</button>
-                        </div>
-                        {(mainStg.livesPerSection||0)>0&&<div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{n}</button>)}</div>}
-                      </div>
-                      <div>
-                        <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben (0=∞)':'Total lives (0=∞)'}</div>
-                        <div style={{display:'flex',alignItems:'center',gap:4}}>
-                          <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',Math.max(0,(mainStg.totalLives??0)-1))}>−</button>
-                          <input type="number" min={0} max={999} value={mainStg.totalLives??0} onChange={e=>updateStage(mainStg.id,'totalLives',Math.max(0,Number(e.target.value)||0))} style={{width:52,textAlign:'center',fontSize:14,fontWeight:700,padding:'6px',fontFamily:'JetBrains Mono'}}/>
-                          <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',(mainStg.totalLives??0)+1)}>+</button>
-                          <button style={{padding:'4px 10px',borderRadius:8,border:'1px solid rgba(255,214,10,.3)',background:(mainStg.totalLives===0||!mainStg.totalLives)?'rgba(255,214,10,.15)':'transparent',color:'#FFD60A',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'totalLives',0)}>∞</button>
-                        </div>
-                      </div>
+                    <div style={{fontSize:11,fontWeight:700,color:'#FFD60A',marginBottom:6}}>{lang==='de'?'Leben-Modus':'Lives mode'}</div>
+                    <div style={{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}}>
+                      {modes.map(m=><button key={m.k} onClick={()=>setMode(m.k)} style={{padding:'5px 12px',borderRadius:9,border:`1.5px solid ${lm===m.k?'#FFD60A':'var(--border)'}`,background:lm===m.k?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:lm===m.k?'#FFD60A':'var(--muted)',fontSize:11,fontWeight:700,cursor:'pointer',transition:'all .12s'}}>{m.lb}</button>)}
                     </div>
+                    {lm==='infinite'&&<div style={{fontSize:10,color:'var(--muted)',lineHeight:1.45}}>{lang==='de'?'∞ Leben — bei Sturz Neustart an letzter Plattform (10s Reset, Zeit läuft weiter). Niemand scheidet aus.':'∞ lives — fall restarts at last platform (10s reset, clock keeps running). Nobody is eliminated.'}</div>}
+                    {lm==='perSection'&&<div>
+                      <div style={{fontSize:10,color:'var(--muted)',marginBottom:4}}>{lang==='de'?'Leben pro Sektion (an jeder Plattform aufgefüllt):':'Lives per section (refilled at each platform):'}</div>
+                      <div style={{display:'flex',gap:3}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(mainStg.id,'livesPerSection',n)} style={{width:32,height:32,borderRadius:8,border:`1.5px solid ${(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(mainStg.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(mainStg.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:14,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>{n}</button>)}</div>
+                      <div style={{fontSize:10,color:'var(--muted)',marginTop:5,lineHeight:1.45}}>{lang==='de'?'Alle Leben einer Sektion aufgebraucht → ausgeschieden. Sektionen mit „+ Plattform" setzen.':'All lives of a section used → eliminated. Set sections with "+ Platform".'}</div>
+                    </div>}
+                    {lm==='pool'&&<div>
+                      <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>{lang==='de'?'Gesamt-Leben für die ganze Stage:':'Total lives for the whole stage:'}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'totalLives',Math.max(1,(mainStg.totalLives??5)-1))}>−</button>
+                        <input type="number" min={1} max={999} value={mainStg.totalLives??5} onChange={e=>updateStage(mainStg.id,'totalLives',Math.max(1,Number(e.target.value)||1))} style={{width:52,textAlign:'center',fontSize:14,fontWeight:700,padding:'6px',fontFamily:'JetBrains Mono'}}/>
+                        <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>updateStage(mainStg.id,'totalLives',(mainStg.totalLives??5)+1)}>+</button>
+                      </div>
+                    </div>}
                   </div>
-                )}
+                  );
+                })()}
 
                 {/* Obstacles for this main stage */}
                 {flatIdx>=0&&(<>
@@ -780,6 +791,25 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                         <input type="checkbox" checked={!!cont.invertSeeding} onChange={e=>updateStage(cont.id,'invertSeeding',e.target.checked)} style={{width:15,height:15,accentColor:frameColor,cursor:'pointer',flexShrink:0}}/>
                         <span>{lang==='de'?'Invertierte Startreihenfolge (schwächster Quali startet zuerst)':'Inverted start order (lowest qualifier starts first)'}</span>
                       </label>
+                      {/* Per-stage life mode for the continuation (e.g. LK1 Final = per section) */}
+                      {stgMode==='lives'&&(()=>{
+                        const lm=cont.lifeMode||((cont.totalLives===0||cont.totalLives==null)?'infinite':'pool');
+                        const setMode=m=>{
+                          if(m==='infinite')updateStage(cont.id,'totalLives',0);
+                          if(m==='perSection'&&!(cont.livesPerSection>0))updateStage(cont.id,'livesPerSection',3);
+                          if(m==='pool'&&!(cont.totalLives>0))updateStage(cont.id,'totalLives',5);
+                          updateStage(cont.id,'lifeMode',m);
+                        };
+                        const modes=[{k:'infinite',lb:'∞'},{k:'perSection',lb:lang==='de'?'Sektion':'Section'},{k:'pool',lb:'Pool'}];
+                        return(
+                          <div style={{marginTop:7,display:'flex',alignItems:'center',gap:5,flexWrap:'wrap'}}>
+                            <span style={{fontSize:10,color:'var(--muted)',fontWeight:600}}>{lang==='de'?'Leben:':'Lives:'}</span>
+                            {modes.map(m=><button key={m.k} onClick={()=>setMode(m.k)} style={{padding:'3px 9px',borderRadius:8,border:`1.5px solid ${lm===m.k?'#FFD60A':'var(--border)'}`,background:lm===m.k?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:lm===m.k?'#FFD60A':'var(--muted)',fontSize:10,fontWeight:700,cursor:'pointer'}}>{m.lb}</button>)}
+                            {lm==='perSection'&&<div style={{display:'flex',gap:2,marginLeft:2}}>{[1,2,3,4,5].map(n=><button key={n} onClick={()=>updateStage(cont.id,'livesPerSection',n)} style={{width:24,height:24,borderRadius:6,border:`1.5px solid ${(cont.livesPerSection||3)===n?'#FFD60A':'var(--border)'}`,background:(cont.livesPerSection||3)===n?'rgba(255,214,10,.15)':'rgba(255,255,255,.03)',color:(cont.livesPerSection||3)===n?'#FFD60A':'var(--text)',fontWeight:700,fontSize:12,cursor:'pointer'}}>{n}</button>)}</div>}
+                            {lm==='pool'&&<input type="number" min={1} max={999} value={cont.totalLives??5} onChange={e=>updateStage(cont.id,'totalLives',Math.max(1,Number(e.target.value)||1))} style={{width:46,textAlign:'center',fontSize:12,fontWeight:700,padding:'3px',fontFamily:'JetBrains Mono'}}/>}
+                          </div>
+                        );
+                      })()}
                       {/* Obstacles for continuation */}
                       {contFlatIdx>=0&&(<>
                         <div style={{fontSize:10,color:'var(--muted)',marginTop:6}}>{lang==='de'?'Hindernisse':'Obstacles'} ({(stageObs[contFlatIdx]||[]).length})</div>

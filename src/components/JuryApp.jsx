@@ -787,17 +787,21 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const [completedRunKey,setCompletedRunKey]=useState(null);
   // Lives config: pipeline stages store livesPerSection/totalLives on the stage config; fallback to global info
   const pipelineLivesPerSection=isPipeline?(pipelineStageCfg?.livesPerSection||pipelineStageCfg?.lives||0):0;
+  // Per-stage life mode (explicit, independent per stage): 'infinite' | 'perSection' | 'pool' | null(legacy)
+  const lifeMode=(isPipeline?pipelineStageCfg?.lifeMode:info?.lifeMode)||null;
   // Pipeline: totalLives 0/null/undefined in Firebase all mean infinity (UI default is ∞)
   // Legacy: only explicit 0 means infinity
   const _pipelineTotalLivesRaw=isPipeline&&pipelineStageCfg?pipelineStageCfg.totalLives:undefined;
   const pipelineTotalLives=isPipeline&&pipelineStageCfg?(_pipelineTotalLivesRaw??0):undefined;
   const _rawTotalLives=pipelineTotalLives??info?.stageExtraLife?.[stNum]?.stageTotalLives??undefined;
-  const isInfinityLives=info?.mode==='lives'&&(
+  const isInfinityLives=info?.mode==='lives'&&lifeMode!=='perSection'&&lifeMode!=='pool'&&(
+    lifeMode==='infinite'||
     (isPipeline&&pipelineStageCfg&&(_pipelineTotalLivesRaw==null||_pipelineTotalLivesRaw===0))||
     (!isPipeline&&_rawTotalLives===0)
   );
   // Starting lives = totalLives from stage (the number user configured), fallback chain for legacy
   const effectiveLives=isInfinityLives?999
+    :lifeMode==='perSection'?(pipelineLivesPerSection||pipelineStageCfg?.livesPerSection||info?.livesPerSection||3)
     :(pipelineTotalLives!=null&&pipelineTotalLives>0)?pipelineTotalLives
     :info?.stageExtraLife?.[stNum]?.lives??info?.stageLivesOverrides?.[stNum]??info?.lives??3;
   const effectiveTotalLives=_rawTotalLives??info?.stageTotalLives??null;
@@ -938,6 +942,8 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const handleFall=data=>{
     if(fallModal||stopModal||resetActive)return;
     if(info.mode==='lives'){
+      // Finite per-section mode: no life left to spend → run ends (DNF), no further restart.
+      if(lifeMode==='perSection'&&!isInfinityLives&&lives<=0){setFallModal(data);return;}
       const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
       setActiveFalls(prev=>[...prev,newFall]);
       setFallFreezeTime(data.currentTime);
