@@ -487,7 +487,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('skill');idx>=0?m.splice(idx,1):m.push('skill');sI('modes',m);sI('skillPhase',{...(info.skillPhase||{}),enabled:m.includes('skill')});SFX.hover();}}
               style={{...chipStyle(hasSkill,'#34C759'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasSkill?'#34C759':'var(--border)'}`,background:hasSkill?'#34C759':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasSkill&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
+                {hasSkill&&<I.Check s={14} c="#000"/>}
               </div>
               <div style={{textAlign:'left'}}>
                 <div style={{fontWeight:700}}>Skill Phase</div>
@@ -526,7 +526,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('classic');idx>=0?m.splice(idx,1):m.push('classic');sI('modes',m);SFX.hover();}}
               style={{...chipStyle(hasClassic,'#FF5E3A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasClassic?'#FF5E3A':'var(--border)'}`,background:hasClassic?'#FF5E3A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasClassic&&<span style={{color:'#fff',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
+                {hasClassic&&<I.Check s={14} c="#fff"/>}
               </div>
               <div style={{textAlign:'left'}}>
                 <div style={{fontWeight:700}}>Classic Stage</div>
@@ -537,7 +537,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             <button onClick={()=>{const m=[...(info.modes||[])];const idx=m.indexOf('lives');idx>=0?m.splice(idx,1):m.push('lives');sI('modes',m);SFX.hover();}}
               style={{...chipStyle(hasLives,'#FFD60A'),padding:'12px 16px',width:'100%',justifyContent:'flex-start',borderRadius:14}}>
               <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${hasLives?'#FFD60A':'var(--border)'}`,background:hasLives?'#FFD60A':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'all .15s'}}>
-                {hasLives&&<span style={{color:'#000',fontSize:14,fontWeight:900,lineHeight:1}}>✓</span>}
+                {hasLives&&<I.Check s={14} c="#000"/>}
               </div>
               <div style={{textAlign:'left'}}>
                 <div style={{fontWeight:700}}>Extra Life Stage</div>
@@ -554,8 +554,8 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 <svg viewBox="0 0 32 32" width="28" height="28" style={{borderRadius:'50%',flexShrink:0,display:'block'}}><circle cx="16" cy="16" r="16" fill="#FF0000"/><rect x="13" y="7" width="6" height="18" fill="#FFFFFF"/><rect x="7" y="13" width="18" height="6" fill="#FFFFFF"/></svg>
                 <div><div style={{fontSize:13,fontWeight:700,color:'#C8A84B'}}>CH Ninja Ranking</div><div style={{fontSize:10,color:'var(--muted)',marginTop:1}}>{lang==='de'?'Offizielle Schweizer Meisterschaft':'Official Swiss Championship'}</div></div>
               </div>
-              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔓 Freischalten</button>
-              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer'}}>🔒 Sperren</button>}
+              {!chRankingUnlocked?<button onClick={()=>setChRankingPwPrompt(true)} style={{fontSize:11,fontWeight:700,color:'#C8A84B',background:'rgba(200,168,75,.15)',border:'1px solid rgba(200,168,75,.3)',borderRadius:8,padding:'5px 12px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:5}}><I.Unlock s={12} c="#C8A84B"/><span>Freischalten</span></button>
+              :<button onClick={()=>{setChRankingUnlocked(false);sI('chRankingEnabled',false);}} style={{fontSize:11,color:'var(--muted)',background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'5px 12px',cursor:'pointer',display:'inline-flex',alignItems:'center',gap:5}}><I.Lock s={12} c="currentColor"/><span>Sperren</span></button>}
             </div>
             {chRankingUnlocked&&<div style={{marginTop:8}}><label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13}}><input type="checkbox" checked={!!info.chRankingEnabled} onChange={e=>sI('chRankingEnabled',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Ergebnisse fliessen ins CH Ranking ein':'Results count towards CH Ranking'}</label>
               {info.chRankingEnabled&&<label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:13,paddingLeft:24,marginTop:6}}><input type="checkbox" checked={!!info.chRankingFinale} onChange={e=>sI('chRankingFinale',e.target.checked)} style={{accentColor:'#C8A84B',width:16,height:16}}/>{lang==='de'?'Finale (doppelte Punkte)':'Finale (double points)'}</label>}
@@ -667,7 +667,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                 {/* Time limit (10s steps) – #7 */}
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                   <div>
-                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3}}>⏱ Time Limit</div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginBottom:3,display:'flex',alignItems:'center',gap:4}}><I.Clock s={11}/><span>Time Limit</span></div>
                     <div style={{display:'flex',alignItems:'center',gap:4}}>
                       <button style={{width:30,height:30,borderRadius:8,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:16,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(mainStg.id,'timeLimit',Math.max(0,(mainStg.timeLimit||0)-10))}>−</button>
                       <div style={{fontFamily:'JetBrains Mono',fontSize:14,fontWeight:700,minWidth:50,textAlign:'center'}}>{Math.floor((mainStg.timeLimit||0)/60)}:{String((mainStg.timeLimit||0)%60).padStart(2,'0')}</div>
@@ -781,7 +781,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
                       </div>
                       {/* Time limit for continuation – #7 */}
                       <div style={{display:'flex',alignItems:'center',gap:4,marginTop:6}}>
-                        <span style={{fontSize:10,color:'var(--muted)'}}>⏱</span>
+                        <I.Clock s={11} c="var(--muted)"/>
                         <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'timeLimit',Math.max(0,(cont.timeLimit||0)-10))}>−</button>
                         <span style={{fontFamily:'JetBrains Mono',fontSize:12,fontWeight:700,minWidth:40,textAlign:'center'}}>{Math.floor((cont.timeLimit||0)/60)}:{String((cont.timeLimit||0)%60).padStart(2,'0')}</span>
                         <button style={{width:26,height:26,borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.05)',cursor:'pointer',color:'var(--text)',fontSize:14,display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}} onClick={()=>updateStage(cont.id,'timeLimit',(cont.timeLimit||0)+10)}>+</button>
@@ -860,7 +860,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
               <button className="btn btn-ghost" style={{padding:'4px 10px',fontSize:11,gap:5,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={()=>{if(window.confirm(lang==='de'?'20 Test-Athleten pro Division generieren?\n(70% CH, 25% DE, 5% AT)':'Generate 20 test athletes per division?\n(70% CH, 25% DE, 5% AT)'))generateTestData();}}><I.Plus s={12}/> Test</button>
             </div>
           </div>
-          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px'}}>⚠️ {csvError}</div>}
+          {csvError&&<div style={{fontSize:12,color:'var(--red)',background:'rgba(255,59,48,.08)',borderRadius:8,padding:'7px 12px',display:'flex',alignItems:'center',gap:6}}><I.AlertCircle s={14}/><span>{csvError}</span></div>}
           <div style={{maxHeight:260,overflowY:'auto'}}>
             {curAths.length===0?<EmptyState icon={<I.User s={28} c="rgba(255,255,255,.3)"/>} text="Noch keine Athleten"/>:
               <DragList items={curAths} onReorder={arr=>reorderAth(asi,arr)} keyFn={a=>a.id}
@@ -911,7 +911,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
           </div>
           {isSkillSeededStage&&(
             <div style={{fontSize:11.5,lineHeight:1.45,color:'var(--cor)',background:'rgba(255,94,58,.08)',border:'1px solid rgba(255,94,58,.25)',borderRadius:10,padding:'9px 12px',display:'flex',gap:8,alignItems:'flex-start'}}>
-              <span style={{fontSize:14,flexShrink:0}}>⚡</span>
+              <span style={{flexShrink:0,display:'inline-flex'}}><I.Bolt s={14} c="var(--cor)"/></span>
               <span>{lang==='de'
                 ?'Startreihenfolge wird automatisch aus den Skill-Resultaten generiert (Skill-Phase → „Seeding generieren"). Athleten hier nur erfassen – die Reihenfolge unten spielt keine Rolle.'
                 :'Start order is generated automatically from the skill results (Skill phase → "Generate seeding"). Just add athletes here – the order below does not matter.'}</span>
@@ -931,7 +931,7 @@ const SetupWizard=({onDone,onBack,existingId=null,initialInfo=null,initialStages
             </div>
             <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',padding:'7px 10px',background:'rgba(255,255,255,.03)',borderRadius:10,border:'1px solid var(--border)'}}>
               {newAth.photo
-                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1}}>Foto ✓</span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}>✕</button></>
+                ?<><img src={newAth.photo} style={{width:28,height:28,borderRadius:'50%',objectFit:'cover',flexShrink:0}}/><span style={{fontSize:12,flex:1,display:'inline-flex',alignItems:'center',gap:5}}>Foto <I.Check s={12} c="var(--green)"/></span><button style={{background:'rgba(255,59,48,.15)',border:'none',borderRadius:6,padding:'2px 8px',color:'var(--red)',fontSize:11,cursor:'pointer',display:'inline-flex',alignItems:'center'}} onClick={e=>{e.preventDefault();setNewAth(a=>({...a,photo:null}));}}><I.X s={11}/></button></>
                 :<><I.Camera s={17} c="var(--muted)"/><span style={{fontSize:12,flex:1,color:'var(--muted)'}}>Foto (optional)</span></>
               }
               <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{if(e.target.files[0])resizePhoto(e.target.files[0],b64=>setNewAth(a=>({...a,photo:b64})));e.target.value='';}}/>

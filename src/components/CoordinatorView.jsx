@@ -1040,7 +1040,7 @@ const handleDeleteAth=async(a)=>{
                 const pin=window.prompt(lang==='de'?'PIN eingeben:':'Enter PIN:');
                 if(pin===null)return;if(!verifyCompPassword({info},pin)){window.alert(lang==='de'?'Falscher PIN':'Wrong PIN');return;}
                 generateStartOrder();window.alert(lang==='de'?'Startreihenfolge generiert!':'Start order generated!');
-              }}>⚡ Startliste</button>
+              }}><I.Bolt s={10}/> Startliste</button>
               <button className="btn btn-ghost" style={{padding:'4px 8px',fontSize:9,gap:3,borderRadius:7,borderColor:'rgba(52,199,89,.3)',color:'rgba(52,199,89,.8)'}} onClick={exportStartOrderPDF}>
                 <I.Download s={10}/> PDF
               </button>
@@ -1152,7 +1152,7 @@ const handleDeleteAth=async(a)=>{
                             <div style={{fontSize:10,fontWeight:800,color:'var(--muted)',width:16,textAlign:'center',fontFamily:'JetBrains Mono'}}>{i+1}</div>
                             <input type="text" defaultValue={o.name} onBlur={e=>{if(e.target.value.trim()&&e.target.value!==o.name)fbUpdate(activePath+'/'+o.id+'/name',e.target.value.trim());}} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} style={{flex:1,fontSize:11,fontWeight:600,padding:'3px 6px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:5,color:'var(--text)'}}/>
                             <button style={{padding:'2px 6px',fontSize:8,borderRadius:5,border:`1px solid ${o.isCP?'rgba(52,199,89,.4)':'rgba(255,255,255,.15)'}`,background:o.isCP?'rgba(52,199,89,.12)':'transparent',color:o.isCP?'var(--green)':'var(--muted)',cursor:'pointer',fontWeight:700}} onClick={()=>fbUpdate(activePath+'/'+o.id,{...o,isCP:!o.isCP})}>CP</button>
-                            <button style={{padding:'2px 5px',borderRadius:5,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:10}} onClick={()=>{if(window.confirm(`"${o.name}" entfernen?`))fbRemove(activePath+'/'+o.id);}}>✕</button>
+                            <button style={{padding:'2px 5px',borderRadius:5,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:10}} onClick={()=>{if(window.confirm(`"${o.name}" entfernen?`))fbRemove(activePath+'/'+o.id);}}><I.X s={10} c="#FF3B6B"/></button>
                           </div>
                         )}/>
                       <div style={{display:'flex',gap:5,marginTop:6}}>
@@ -1186,7 +1186,7 @@ const handleDeleteAth=async(a)=>{
                 {/* Close stage button (shows when not occupied, not closed, has successors or qualiPercent) */}
                 {!stageClosed&&!isOccupied&&(successors.length>0||pStage.qualiPercent>0)&&predsClosed&&(
                   <button className="btn" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:0,background:'var(--card2)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:10}} onClick={()=>closeStage(0,pStage)}>
-                    ✔ {lang==='de'?`Stage "${stageName}" abschließen`:`Close stage "${stageName}"`}
+                    <I.Check s={13}/> {lang==='de'?`Stage "${stageName}" abschließen`:`Close stage "${stageName}"`}
                   </button>
                 )}
                 {/* Time limit — editable per pipeline stage */}
@@ -1305,7 +1305,7 @@ const handleDeleteAth=async(a)=>{
                       </div>
                     :<button className="btn btn-coral" style={{width:'100%',padding:14,fontSize:15,gap:8,marginTop:2}} onClick={()=>{SFX.click();onStage(n);}}><I.Play s={16}/> {info.stageNames?.[n]||`Stage ${n}`} starten</button>;
               })()}
-              {info?.stageLinked&&!stages?.[n]?.closed&&!occupiedStages.has(n)&&n<numSt&&(<button className="btn" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,background:'var(--card2)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:10}} onClick={()=>closeStage(n)}>✔ {lang==='de'?`Stage ${n} abschließen`:`Close Stage ${n}`}</button>)}
+              {info?.stageLinked&&!stages?.[n]?.closed&&!occupiedStages.has(n)&&n<numSt&&(<button className="btn" style={{width:'100%',padding:10,fontSize:13,gap:6,marginTop:4,background:'var(--card2)',color:'var(--muted)',border:'1px solid var(--border)',borderRadius:10}} onClick={()=>closeStage(n)}><I.Check s={13}/> {lang==='de'?`Stage ${n} abschließen`:`Close Stage ${n}`}</button>)}
               {/* ── Inline obstacle editor ── */}
               {editObsStage===n&&(
                 <div className="scale-in" style={{background:'rgba(255,255,255,.03)',border:'1px solid var(--border)',borderRadius:12,padding:12,display:'flex',flexDirection:'column',gap:7}}>
@@ -1414,7 +1414,7 @@ const handleDeleteAth=async(a)=>{
                       </div>
                       <div style={{display:'flex',gap:6}}>
                         <button className="btn btn-coral" style={{flex:1,padding:'7px',fontSize:13,gap:5}} onClick={handleSaveAth}><I.Check s={13}/>{lang==='de'?'Speichern':'Save'}</button>
-                        <button className="btn" style={{padding:'7px 12px',fontSize:13}} onClick={()=>{setEditingAth(null);setEditAthDraft(null);}}>✕</button>
+                        <button className="btn" style={{padding:'7px 12px',fontSize:13}} onClick={()=>{setEditingAth(null);setEditAthDraft(null);}}><I.X s={13}/></button>
                         <button className="btn" style={{padding:'7px 12px',fontSize:13,background:'rgba(255,59,48,.12)',color:'var(--red)',border:'1px solid rgba(255,59,48,.25)'}} onClick={()=>handleDeleteAth(a)}><I.Trash s={13}/></button>
                       </div>
                     </div>

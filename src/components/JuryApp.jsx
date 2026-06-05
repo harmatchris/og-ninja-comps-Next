@@ -158,7 +158,7 @@ const JuryWait=({cat,queue,obstacles,onStart,compId,totalAthletes,doneCount,onFo
                       <div style={{fontSize:11,fontWeight:800,color:'var(--muted)',width:18,textAlign:'center',fontFamily:'JetBrains Mono'}}>{i+1}</div>
                       <input type="text" defaultValue={o.name} onBlur={e=>renameObs(o.id,e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.target.blur();}} style={{flex:1,fontSize:12,fontWeight:600,padding:'4px 8px',background:'rgba(255,255,255,.05)',border:'1px solid var(--border)',borderRadius:6,color:'var(--text)'}}/>
                       <button style={{padding:'3px 8px',fontSize:9,borderRadius:6,border:`1px solid ${o.isCP?'rgba(52,199,89,.4)':'rgba(255,255,255,.15)'}`,background:o.isCP?'rgba(52,199,89,.12)':'transparent',color:o.isCP?'var(--green)':'var(--muted)',cursor:'pointer',fontWeight:700}} onClick={()=>toggleCP(o.id)}>CP</button>
-                      <button style={{padding:'3px 6px',borderRadius:6,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:11}} onClick={()=>{if(window.confirm(`"${o.name}" ${lang==='de'?'entfernen':'remove'}?`))removeObs(o.id);}}>✕</button>
+                      <button style={{padding:'3px 6px',borderRadius:6,border:'1px solid rgba(255,59,80,.3)',background:'rgba(255,59,80,.08)',color:'#FF3B6B',cursor:'pointer',fontSize:11,display:'flex',alignItems:'center',justifyContent:'center'}} onClick={()=>{if(window.confirm(`"${o.name}" ${lang==='de'?'entfernen':'remove'}?`))removeObs(o.id);}}><I.X s={11} c="currentColor"/></button>
                     </div>
                   )}/>
                 <div style={{display:'flex',gap:6,marginTop:8}}>
@@ -479,8 +479,8 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
           background:'rgba(52,199,89,.1)',border:'1px solid rgba(52,199,89,.3)',
           display:'flex',justifyContent:'space-between',alignItems:'center',
           animation:'fadeUp .22s ease'}}>
-          <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>
-            ✓ {obsShortName(lastSplit.name)} · CP {lastSplit.idx}/{lastSplit.total}
+          <div style={{fontSize:13,fontWeight:700,color:'var(--green)',display:'flex',alignItems:'center',gap:5}}>
+            <I.Check s={13} c="var(--green)"/><span>{obsShortName(lastSplit.name)} · CP {lastSplit.idx}/{lastSplit.total}</span>
           </div>
           <div className="timer-grad" style={{fontSize:20}}>{fmtMs(lastSplit.time)}</div>
         </div>
@@ -604,7 +604,7 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
             <button className={`chip${selCount===0?' active':''}`}
               style={{justifyContent:'space-between',padding:'9px 14px'}}
               onClick={()=>setSelCount(0)}>
-              <span style={{fontWeight:600,color:'var(--text)'}}>⛔ {lang==='de'?'Kein Checkpoint':'No checkpoint'}</span>
+              <span style={{fontWeight:600,color:'var(--text)',display:'inline-flex',alignItems:'center',gap:5}}><I.X s={12} c="currentColor"/><span>{lang==='de'?'Kein Checkpoint':'No checkpoint'}</span></span>
               <span style={{fontSize:11,color:'var(--muted)',fontFamily:'JetBrains Mono'}}>—</span>
             </button>
             {visible.map((cp,vi)=>{
@@ -619,7 +619,7 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
                     background:isSel?'rgba(255,94,58,.22)':reached?'rgba(255,255,255,.06)':'rgba(255,255,255,.02)'}}
                   onClick={()=>setSelCount(count)}>
                   <span style={{fontWeight:600,color:'var(--text)'}}>
-                    {reached&&<span style={{color:'var(--cor)',marginRight:5,fontSize:10}}>✓</span>}
+                    {reached&&<span style={{color:'var(--cor)',marginRight:5,fontSize:10,display:'inline-flex',alignItems:'center'}}><I.Check s={10} c="var(--cor)"/></span>}
                     {count}. {cp.name}
                     {!reached&&<span style={{fontSize:10,color:'var(--dim)',marginLeft:6}}>{lang==='de'?'(nicht erreicht)':'(not yet)'}</span>}
                   </span>
@@ -673,8 +673,8 @@ const FallModal=({athlete,doneCP,cpObst,obstArr=[],currentTime,mode,lives,onConf
           onClick={async()=>{setConfirming(true);setConfirmErr(null);try{await onConfirm({selCount,time:(isLaterCP&&parseMs(manualTimeStr||fmtMs(officialTime)))||officialTime,fellAtObst});}catch(e){console.error('FALL BTN ERROR',e);setConfirmErr(String(e?.message||e));setConfirming(false);}}}>
           {confirming?<I.RefreshCw s={15}/>:<I.Check s={15}/>} {confirming?(lang==='de'?'Speichert...':'Saving...'):(lang==='de'?'Fall bestätigen (DNF)':'Confirm fall (DNF)')}
         </button>
-        {onCancel&&<button className="btn btn-ghost" style={{width:'100%',padding:12}} onClick={onCancel}>
-          ↩ {lang==='de'?'Zurück zum Lauf':'Back to run'}
+        {onCancel&&<button className="btn btn-ghost" style={{width:'100%',padding:12,display:'flex',alignItems:'center',justifyContent:'center',gap:8}} onClick={onCancel}>
+          <I.ArrowLeft s={13} c="currentColor"/> <span>{lang==='de'?'Zurück zum Lauf':'Back to run'}</span>
         </button>}
       </div>
     </div>

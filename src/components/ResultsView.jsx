@@ -47,7 +47,7 @@ const Regelwerk=()=>{
             placeholder={lang==='de'?'Regelwerk durchsuchen…':'Search rulebook…'}
             style={{paddingLeft:36,borderRadius:10,fontSize:13}}/>
           <span style={{position:'absolute',left:11,top:'50%',transform:'translateY(-50%)',fontSize:14,opacity:.5}}></span>
-          {query&&<button onClick={()=>setQuery('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,opacity:.5,color:'var(--text)',padding:'0 2px'}}>✕</button>}
+          {query&&<button onClick={()=>setQuery('')} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:16,opacity:.5,color:'var(--text)',padding:'0 2px',display:'flex',alignItems:'center'}}><I.X s={15} c="currentColor"/></button>}
         </div>
         {q&&<div style={{marginTop:8,display:'flex',gap:6,alignItems:'center'}}>
           <span className="rw-match-badge"> {totalMatches} {lang==='de'?'Treffer':'matches'} · {visible.length} {lang==='de'?'Kapitel':'chapters'}</span>
@@ -167,7 +167,7 @@ const EditRunModal=({run,runKey,compId,onClose})=>{
               <button key={cp.obsId||i} className={`chip${selCpIdx===i?' active':''}`}
                 style={{justifyContent:'space-between',padding:'8px 12px',background:selCpIdx===i?'rgba(255,94,58,.18)':isIncluded&&isNew?'rgba(52,199,89,.08)':'rgba(255,255,255,.04)',borderColor:isNew&&isIncluded?'rgba(52,199,89,.35)':undefined}}
                 onClick={()=>{setSelCpIdx(i);setFellAtId(null);}}>
-                <span style={{fontWeight:600}}>{isIncluded?<span style={{color:isNew?'var(--green)':'var(--cor)',marginRight:5,fontSize:10}}>{isNew?'+':'✓'}</span>:null}{i+1}. {cp.name||`CP ${i+1}`}{isNew&&isIncluded?<span style={{fontSize:9,color:'var(--green)',marginLeft:5,fontWeight:400}}>{lang==='de'?'(neu)':'(new)'}</span>:null}</span>
+                <span style={{fontWeight:600}}>{isIncluded?<span style={{color:isNew?'var(--green)':'var(--cor)',marginRight:5,fontSize:10,display:'inline-flex',alignItems:'center',verticalAlign:'middle'}}>{isNew?'+':<I.Check s={10} c="var(--cor)"/>}</span>:null}{i+1}. {cp.name||`CP ${i+1}`}{isNew&&isIncluded?<span style={{fontSize:9,color:'var(--green)',marginLeft:5,fontWeight:400}}>{lang==='de'?'(neu)':'(new)'}</span>:null}</span>
                 <span style={{fontSize:12,fontFamily:'JetBrains Mono',fontWeight:700,color:isNew?'var(--muted)':'var(--text)',marginLeft:8,flexShrink:0}}>{cp.time!=null?fmtMs(cp.time):'—'}</span>
               </button>
             );})}
