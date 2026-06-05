@@ -196,6 +196,12 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const activeGroupObj=groups.find(g=>g.id===activeGroup)||{cats,label:lang==='de'?'Alle':'All'};
   const activeGroupCats=activeGroupObj.cats;
   const activeGroupLabel=activeGroupObj.label;
+  // Skill list filtered by the division's difficulty band so the jury only sees the relevant skills:
+  // LK2 = Leicht + Mittel, LK1 = Mittel + Schwer (the 'Alle' view keeps everything).
+  const SKILL_DIFFS={LK1:['medium','hard'],LK2:['easy','medium']};
+  const skillDiffFilter=SKILL_DIFFS[activeGroup]||null;
+  const visibleSkills=skillDiffFilter?skills.filter(sk=>skillDiffFilter.includes(sk.difficulty||'medium')):skills;
+  useEffect(()=>{if(!visibleSkills.length)return;if(!selSkill||!visibleSkills.find(s=>s.id===selSkill))setSelSkill(visibleSkills[0].id);},[activeGroup,visibleSkills.length]);
   // Scoring lock follows the selected group's own timer (no lock in the combined 'Alle' view).
   const activeTimer=activeGroup==='all'?null:deriveTimer(activeGroup);
   // Scoring locks only once the JURY confirms the division closed (after the expiry prompt),
@@ -610,7 +616,7 @@ const SkillPhaseView=({compId,info,athletes})=>{
         <div>
           <div style={{fontSize:10,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',margin:'2px 2px 5px'}}>{lang==='de'?'Skill / Posten':'Skill'}</div>
           <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
-            {skills.map(sk=><button key={sk.id} className={`chip${selSkill===sk.id?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(selSkill===sk.id?null:sk.id)}>{sk.name||`Skill ${skills.indexOf(sk)+1}`}</button>)}
+            {visibleSkills.map(sk=><button key={sk.id} className={`chip${selSkill===sk.id?' active':''}`} style={{fontSize:11,padding:'3px 10px'}} onClick={()=>setSelSkill(selSkill===sk.id?null:sk.id)}>{sk.name||`Skill ${skills.indexOf(sk)+1}`}</button>)}
           </div>
         </div>
       )}

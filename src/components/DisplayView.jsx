@@ -880,6 +880,47 @@ const DISP_SCREENS=[
   {k:'stats', de:'Statistik',en:'Stats',    ic:I.BarChart},
   {k:'queue', de:'Next Up',  en:'Next Up',  ic:I.SkipFwd},
 ];
+// ── Live-run strip: when an athlete is on the course, show their running time, latest checkpoint,
+//    and the remaining time (if the stage has a limit). Renders nothing when nobody is running.
+const LiveRunStrip=({compId,info,athletesMap,pipelineData,onlyCats,tvMode,lang})=>{
+  const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const [now,setNow]=useState(Date.now());
+  const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
+  const stages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})):[];
+  const live=activeRuns?Object.entries(activeRuns).filter(([,r])=>r&&r.athleteId&&r.phase!=='done'&&(r.startEpoch||r.phase==='countdown')&&(!onlyCats||onlyCats.includes(r.catId||athletesMap?.[r.athleteId]?.cat))):[];
+  useEffect(()=>{if(!live.length)return;const iv=setInterval(()=>setNow(Date.now()),250);return()=>clearInterval(iv);},[live.length]);
+  if(!live.length)return null;
+  const fmt=ms=>{const s=Math.floor(ms/1000);return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:8,flexShrink:0}}>
+      {live.map(([key,r])=>{
+        const a=athletesMap?.[r.athleteId]||{};
+        const isCountdown=r.phase==='countdown';
+        const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
+        const stageName=isPipeline?(stages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
+        const limitSec=(isPipeline?(stages.find(s=>s.id===key)?.timeLimit||0):0)||info?.stageLimits?.[key]||info?.timeLimit||0;
+        const remaining=(!isCountdown&&limitSec>0)?Math.max(0,limitSec*1000-elapsed):null;
+        const cps=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
+        const cpCount=r.doneCPCount!=null?r.doneCPCount:cps.length;
+        const lastCP=cps.length?(cps[cps.length-1]?.name):null;
+        const crit=remaining!==null&&remaining<15000;
+        const tCol=isCountdown?'#FF9500':crit?'#FF3B30':remaining!==null?'#FFD60A':'#30D158';
+        const fl=a.country?toFlag(a.country):'';
+        return(
+          <div key={key} style={{display:'flex',alignItems:'center',gap:tvMode?16:11,padding:tvMode?'11px 18px':'9px 13px',borderRadius:13,background:crit?'rgba(255,59,48,.1)':'rgba(48,209,88,.08)',border:`1px solid ${crit?'rgba(255,59,48,.32)':'rgba(48,209,88,.28)'}`}}>
+            <span style={{width:9,height:9,borderRadius:'50%',background:crit?'#FF3B30':'#30D158',boxShadow:`0 0 9px ${crit?'#FF3B30':'#30D158'}`,animation:'pulse 1.2s infinite',flexShrink:0}}/>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{fontSize:tvMode?18:13.5,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{fl&&<span style={{marginRight:5}}>{fl}</span>}{a.name||r.athleteName||'?'}<span style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.45)',fontWeight:600,marginLeft:8}}>{stageName}</span></div>
+              <div style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.6)',fontWeight:600,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>CP {cpCount}{lastCP?` · ${lastCP}`:''}{r.livesLeft!=null&&r.livesLeft<999?` · ${r.livesLeft} ${lang==='de'?'Leben':'lives'}`:''}</div>
+            </div>
+            <div style={{fontFamily:'JetBrains Mono',fontSize:tvMode?34:24,fontWeight:900,letterSpacing:'-1px',color:tCol,flexShrink:0,lineHeight:1}}>{isCountdown?(r.countdown||'GO'):fmt(elapsed)}</div>
+            {remaining!==null&&<div style={{textAlign:'right',flexShrink:0}}><div style={{fontFamily:'JetBrains Mono',fontSize:tvMode?16:12,fontWeight:800,color:tCol}}>{fmt(remaining)}</div><div style={{fontSize:tvMode?9:8,color:'rgba(255,255,255,.45)',fontWeight:700,letterSpacing:'.06em',textTransform:'uppercase'}}>{lang==='de'?'übrig':'left'}</div></div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const {lang}=useLang();
   const info=useFbVal(`ogn/${compId}/info`);
@@ -942,6 +983,8 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           const multiActive=actStages.length>1; // 2+ parallel stages → give survival room, shrink next-up
           return(
           <div style={{padding:12,display:'flex',flexDirection:'column',gap:12,...(wide?{height:'calc(100vh - 54px)'}:{})}}>
+            {/* Live runner(s) on the course — time, latest checkpoint, remaining time. Hidden when nobody runs. */}
+            <LiveRunStrip {...dataProps} onlyCats={screenCats} tvMode={wide} lang={lang}/>
             {/* Top: only the live/most-current survival + next-up (fixed share); next-up shrinks when 2 stages run parallel */}
             <div style={{display:'grid',gap:12,gridTemplateColumns:wide?(multiActive?'2.4fr 0.85fr':'1.5fr 1fr'):'1fr',minHeight:0,...(wide?{height:multiActive?'52%':'44%'}:{})}}>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
@@ -970,6 +1013,8 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             </div>
             {/* Right: Bambini run live + next-up (the parallel Bambini stages) */}
             <div style={{display:'flex',flexDirection:'column',gap:12,minWidth:0,...(wide?{flex:'1',minHeight:0}:{})}}>
+              {/* Live Bambini runner on the course — time, latest checkpoint, remaining time. Hidden when nobody runs. */}
+              <LiveRunStrip {...dataProps} onlyCats={['bam']} tvMode={wide} lang={lang}/>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
                 <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.TrendUp s={13} c="currentColor"/><span>{lang==='de'?'BAMBINI — SURVIVAL':'BAMBINI — SURVIVAL'}</span></div>
                 <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={['bam']} activeOnly noSkillPanel tvMode={false}/></div>
