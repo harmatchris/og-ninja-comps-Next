@@ -944,9 +944,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
     <div style={{minHeight:'100vh'}}>
       {/* Compact header — comp logo + name + current screen, with picker + Home (saves top space) */}
       <div style={{position:'sticky',top:0,zIndex:300,display:'flex',alignItems:'center',gap:11,padding:'7px 12px',background:'rgba(11,11,20,.94)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderBottom:`2px solid ${themeC}55`,transition:'border-color .4s ease'}}>
-        {info?.logo
-          ?<img src={info.logo} alt="" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.12)'}}/>
-          :<div style={{width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,.05)',flexShrink:0,overflow:'hidden'}}><I.NinjaLogo s={32}/></div>}
+        <img src={info?.logo||'/icon-192.png'} alt="OG Comps" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.12)'}}/>
         <div style={{minWidth:0,flex:1}}>
           <div style={{fontSize:wide?18:14.5,fontWeight:900,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.15}}>{info?.name||'Wettkampf'}</div>
           <div style={{fontSize:10.5,color:'var(--muted)',letterSpacing:'.04em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:5}}><CurIc s={11} c="currentColor"/><span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{cur[lang]}{info?.date?` · ${info.date}`:''}</span></div>
