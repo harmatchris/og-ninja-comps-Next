@@ -314,10 +314,27 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
   const xs=i=>ML+(i/Math.max(nPts-1,1))*PW;
   const ys=v=>MT+PH-(v/100)*PH;
   // ── Zoom-to-Action: smoothly frame the lead live runner while a run is on ──
-  const zoomActive=nPts>=2&&!!data&&data.some(d=>d.total>0)&&liveRunners.some(r=>r?.phase==='active'||r?.phase==='countdown');
-  const leadCP=zoomActive?Math.max(0,...liveRunners.map(r=>Math.min(Math.max(r.doneCPCount||0,0),nPts-1))):0;
-  const zW=Math.min(W,PW*0.55+90);
-  const zTarget=zoomActive?{x:Math.max(0,Math.min(xs(leadCP)-zW*0.42,W-zW)),y:0,w:zW,h:H}:{x:0,y:0,w:W,h:H};
+  const activeRs=liveRunners.filter(r=>r?.phase==='active'||r?.phase==='countdown');
+  const zoomActive=nPts>=2&&!!data&&data.some(d=>d.total>0)&&activeRs.length>0;
+  let zTarget={x:0,y:0,w:W,h:H};
+  if(zoomActive){
+    // Frame BOTH the live runner AND the ghost/best-run pace ("der bisher Führende"),
+    // so the duel is always visible — span min→max checkpoint across runner & ghost.
+    const cps=[];
+    activeRs.forEach(r=>{
+      const rCP=Math.min(Math.max(r.doneCPCount||0,0),nPts-1);cps.push(rCP);
+      if(r.bestRunCPs&&r.bestRunCPs.length&&r.startEpoch){
+        const el=Date.now()-r.startEpoch;
+        const gCP=Math.min(r.bestRunCPs.filter(c=>(((c&&c.time)||c)||0)<=el).length,nPts-1);
+        cps.push(gCP);
+      }
+    });
+    const loCP=Math.max(0,Math.min(...cps)),hiCP=Math.min(nPts-1,Math.max(...cps));
+    const padX=PW*0.12,rawX0=xs(loCP)-padX,rawX1=xs(hiCP)+padX;
+    let zw=Math.min(W,Math.max(rawX1-rawX0,PW*0.42));
+    const zx=Math.max(0,Math.min((rawX0+rawX1)/2-zw/2,W-zw));
+    zTarget={x:zx,y:0,w:zw,h:H};
+  }
   const [vb,setVb]=useState(zTarget);
   const vbRef=useRef(zTarget);
   const tgtKey=`${zoomActive?1:0}_${Math.round(zTarget.x)}_${Math.round(zTarget.w)}`;

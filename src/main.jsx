@@ -7,7 +7,7 @@ import { authReady } from './config.js';
 import { HomeView } from './components/HomeView.jsx';
 import { CoordinatorView } from './components/CoordinatorView.jsx';
 import { JuryApp } from './components/JuryApp.jsx';
-import { DisplayView, DisplayNoComp, InstallPrompt, QueueDisplayView, StatsDisplayView, StageRecoveryBanner } from './components/DisplayView.jsx';
+import { DisplayView, DisplayComposer, DisplayNoComp, InstallPrompt, QueueDisplayView, StatsDisplayView, StageRecoveryBanner } from './components/DisplayView.jsx';
 import { SkillSelfEntryView } from './components/SkillSelfEntryView.jsx';
 
 const App=()=>{
@@ -37,7 +37,7 @@ const App=()=>{
       {view==='coordinator'&&compId&&<CoordinatorView compId={compId} onBack={()=>{setView('home');setCompId(null);}} onStage={(n,sid)=>{setPrevView('coordinator');openStage(n,sid);}} lang={lang} setLang={setLang}/>}
       {view==='coordinator'&&compId&&<StageRecoveryBanner compId={compId} lang={lang} onJoin={n=>{setPrevView('coordinator');if(typeof n==='number'){setStageId(null);setStNum(n);}else{setStageId(n);setStNum(1);}setView('jury');}}/>}
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} stageId={stageId} onBack={()=>setView(prevView)}/>}
-      {view==='display'&&compId&&<DisplayView compId={compId} onBack={()=>setCompId(null)} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
+      {view==='display'&&compId&&<DisplayComposer compId={compId} onBack={()=>{setView('home');setCompId(null);}} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
       {view==='queue'&&compId&&<QueueDisplayView compId={compId} onBack={null}/>}
       {view==='queue'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('queue');}}/>}
