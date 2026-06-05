@@ -546,9 +546,9 @@ const ResultsView=({compId,athletes})=>{
     <div style={{paddingBottom:82,overflowX:'hidden',maxWidth:'100%'}}>
       {/* Stage tabs — BIG, on top */}
       {multiStage&&(
-        <div style={{display:'flex',gap:6,padding:'8px 16px',borderBottom:'1px solid var(--border)'}}>
+        <div style={{display:'flex',gap:6,padding:'8px 16px',borderBottom:'1px solid var(--border)',overflowX:'auto',scrollbarWidth:'none'}}>
           <button className={`chip${allStagesView?' active':''}`}
-            style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(allStagesView?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
+            style={{flex:'1 0 auto',whiteSpace:'nowrap',padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(allStagesView?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
             onClick={()=>{setSelStage('all');SFX.hover();}}>
             {lang==='de'?'Alle Stages':'All Stages'}
           </button>
@@ -569,7 +569,7 @@ const ResultsView=({compId,athletes})=>{
         </div>
       )}
       {/* Division tabs — auto-rotating, smaller */}
-      <div style={{padding:'6px 16px',display:'flex',gap:4,alignItems:'center',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)'}}>
+      <div style={{padding:'6px 16px',display:'flex',gap:4,alignItems:'center',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)',overflowX:'auto',scrollbarWidth:'none'}}>
         {catsWithRuns.map((c,ci)=>(
           <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
             style={{flexShrink:0,fontSize:10,padding:'2px 9px',...(selCat===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
@@ -586,7 +586,7 @@ const ResultsView=({compId,athletes})=>{
         const cat=IGN_CATS.find(c=>c.id===selCat);
         const overallRanked=isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
         return(
-        <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},1fr)`,gap:6,padding:'6px 8px',height:'calc(100vh - 200px)'}}>
+        <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},minmax(130px,1fr))`,gap:6,padding:'6px 8px',height:'calc(100vh - 200px)',overflowX:'auto'}}>
           {stageList.map(sid=>{
             const stgRanked=isPipeline?computeRankedPipeline(runList,selCat,sid):computeRankedStage(runList,selCat,sid);
             const stgName=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;

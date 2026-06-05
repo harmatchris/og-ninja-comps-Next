@@ -1029,7 +1029,7 @@ const handleDeleteAth=async(a)=>{
           </div>
         ):(
         <>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,gap:6}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2,gap:6,flexWrap:'wrap'}}>
           <div className="lbl" style={{marginBottom:0,flexShrink:0}}>Stages — direkt starten</div>
           <div style={{display:'flex',gap:4,alignItems:'center'}}>
             {isPipeline&&pipelineStages.length>=2&&<>

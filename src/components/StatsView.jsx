@@ -686,12 +686,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         ))}
       </div>
 
-      {/* One section per active stage — side by side when 2+ stages */}
-      <div style={stageDataArr.length>=2?{
+      {/* One section per active stage — side by side on TV; stacked single-column on phone */}
+      <div style={tvMode&&stageDataArr.length>=2?{
         display:'grid',
         gridTemplateColumns:stageDataArr.length>=3?'1fr 1fr':`repeat(${Math.min(stageDataArr.length,2)},1fr)`,
-        gap:tvMode?16:10,
-        height:tvMode&&stageDataArr.length>1?'calc(100vh - 160px)':'auto'
+        gap:16,
+        height:stageDataArr.length>1?'calc(100vh - 160px)':'auto'
       }:{display:'flex',flexDirection:'column',gap:tvMode?20:12}}>
         {stageDataArr.map(({sn,stageName:pipelineStageName,catId,survivalData,difficultyData,progressData,liveRunners,obsArr,allObs,livesUsedPerObs})=>{
           const cat=catId?IGN_CATS.find(c=>c.id===catId):null;
