@@ -951,7 +951,10 @@ const handleDeleteAth=async(a)=>{
   return(
     <div style={{minHeight:'100vh',paddingBottom:40}}>
       <TopBar title={<div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>{info.logo&&<img src={info.logo} style={{width:28,height:28,borderRadius:7,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>}<span style={{minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{info.name||'Wettkampf'}</span>{compDone&&<span className="done-badge">{lang==='de'?'Abgeschlossen':'Finished'}</span>}</div>} sub={`${compId} · ${MODES[info.mode]?.name[lang]||info.mode}`} onBack={onBack}
-        right={<div style={{display:'flex',gap:6}}>
+        right={<div style={{display:'flex',gap:6,alignItems:'center'}}>
+          <button className="btn" style={{padding:'6px 11px',gap:6,fontSize:12,fontWeight:800,background:'rgba(255,94,58,.16)',border:'1.5px solid rgba(255,94,58,.5)',color:'var(--cor)',whiteSpace:'nowrap'}} title={lang==='de'?'Display / Bühne öffnen (neuer Tab)':'Open display (new tab)'} onClick={()=>{SFX.click();window.open(`${location.href.split('?')[0]}?mode=display&comp=${compId}`,'_blank');}}>
+            <I.Monitor s={15}/> <span className="tab-label">Display</span>
+          </button>
           <button className="btn btn-ghost" style={{padding:'7px'}} title={lang==='de'?'Passwort ändern':'Change password'} onClick={()=>{SFX.click();resetPwForm();setShowPwSettings(true);}}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
           </button>

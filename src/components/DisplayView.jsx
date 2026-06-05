@@ -741,10 +741,57 @@ const StageRecoveryBanner=({compId,onJoin,lang})=>{
   );
 };
 
+// ── Ranking towers: podium (2·1·3) per division, auto-switching divisions every 9s,
+//    with the full ranked list auto-scrolling below. onlyCats restricts to a league.
+const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang})=>{
+  const runList=completedRuns?Object.values(completedRuns):[];
+  const athMap=athletesMap||{};
+  let cats=[...new Set(runList.map(r=>r.catId).filter(Boolean))].filter(c=>IGN_CATS.find(x=>x.id===c));
+  if(onlyCats)cats=cats.filter(c=>onlyCats.includes(c));
+  const [idx,setIdx]=useState(0);
+  useEffect(()=>{if(cats.length<=1)return;const iv=setInterval(()=>setIdx(i=>(i+1)%cats.length),9000);return()=>clearInterval(iv);},[cats.length]);
+  if(!cats.length)return<EmptyState icon={<I.Trophy s={26} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Noch keine Resultate':'No results yet'}/>;
+  const catId=cats[idx%cats.length],cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
+  const ranked=computeRanked(runList,catId),top3=ranked.slice(0,3);
+  const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[tvMode?120:78,tvMode?88:58,tvMode?64:44];
+  const res=r=>r.status==='complete'?'🏁':r.status==='dsq'?'DSQ':`${r.doneCP?.length||0}/${r.totalCPs||'?'}`;
+  const nm=r=>(athMap[r.athleteId]?.name)||r.athleteName||'?';
+  return(
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+        <div style={{width:9,height:9,borderRadius:'50%',background:cat.color,flexShrink:0}}/>
+        <div style={{fontSize:tvMode?17:14,fontWeight:900,color:cat.color}}>{cat.name?.[lang]||catId}</div>
+        {cats.length>1&&<div style={{marginLeft:'auto',display:'flex',gap:4}}>{cats.map((c,i)=><div key={c} style={{width:6,height:6,borderRadius:'50%',background:i===idx%cats.length?cat.color:'rgba(255,255,255,.22)',transition:'background .3s'}}/>)}</div>}
+      </div>
+      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10}}>
+        {[1,0,2].map(rank=>{const a=top3[rank];if(!a)return<div key={rank} style={{flex:1,maxWidth:140}}/>;const col=podCol[rank];return(
+          <div key={rank} style={{flex:1,maxWidth:150,display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0}}>
+            <div style={{fontSize:tvMode?13:11,fontWeight:800,color:col,textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{nm(a)}</div>
+            <div style={{fontSize:tvMode?13:11,fontWeight:700,color:'rgba(255,255,255,.6)',fontFamily:'JetBrains Mono'}}>{res(a)}</div>
+            <div style={{width:'100%',height:podH[rank],borderRadius:'9px 9px 0 0',background:`linear-gradient(180deg,${col}33,${col}12)`,border:`1.5px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:6,fontSize:tvMode?28:20,fontWeight:900,color:col,boxShadow:rank===0?`0 0 18px ${col}44`:'none'}}>{rank+1}</div>
+          </div>
+        );})}
+      </div>
+      <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={tvMode?'40vh':'38vh'}>
+        {ranked.map((r,i)=>(
+          <div key={r.athleteId||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+            <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
+            <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nm(r)}</span>
+            <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0}}>{res(r)}</span>
+          </div>
+        ))}
+      </AutoScrollList>
+    </div>
+  );
+};
+
 // ── Display Composer: one wrapper with a discoverable top-right picker to switch
-//    between display screens (Overview / Live / Stats / Next-up) + Home to the menu.
+//    between display screens (Overview / Live / Stats / Next-up / LK1 / LK2) + Home.
+const LK1_CATS=['km1','kw1','tm1','tw1'],LK2_CATS=['km2','kw2','tm2','tw2'];
 const DISP_SCREENS=[
   {k:'combo',de:'Übersicht',en:'Overview',ic:'▦'},
+  {k:'LK1',  de:'LK1',      en:'LK1',     ic:'①'},
+  {k:'LK2',  de:'LK2',      en:'LK2',     ic:'②'},
   {k:'live', de:'Live Runs',en:'Live Runs',ic:'⚡'},
   {k:'stats',de:'Statistik',en:'Stats',ic:'📈'},
   {k:'queue',de:'Next Up',  en:'Next Up', ic:'⏭'},
@@ -792,7 +839,9 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
         {screen==='live'&&<DisplayView compId={compId} onBack={null} onOpenJury={onOpenJury} onBackToCoordinator={onBackToCoordinator}/>}
         {screen==='stats'&&<div style={{padding:'56px 14px 20px'}}><StatsView {...dataProps} tvMode={wide}/></div>}
         {screen==='queue'&&<div style={{padding:'56px 14px 20px'}}><AthleteQueueView {...dataProps} tvMode={wide}/></div>}
-        {screen==='combo'&&(
+        {['combo','LK1','LK2'].includes(screen)&&(()=>{
+          const screenCats=screen==='LK1'?LK1_CATS:screen==='LK2'?LK2_CATS:null;
+          return(
           <div style={{padding:'56px 12px 18px',display:'grid',gap:12,gridTemplateColumns:wide?'1fr 1fr':'1fr',alignItems:'start'}}>
             <div className="sh-card" style={{padding:'12px 12px 8px',minWidth:0,overflow:'hidden'}}>
               <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:8,letterSpacing:'.06em'}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}</div>
@@ -802,8 +851,13 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
               <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:8,letterSpacing:'.06em'}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}</div>
               <AthleteQueueView {...dataProps} tvMode={false}/>
             </div>
+            <div className="sh-card" style={{padding:'12px 12px 10px',minWidth:0,overflow:'hidden',gridColumn:wide?'1 / -1':'auto'}}>
+              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:8,letterSpacing:'.06em'}}>🏆 {screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</div>
+              <RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang}/>
+            </div>
           </div>
-        )}
+          );
+        })()}
       </>)}
     </div>
   );
