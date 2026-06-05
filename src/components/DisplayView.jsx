@@ -754,7 +754,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
   const catId=cats[idx%cats.length],cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
   const ranked=computeRanked(runList,catId),top3=ranked.slice(0,3);
   const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[tvMode?120:78,tvMode?88:58,tvMode?64:44];
-  const res=r=>r.status==='complete'?'🏁':r.status==='dsq'?'DSQ':`${r.doneCP?.length||0}/${r.totalCPs||'?'}`;
+  const res=r=>r.status==='complete'?'':r.status==='dsq'?'DSQ':`${r.doneCP?.length||0}/${r.totalCPs||'?'}`;
   const nm=r=>(athMap[r.athleteId]?.name)||r.athleteName||'?';
   return(
     <div>
@@ -777,7 +777,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
           <div key={r.athleteId||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
             <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
             <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nm(r)}</span>
-            <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0}}>{res(r)}</span>
+            <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0,display:'inline-flex',alignItems:'center'}}>{r.status==='complete'?<I.FlagCheck s={tvMode?14:12} c="#30D158"/>:res(r)}</span>
           </div>
         ))}
       </AutoScrollList>
@@ -840,14 +840,16 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
 // ── Display Composer: one wrapper with a discoverable top-right picker to switch
 //    between display screens (Overview / Phase 1 / Live / Stats / Next-up / LK1 / LK2) + Home.
 const LK1_CATS=['km1','kw1','tm1','tw1'],LK2_CATS=['km2','kw2','tm2','tw2'];
+// Small numbered badge (clean circle) for the LK1 / LK2 division screens
+const NumBadge=({n,s=14,c='currentColor'})=><span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:s+3,height:s+3,borderRadius:'50%',border:`1.7px solid ${c}`,color:c,fontSize:Math.round(s*0.64),fontWeight:900,lineHeight:1,fontFamily:'JetBrains Mono,monospace'}}>{n}</span>;
 const DISP_SCREENS=[
-  {k:'combo', de:'Übersicht',en:'Overview',ic:'▦'},
-  {k:'phase1',de:'Phase 1',  en:'Phase 1', ic:'🎯'},
-  {k:'LK1',   de:'LK1',      en:'LK1',     ic:'①'},
-  {k:'LK2',   de:'LK2',      en:'LK2',     ic:'②'},
-  {k:'live',  de:'Live Runs',en:'Live Runs',ic:'⚡'},
-  {k:'stats', de:'Statistik',en:'Stats',  ic:'📈'},
-  {k:'queue', de:'Next Up',  en:'Next Up', ic:'⏭'},
+  {k:'combo', de:'Übersicht',en:'Overview', ic:I.Grid},
+  {k:'phase1',de:'Phase 1',  en:'Phase 1', ic:I.Target},
+  {k:'LK1',   de:'LK1',      en:'LK1',      ic:p=><NumBadge n={1} {...p}/>},
+  {k:'LK2',   de:'LK2',      en:'LK2',      ic:p=><NumBadge n={2} {...p}/>},
+  {k:'live',  de:'Live Runs',en:'Live Runs',ic:I.Bolt},
+  {k:'stats', de:'Statistik',en:'Stats',    ic:I.BarChart},
+  {k:'queue', de:'Next Up',  en:'Next Up',  ic:I.SkipFwd},
 ];
 const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const {lang}=useLang();
@@ -862,6 +864,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const [pickOpen,setPickOpen]=useState(false);
   useEffect(()=>{storage.set('lastDispScreen',screen);},[screen]);
   const cur=DISP_SCREENS.find(s=>s.k===screen)||DISP_SCREENS[0];
+  const CurIc=cur.ic;
   const dataProps={compId,info,completedRuns,athletesMap:athletes,pipelineData};
   const btnBase={background:'rgba(18,18,28,.86)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:700};
   return(
@@ -870,28 +873,28 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
       <div style={{position:'sticky',top:0,zIndex:300,display:'flex',alignItems:'center',gap:11,padding:'7px 12px',background:'rgba(11,11,20,.94)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderBottom:'1px solid var(--border)'}}>
         {info?.logo
           ?<img src={info.logo} alt="" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.12)'}}/>
-          :<div style={{width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,background:'rgba(255,255,255,.05)',flexShrink:0}}>{info?.emoji||'🥷'}</div>}
+          :<div style={{width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,.05)',flexShrink:0,overflow:'hidden'}}><I.NinjaLogo s={32}/></div>}
         <div style={{minWidth:0,flex:1}}>
           <div style={{fontSize:wide?18:14.5,fontWeight:900,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.15}}>{info?.name||'Wettkampf'}</div>
-          <div style={{fontSize:10.5,color:'var(--muted)',letterSpacing:'.04em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cur.ic} {cur[lang]}{info?.date?` · ${info.date}`:''}</div>
+          <div style={{fontSize:10.5,color:'var(--muted)',letterSpacing:'.04em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:5}}><CurIc s={11} c="currentColor"/><span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{cur[lang]}{info?.date?` · ${info.date}`:''}</span></div>
         </div>
         <div style={{position:'relative',flexShrink:0}}>
           <button style={{...btnBase,padding:'8px 12px',background:'rgba(255,94,58,.94)',border:'1px solid rgba(255,94,58,.55)',color:'#fff',fontSize:13,fontWeight:800}} onClick={()=>{setPickOpen(o=>!o);SFX.click();}}>
-            <span>{cur.ic}</span>{wide&&<span>{cur[lang]}</span>}<span style={{fontSize:10,opacity:.85}}>▾</span>
+            <CurIc s={15} c="currentColor"/>{wide&&<span>{cur[lang]}</span>}<span style={{display:'inline-flex',transform:'rotate(90deg)',opacity:.85}}><I.ChevR s={11} c="currentColor"/></span>
           </button>
           {pickOpen&&(
             <div style={{position:'absolute',top:'calc(100% + 7px)',right:0,background:'rgba(16,16,26,.98)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:13,padding:6,minWidth:190,boxShadow:'0 14px 44px rgba(0,0,0,.55)',display:'flex',flexDirection:'column',gap:2,zIndex:301}}>
               <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',textTransform:'uppercase',padding:'4px 8px 3px'}}>{lang==='de'?'Anzeige wählen':'Choose display'}</div>
               {DISP_SCREENS.map(s=>(
                 <button key={s.k} onClick={()=>{setScreen(s.k);setPickOpen(false);SFX.hover();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 11px',borderRadius:9,border:'none',cursor:'pointer',background:screen===s.k?'rgba(255,94,58,.18)':'transparent',color:screen===s.k?'var(--cor)':'rgba(255,255,255,.78)',fontSize:13.5,fontWeight:screen===s.k?800:600,textAlign:'left'}}>
-                  <span style={{fontSize:16,width:18,textAlign:'center'}}>{s.ic}</span>{s[lang]}
+                  <span style={{width:18,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><s.ic s={16} c={screen===s.k?'var(--cor)':'currentColor'}/></span>{s[lang]}
                 </button>
               ))}
             </div>
           )}
         </div>
         <button title={lang==='de'?'Hauptmenü':'Home'} style={{...btnBase,padding:'8px 10px',color:'rgba(255,255,255,.6)',flexShrink:0}} onClick={()=>{SFX.click();onBack&&onBack();}}>
-          <span style={{fontSize:15,lineHeight:1}}>🏠</span>
+          <I.Home s={16} c="currentColor"/>
         </button>
       </div>
       {pickOpen&&<div onClick={()=>setPickOpen(false)} style={{position:'fixed',inset:0,zIndex:250}}/>}
@@ -910,17 +913,17 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             {/* Top: only the live/most-current survival + next-up (fixed share); next-up shrinks when 2 stages run parallel */}
             <div style={{display:'grid',gap:12,gridTemplateColumns:wide?(multiActive?'2.4fr 0.85fr':'1.5fr 1fr'):'1fr',minHeight:0,...(wide?{height:multiActive?'52%':'44%'}:{})}}>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}{screenCats?` · ${screen}`:''}</div>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.TrendUp s={13} c="currentColor"/><span>{lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}{screenCats?` · ${screen}`:''}</span></div>
                 <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={screenCats} activeOnly tvMode={false}/></div>
               </div>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}{screenCats?` · ${screen}`:''}</div>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.SkipFwd s={13} c="currentColor"/><span>{lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}{screenCats?` · ${screen}`:''}</span></div>
                 <div style={{flex:1,minHeight:0,overflowY:'auto'}}><AthleteQueueView {...dataProps} onlyCats={screenCats} tvMode={false}/></div>
               </div>
             </div>
             {/* Bottom: ranking list (no podium) — gets the remaining space so it never gets squashed */}
             <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
-              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🏆 {screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</div>
+              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Trophy s={13} c="currentColor"/><span>{screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</span></div>
               <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang} noPodium/></div>
             </div>
           </div>
@@ -930,17 +933,17 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           <div style={{padding:12,display:'flex',gap:12,...(wide?{height:'calc(100vh - 54px)'}:{flexDirection:'column'})}}>
             {/* Left: live skill standings (LK1/LK2 auto-switch) — the parallel skill competition */}
             <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:'1.15',minHeight:0}:{})}}>
-              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🎯 {lang==='de'?'SKILL-WERTUNG':'SKILL STANDINGS'}</div>
+              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Target s={13} c="currentColor"/><span>{lang==='de'?'SKILL-WERTUNG':'SKILL STANDINGS'}</span></div>
               <div style={{flex:1,minHeight:0,overflow:'hidden'}}><SkillStandings compId={compId} info={info} athletesMap={athletes} tvMode={wide} lang={lang}/></div>
             </div>
             {/* Right: Bambini run live + next-up (the parallel Bambini stages) */}
             <div style={{display:'flex',flexDirection:'column',gap:12,minWidth:0,...(wide?{flex:'1',minHeight:0}:{})}}>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'BAMBINI — SURVIVAL':'BAMBINI — SURVIVAL'}</div>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.TrendUp s={13} c="currentColor"/><span>{lang==='de'?'BAMBINI — SURVIVAL':'BAMBINI — SURVIVAL'}</span></div>
                 <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={['bam']} activeOnly noSkillPanel tvMode={false}/></div>
               </div>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
-                <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🏆 {lang==='de'?'BAMBINI — RESULTATE':'BAMBINI — RESULTS'}</div>
+                <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Trophy s={13} c="currentColor"/><span>{lang==='de'?'BAMBINI — RESULTATE':'BAMBINI — RESULTS'}</span></div>
                 <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={['bam']} tvMode={false} lang={lang} noPodium/></div>
               </div>
             </div>
