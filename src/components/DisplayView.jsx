@@ -811,18 +811,22 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const dataProps={compId,info,completedRuns,athletesMap:athletes,pipelineData};
   const btnBase={background:'rgba(18,18,28,.86)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:700};
   return(
-    <div style={{position:'relative',minHeight:'100vh'}}>
-      {/* Picker + Home — fixed top-right, discoverable + switchable */}
-      <div style={{position:'fixed',top:10,right:12,zIndex:300,display:'flex',gap:7,alignItems:'flex-start'}}>
-        <button title={lang==='de'?'Hauptmenü':'Home'} style={{...btnBase,padding:'8px 11px',color:'rgba(255,255,255,.62)',fontSize:12}} onClick={()=>{SFX.click();onBack&&onBack();}}>
-          <span style={{fontSize:14,lineHeight:1}}>🏠</span>{wide&&<span>{lang==='de'?'Menü':'Home'}</span>}
-        </button>
-        <div style={{position:'relative'}}>
-          <button style={{...btnBase,padding:'8px 13px',background:'rgba(255,94,58,.94)',border:'1px solid rgba(255,94,58,.55)',color:'#fff',fontSize:13,fontWeight:800,boxShadow:'0 4px 16px rgba(255,94,58,.3)'}} onClick={()=>{setPickOpen(o=>!o);SFX.click();}}>
-            <span>{cur.ic}</span> {cur[lang]} <span style={{fontSize:10,opacity:.85,marginLeft:1}}>▾</span>
+    <div style={{minHeight:'100vh'}}>
+      {/* Compact header — comp logo + name + current screen, with picker + Home (saves top space) */}
+      <div style={{position:'sticky',top:0,zIndex:300,display:'flex',alignItems:'center',gap:11,padding:'7px 12px',background:'rgba(11,11,20,.94)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderBottom:'1px solid var(--border)'}}>
+        {info?.logo
+          ?<img src={info.logo} alt="" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.12)'}}/>
+          :<div style={{width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,background:'rgba(255,255,255,.05)',flexShrink:0}}>{info?.emoji||'🥷'}</div>}
+        <div style={{minWidth:0,flex:1}}>
+          <div style={{fontSize:wide?18:14.5,fontWeight:900,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',lineHeight:1.15}}>{info?.name||'Wettkampf'}</div>
+          <div style={{fontSize:10.5,color:'var(--muted)',letterSpacing:'.04em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cur.ic} {cur[lang]}{info?.date?` · ${info.date}`:''}</div>
+        </div>
+        <div style={{position:'relative',flexShrink:0}}>
+          <button style={{...btnBase,padding:'8px 12px',background:'rgba(255,94,58,.94)',border:'1px solid rgba(255,94,58,.55)',color:'#fff',fontSize:13,fontWeight:800}} onClick={()=>{setPickOpen(o=>!o);SFX.click();}}>
+            <span>{cur.ic}</span>{wide&&<span>{cur[lang]}</span>}<span style={{fontSize:10,opacity:.85}}>▾</span>
           </button>
           {pickOpen&&(
-            <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,background:'rgba(16,16,26,.98)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:13,padding:6,minWidth:188,boxShadow:'0 14px 44px rgba(0,0,0,.55)',display:'flex',flexDirection:'column',gap:2,zIndex:301}}>
+            <div style={{position:'absolute',top:'calc(100% + 7px)',right:0,background:'rgba(16,16,26,.98)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:13,padding:6,minWidth:190,boxShadow:'0 14px 44px rgba(0,0,0,.55)',display:'flex',flexDirection:'column',gap:2,zIndex:301}}>
               <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',textTransform:'uppercase',padding:'4px 8px 3px'}}>{lang==='de'?'Anzeige wählen':'Choose display'}</div>
               {DISP_SCREENS.map(s=>(
                 <button key={s.k} onClick={()=>{setScreen(s.k);setPickOpen(false);SFX.hover();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 11px',borderRadius:9,border:'none',cursor:'pointer',background:screen===s.k?'rgba(255,94,58,.18)':'transparent',color:screen===s.k?'var(--cor)':'rgba(255,255,255,.78)',fontSize:13.5,fontWeight:screen===s.k?800:600,textAlign:'left'}}>
@@ -832,24 +836,27 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             </div>
           )}
         </div>
+        <button title={lang==='de'?'Hauptmenü':'Home'} style={{...btnBase,padding:'8px 10px',color:'rgba(255,255,255,.6)',flexShrink:0}} onClick={()=>{SFX.click();onBack&&onBack();}}>
+          <span style={{fontSize:15,lineHeight:1}}>🏠</span>
+        </button>
       </div>
       {pickOpen&&<div onClick={()=>setPickOpen(false)} style={{position:'fixed',inset:0,zIndex:250}}/>}
 
-      {!info?<Spinner/>:(<>
+      {!info?<div style={{padding:40,textAlign:'center'}}><Spinner/></div>:(<>
         {screen==='live'&&<DisplayView compId={compId} onBack={null} onOpenJury={onOpenJury} onBackToCoordinator={onBackToCoordinator}/>}
-        {screen==='stats'&&<div style={{padding:'56px 14px 20px'}}><StatsView {...dataProps} tvMode={wide}/></div>}
-        {screen==='queue'&&<div style={{padding:'56px 14px 20px'}}><AthleteQueueView {...dataProps} tvMode={wide}/></div>}
+        {screen==='stats'&&<div style={{padding:'12px 14px 24px'}}><StatsView {...dataProps} tvMode={wide}/></div>}
+        {screen==='queue'&&<div style={{padding:'12px 14px 24px'}}><AthleteQueueView {...dataProps} tvMode={wide}/></div>}
         {['combo','LK1','LK2'].includes(screen)&&(()=>{
           const screenCats=screen==='LK1'?LK1_CATS:screen==='LK2'?LK2_CATS:null;
           return(
-          <div style={{padding:'56px 12px 18px',display:'grid',gap:12,gridTemplateColumns:wide?'1fr 1fr':'1fr',alignItems:'start'}}>
+          <div style={{padding:'12px 12px 20px',display:'grid',gap:12,gridTemplateColumns:wide?'1fr 1fr':'1fr',alignItems:'start'}}>
             <div className="sh-card" style={{padding:'12px 12px 8px',minWidth:0,overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:8,letterSpacing:'.06em'}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}</div>
-              <StatsView {...dataProps} tvMode={false}/>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:8,letterSpacing:'.06em'}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}{screenCats?` · ${screen}`:''}</div>
+              <StatsView {...dataProps} onlyCats={screenCats} tvMode={false}/>
             </div>
             <div className="sh-card" style={{padding:'12px 12px 8px',minWidth:0,overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:8,letterSpacing:'.06em'}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}</div>
-              <AthleteQueueView {...dataProps} tvMode={false}/>
+              <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:8,letterSpacing:'.06em'}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}{screenCats?` · ${screen}`:''}</div>
+              <AthleteQueueView {...dataProps} onlyCats={screenCats} tvMode={false}/>
             </div>
             <div className="sh-card" style={{padding:'12px 12px 10px',minWidth:0,overflow:'hidden',gridColumn:wide?'1 / -1':'auto'}}>
               <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:8,letterSpacing:'.06em'}}>🏆 {screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</div>

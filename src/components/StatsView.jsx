@@ -585,7 +585,7 @@ const SkillStatsPanel=({compId,info,athletesMap,tvMode=false})=>{
   );
 };
 
-const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false})=>{
+const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false,onlyCats=null})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
   // Load global obstacles AND per-stage obstacles (via the stages subtree)
@@ -754,7 +754,15 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     return{sn,catId,obsArr,allObs,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
   });
 
-  const stageDataArr=isPipeline?pipelineStageDataArr:legacyStageDataArr;
+  const _stageDataArr0=isPipeline?pipelineStageDataArr:legacyStageDataArr;
+  // onlyCats (league filter): keep only this league's categories per stage, drop empty stages
+  const stageDataArr=onlyCats
+    ?_stageDataArr0.map(sd=>({...sd,
+        survivalData:(sd.survivalData||[]).filter(d=>onlyCats.includes(d.cat?.id)),
+        progressData:(sd.progressData||[]).filter(d=>onlyCats.includes(d.cat?.id)),
+        liveRunners:(sd.liveRunners||[]).filter(r=>onlyCats.includes(r.catId)),
+      })).filter(sd=>(sd.survivalData&&sd.survivalData.length)||(sd.liveRunners&&sd.liveRunners.length))
+    :_stageDataArr0;
 
   const tabs=[
     {k:'survival',ic:<I.TrendUp s={12}/>,lb:lang==='de'?'Überlebensrate':'Survival'},

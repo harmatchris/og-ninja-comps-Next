@@ -32,7 +32,7 @@ const AutoScrollList=({children,itemCount,tvMode,topPause=3500,minItems=5,maxH=n
 };
 
 
-const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipelineData=null})=>{
+const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipelineData=null,onlyCats=null})=>{
   const {lang,catName}=useLang();
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allActiveRuns=useFbVal(`ogn/${compId}/activeRuns`);
@@ -55,7 +55,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
   const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const stages=isPipeline?pipelineStages.map(s=>s.id):Array.from({length:numStages},(_,i)=>i+1);
-  const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(ps?.categories)?ps.categories:[]);const catSet=new Set(catIds);return catIds.length>0&&athList.some(a=>catSet.has(a.cat));}):stages.filter(sn=>allStations?.[sn]?.cat);
+  const activeStages=isPipeline?stages.filter(sid=>{const ps=pipelineStages.find(s=>s.id===sid);const catIds=ps?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(ps?.categories)?ps.categories:[]);const catSet=new Set(catIds);return catIds.length>0&&athList.some(a=>catSet.has(a.cat))&&(!onlyCats||catIds.some(c=>onlyCats.includes(c)));}):stages.filter(sn=>allStations?.[sn]?.cat&&(!onlyCats||onlyCats.includes(allStations[sn].cat)));
 
   if(!allStations&&!info)return<div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:40}}><Spinner/></div>;
   if(activeStages.length===0)return(
