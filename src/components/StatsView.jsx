@@ -17,6 +17,12 @@ import { Spinner, EmptyState } from './shared.jsx';
 // Little ninja SVG that "runs" in place (bobbing + leg swing)
 // Tricks: each CP triggers a different trick animation
 const TRICKS=['ninjaFlip','ninjaSpinKick','ninjaSplit','ninjaBackflip','ninjaStarJump','ninjaWallRun'];
+// Speech-bubble quips that pop above a runner on events
+const QUIPS_CP=["Cool!","Let's goo!","I can do this!","Clean!","Flow!","Yesss!","Stark!","Easy!","Send it!"];
+const QUIPS_FALL=["Oh noo…","Miss!","Argh!","Knapp!","Ups!"];
+const QUIPS_FALL2=["Not again!","Komm schon!","Fokus!","Konzentration!"];
+const QUIPS_FINISH=["BUZZER! 🎉","GG!","Was für ein Lauf!","Geschafft!"];
+const pickQuip=a=>a[Math.floor(Math.random()*a.length)];
 // Running gait cycle frames (viewBox 0 0 100 100) — 4 poses per gender
 const MALE_FRAMES=[
   // Frame 1: Right leg far forward, left arm forward (contact)
@@ -57,6 +63,22 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
     const tick=()=>{const left=Math.max(0,Math.ceil((resetUntil-Date.now())/1000));setResetSec(left);};
     tick();const iv=setInterval(tick,200);return()=>clearInterval(iv);
   },[resetting,resetUntil]);
+  // Quips — speech bubbles that pop on a reached checkpoint / a fall (special on 2 falls in a row)
+  const [quip,setQuip]=useState(null);
+  const prevCPRef=useRef(doneCPCount),prevFallRef=useRef(livesUsed),lastFallCPRef=useRef(-99);
+  useEffect(()=>{
+    if(doneCPCount>prevCPRef.current&&doneCPCount>0)setQuip({t:pickQuip(QUIPS_CP),good:true,id:Math.random()});
+    prevCPRef.current=doneCPCount;
+  },[doneCPCount]);
+  useEffect(()=>{
+    if(livesUsed>prevFallRef.current){
+      const consec=lastFallCPRef.current===doneCPCount; // fell again without clearing a checkpoint
+      setQuip({t:pickQuip(consec?QUIPS_FALL2:QUIPS_FALL),good:false,id:Math.random()});
+      lastFallCPRef.current=doneCPCount;
+    }
+    prevFallRef.current=livesUsed;
+  },[livesUsed]);
+  useEffect(()=>{if(!quip)return;const t=setTimeout(()=>setQuip(null),1900);return()=>clearTimeout(t);},[quip?.id]);
   const stumbling=livesUsed>0&&!allDead;
   const swinging=resetting||(stumbling&&!resetting);
   const isRunning=!allDead&&!swinging;
@@ -105,6 +127,7 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes ninjaWallRun{0%{transform:translateX(0)}25%{transform:translateX(${size*.3}px) translateY(-${size*.5}px)}75%{transform:translateX(-${size*.3}px) translateY(-${size*.3}px)}100%{transform:translateX(0)}}
         @keyframes ninjaGlow{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
         @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
+        @keyframes quipPop{0%{opacity:0;transform:translateY(7px) scale(.7)}55%{opacity:1;transform:translateY(-2px) scale(1.06)}100%{opacity:1;transform:translateY(0) scale(1)}}
       `}</style>
       <defs>
         <filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -148,6 +171,15 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
       }
       {/* Name */}
       {name&&<text x={size/2} y={-16} textAnchor="middle" fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+      {/* Quip speech bubble — pops on a reached CP / a fall */}
+      {quip&&!allDead&&(()=>{const w=quip.t.length*6.4+18;return(
+        <g key={quip.id} transform={`translate(${size/2},${-30})`}>
+          <g style={{animation:'quipPop .34s cubic-bezier(.34,1.56,.64,1) both',transformBox:'fill-box',transformOrigin:'center'}}>
+            <rect x={-w/2} y={-13} width={w} height={20} rx={10} fill={quip.good?'rgba(18,38,20,.97)':'rgba(42,18,18,.97)'} stroke={quip.good?'#30D158':'#FF3B30'} strokeWidth="1.5"/>
+            <text x="0" y="1.5" textAnchor="middle" fontSize="11" fontWeight="800" fill={quip.good?'#8CFFAC':'#FF9E9E'} fontFamily="system-ui">{quip.t}</text>
+          </g>
+        </g>
+      );})()}
       {/* Reset countdown — big number over ninja */}
       {resetting&&resetSec>0&&<>
         <text x={size/2} y={-22} textAnchor="middle" fontSize={size*.8} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill={resetSec<=3?'#FF3B30':'#FF9500'} style={{animation:'countPulse .6s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3}}>{resetSec}</text>
@@ -274,16 +306,31 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
 };
 
 const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPerObs=[]})=>{
-  if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
-  const nPts=data[0]?.points?.length||0;
+  const nPts=data?.[0]?.points?.length||0;
   const extraMB=nPts>20?Math.min(nPts*1.5,60):0;
   const W=1000,H=(tvMode?420:300)+extraMB;
   const ML=46,MR=16,MT=tvMode?60:50,MB=(tvMode?90:80)+extraMB;
   const PW=W-ML-MR,PH=H-MT-MB;
+  const xs=i=>ML+(i/Math.max(nPts-1,1))*PW;
+  const ys=v=>MT+PH-(v/100)*PH;
+  // ── Zoom-to-Action: smoothly frame the lead live runner while a run is on ──
+  const zoomActive=nPts>=2&&!!data&&data.some(d=>d.total>0)&&liveRunners.some(r=>r?.phase==='active'||r?.phase==='countdown');
+  const leadCP=zoomActive?Math.max(0,...liveRunners.map(r=>Math.min(Math.max(r.doneCPCount||0,0),nPts-1))):0;
+  const zW=Math.min(W,PW*0.55+90);
+  const zTarget=zoomActive?{x:Math.max(0,Math.min(xs(leadCP)-zW*0.42,W-zW)),y:0,w:zW,h:H}:{x:0,y:0,w:W,h:H};
+  const [vb,setVb]=useState(zTarget);
+  const vbRef=useRef(zTarget);
+  const tgtKey=`${zoomActive?1:0}_${Math.round(zTarget.x)}_${Math.round(zTarget.w)}`;
+  useEffect(()=>{
+    let raf;const tick=()=>{const c=vbRef.current,t=zTarget,e=.09;
+      const n={x:c.x+(t.x-c.x)*e,y:c.y+(t.y-c.y)*e,w:c.w+(t.w-c.w)*e,h:c.h+(t.h-c.h)*e};
+      vbRef.current=n;setVb(n);
+      if(Math.abs(t.x-n.x)+Math.abs(t.w-n.w)+Math.abs(t.h-n.h)>0.4)raf=requestAnimationFrame(tick);};
+    raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf);
+  },[tgtKey]);
+  if(!data||!data.length)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Keine Daten</div>;
   if(nPts<2)return<div style={{padding:'20px 0',color:'var(--muted)',fontSize:13,textAlign:'center'}}>Noch zu wenig Läufe für eine Kurve</div>;
   const hasRuns=data.some(d=>d.total>0);
-  const xs=i=>ML+(i/(nPts-1))*PW;
-  const ys=v=>MT+PH-(v/100)*PH;
   return(
     <div style={{background:'rgba(255,255,255,.03)',borderRadius:14,padding:tvMode?16:12,border:'1px solid var(--border)'}}>
       <div style={{fontSize:tvMode?15:11,fontWeight:700,color:'rgba(255,255,255,.5)',marginBottom:8,letterSpacing:'.06em',textTransform:'uppercase'}}>Normierte Überlebensrate pro Hindernis</div>
@@ -295,7 +342,7 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
           </div>
         ))}
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{width:'100%',height:'auto',display:'block',overflow:'visible'}}>
+      <svg viewBox={`${vb.x.toFixed(1)} ${vb.y.toFixed(1)} ${vb.w.toFixed(1)} ${vb.h.toFixed(1)}`} style={{width:'100%',height:'auto',display:'block',overflow:'hidden',borderRadius:8}}>
         {[0,20,40,60,80,100].map(v=>(
           <g key={v}>
             <line x1={ML} y1={ys(v)} x2={W-MR} y2={ys(v)} stroke={v===0?'rgba(255,255,255,.2)':'rgba(255,255,255,.06)'} strokeWidth="1"/>
