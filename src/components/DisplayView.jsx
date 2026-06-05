@@ -792,13 +792,23 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
       </div>}
       <style>{`@keyframes rankGlow{0%{box-shadow:0 0 0 0 rgba(255,214,10,0)}30%{box-shadow:0 0 16px 2px rgba(255,214,10,.5)}100%{box-shadow:0 0 0 0 rgba(255,214,10,0)}}.rank-up{animation:rankGlow .9s ease;border-radius:8px}`}</style>
       <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={noPodium?'100%':(tvMode?'40vh':'38vh')}>
-        {ranked.map((r,i)=>(
-          <div key={r.athleteId||i} ref={el=>{if(el)rowRefs.current.set(r.athleteId,el);else rowRefs.current.delete(r.athleteId);}} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)',willChange:'transform'}}>
+        {ranked.map((r,i)=>{
+          const a=athMap[r.athleteId]||{};const av=tvMode?30:22;const fl=a.country?toFlag(a.country):'';
+          return(
+          <div key={r.athleteId||i} ref={el=>{if(el)rowRefs.current.set(r.athleteId,el);else rowRefs.current.delete(r.athleteId);}} style={{display:'flex',alignItems:'center',gap:tvMode?10:8,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)',willChange:'transform'}}>
             <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
-            <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nm(r)}</span>
+            {a.photo&&<img src={a.photo} alt="" style={{width:av,height:av,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:`1.5px solid ${i<3?podCol[i]:'rgba(255,255,255,.14)'}`}}/>}
+            <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',justifyContent:'center'}}>
+              <div style={{display:'flex',alignItems:'center',gap:5,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden'}}>
+                {fl&&<span style={{flexShrink:0,fontSize:tvMode?13:11,lineHeight:1}}>{fl}</span>}
+                <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||r.athleteName||'?'}</span>
+              </div>
+              {a.team&&<div style={{fontSize:tvMode?10:8.5,color:'var(--cor2)',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{a.team}</div>}
+            </div>
             <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0,display:'inline-flex',alignItems:'center'}}>{r.status==='complete'?<I.FlagCheck s={tvMode?14:12} c="#30D158"/>:res(r)}</span>
           </div>
-        ))}
+          );
+        })}
       </AutoScrollList>
     </div>
   );
