@@ -785,16 +785,69 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
   );
 };
 
+// ── Skill-Standings tile: live skill ranking per division (auto-switch 9s + auto-scroll), no podium.
+//    Mirrors CoordinatorView.computeTotal: oldschool a1/a2/a3 × difficulty, or pool poolScore×flash×difficulty.
+const SKILL_DIFF_MULT={easy:0.8,medium:1.0,hard:1.5};
+const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
+  const skillScores=useFbVal(`ogn/${compId}/skillScores`);
+  const skillPhase=info?.skillPhase||{};
+  const skills=skillPhase.skills||[];
+  const isOldschool=(skillPhase.type||'oldschool')==='oldschool';
+  const skillCats=skillPhase.skillCategories;
+  const athList=athletesMap?Object.values(athletesMap):[];
+  let cats=[...new Set(athList.map(a=>a.cat))].filter(c=>IGN_CATS.find(x=>x.id===c));
+  if(Array.isArray(skillCats))cats=cats.filter(c=>skillCats.includes(c));
+  const [idx,setIdx]=useState(0);
+  useEffect(()=>{if(cats.length<=1)return;const iv=setInterval(()=>setIdx(i=>(i+1)%cats.length),9000);return()=>clearInterval(iv);},[cats.length]);
+  const computeTotal=(athId)=>{
+    if(!skillScores)return 0;
+    let tot=0;
+    skills.forEach(sk=>{
+      const s=skillScores?.[athId]?.[sk.id];if(!s)return;
+      const mult=SKILL_DIFF_MULT[sk.difficulty||'medium']||1;
+      if(isOldschool){if(s.a1===true)tot+=100*mult;else if(s.a2===true)tot+=50*mult;else if(s.a3===true)tot+=20*mult;}
+      else{tot+=(s.poolScore||0)*(s.flashed?1.2:1)*mult;}
+    });
+    return Math.round(tot);
+  };
+  if(!cats.length)return<EmptyState icon={<I.Trophy s={26} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Noch keine Skill-Wertung':'No skill scores yet'}/>;
+  const catId=cats[idx%cats.length],cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
+  const ranked=athList.filter(a=>a.cat===catId).map(a=>({...a,skillTotal:computeTotal(a.id)})).sort((a,b)=>b.skillTotal-a.skillTotal);
+  const podCol=['#FFD60A','#C0C0C0','#CD7F32'];
+  return(
+    <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexShrink:0}}>
+        <div style={{width:9,height:9,borderRadius:'50%',background:cat.color,flexShrink:0}}/>
+        <div style={{fontSize:tvMode?17:14,fontWeight:900,color:cat.color}}>{cat.name?.[lang]||catId}</div>
+        <div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>· {ranked.length}</div>
+        {cats.length>1&&<div style={{marginLeft:'auto',display:'flex',gap:4}}>{cats.map((c,i)=><div key={c} style={{width:6,height:6,borderRadius:'50%',background:i===idx%cats.length?cat.color:'rgba(255,255,255,.22)',transition:'background .3s'}}/>)}</div>}
+      </div>
+      <div style={{flex:1,minHeight:0}}>
+        <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH="100%">
+          {ranked.map((a,i)=>(
+            <div key={a.id||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+              <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
+              <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||'?'}</span>
+              <span style={{fontSize:tvMode?13:11,fontFamily:'JetBrains Mono',fontWeight:800,color:i<3?podCol[i]:'rgba(255,255,255,.55)',flexShrink:0}}>{a.skillTotal}<span style={{fontSize:8,opacity:.5,marginLeft:1}}>P</span></span>
+            </div>
+          ))}
+        </AutoScrollList>
+      </div>
+    </div>
+  );
+};
+
 // ── Display Composer: one wrapper with a discoverable top-right picker to switch
-//    between display screens (Overview / Live / Stats / Next-up / LK1 / LK2) + Home.
+//    between display screens (Overview / Phase 1 / Live / Stats / Next-up / LK1 / LK2) + Home.
 const LK1_CATS=['km1','kw1','tm1','tw1'],LK2_CATS=['km2','kw2','tm2','tw2'];
 const DISP_SCREENS=[
-  {k:'combo',de:'Übersicht',en:'Overview',ic:'▦'},
-  {k:'LK1',  de:'LK1',      en:'LK1',     ic:'①'},
-  {k:'LK2',  de:'LK2',      en:'LK2',     ic:'②'},
-  {k:'live', de:'Live Runs',en:'Live Runs',ic:'⚡'},
-  {k:'stats',de:'Statistik',en:'Stats',ic:'📈'},
-  {k:'queue',de:'Next Up',  en:'Next Up', ic:'⏭'},
+  {k:'combo', de:'Übersicht',en:'Overview',ic:'▦'},
+  {k:'phase1',de:'Phase 1',  en:'Phase 1', ic:'🎯'},
+  {k:'LK1',   de:'LK1',      en:'LK1',     ic:'①'},
+  {k:'LK2',   de:'LK2',      en:'LK2',     ic:'②'},
+  {k:'live',  de:'Live Runs',en:'Live Runs',ic:'⚡'},
+  {k:'stats', de:'Statistik',en:'Stats',  ic:'📈'},
+  {k:'queue', de:'Next Up',  en:'Next Up', ic:'⏭'},
 ];
 const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const {lang}=useLang();
@@ -873,6 +926,26 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           </div>
           );
         })()}
+        {screen==='phase1'&&(
+          <div style={{padding:12,display:'flex',gap:12,...(wide?{height:'calc(100vh - 54px)'}:{flexDirection:'column'})}}>
+            {/* Left: live skill standings (LK1/LK2 auto-switch) — the parallel skill competition */}
+            <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:'1.15',minHeight:0}:{})}}>
+              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🎯 {lang==='de'?'SKILL-WERTUNG':'SKILL STANDINGS'}</div>
+              <div style={{flex:1,minHeight:0,overflow:'hidden'}}><SkillStandings compId={compId} info={info} athletesMap={athletes} tvMode={wide} lang={lang}/></div>
+            </div>
+            {/* Right: Bambini run live + next-up (the parallel Bambini stages) */}
+            <div style={{display:'flex',flexDirection:'column',gap:12,minWidth:0,...(wide?{flex:'1',minHeight:0}:{})}}>
+              <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'BAMBINI — LIVE':'BAMBINI — LIVE'}</div>
+                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={['bam']} activeOnly tvMode={false}/></div>
+              </div>
+              <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⏭ {lang==='de'?'BAMBINI — NÄCHSTE':'BAMBINI — NEXT UP'}</div>
+                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><AthleteQueueView {...dataProps} onlyCats={['bam']} tvMode={false}/></div>
+              </div>
+            </div>
+          </div>
+        )}
       </>)}
     </div>
   );
