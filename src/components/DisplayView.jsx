@@ -743,7 +743,7 @@ const StageRecoveryBanner=({compId,onJoin,lang})=>{
 
 // ── Ranking towers: podium (2·1·3) per division, auto-switching divisions every 9s,
 //    with the full ranked list auto-scrolling below. onlyCats restricts to a league.
-const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang})=>{
+const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=false})=>{
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
   let cats=[...new Set(runList.map(r=>r.catId).filter(Boolean))].filter(c=>IGN_CATS.find(x=>x.id===c));
@@ -763,7 +763,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang})=>{
         <div style={{fontSize:tvMode?17:14,fontWeight:900,color:cat.color}}>{cat.name?.[lang]||catId}</div>
         {cats.length>1&&<div style={{marginLeft:'auto',display:'flex',gap:4}}>{cats.map((c,i)=><div key={c} style={{width:6,height:6,borderRadius:'50%',background:i===idx%cats.length?cat.color:'rgba(255,255,255,.22)',transition:'background .3s'}}/>)}</div>}
       </div>
-      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10}}>
+      {!noPodium&&<div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10}}>
         {[1,0,2].map(rank=>{const a=top3[rank];if(!a)return<div key={rank} style={{flex:1,maxWidth:140}}/>;const col=podCol[rank];return(
           <div key={rank} style={{flex:1,maxWidth:150,display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0}}>
             <div style={{fontSize:tvMode?13:11,fontWeight:800,color:col,textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{nm(a)}</div>
@@ -771,8 +771,8 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang})=>{
             <div style={{width:'100%',height:podH[rank],borderRadius:'9px 9px 0 0',background:`linear-gradient(180deg,${col}33,${col}12)`,border:`1.5px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:6,fontSize:tvMode?28:20,fontWeight:900,color:col,boxShadow:rank===0?`0 0 18px ${col}44`:'none'}}>{rank+1}</div>
           </div>
         );})}
-      </div>
-      <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={tvMode?'40vh':'38vh'}>
+      </div>}
+      <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={noPodium?'100%':(tvMode?'40vh':'38vh')}>
         {ranked.map((r,i)=>(
           <div key={r.athleteId||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
             <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
@@ -802,6 +802,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
   const athletes=useFbVal(`ogn/${compId}/athletes`);
   const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
+  const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const w=useWinW();
   const wide=w>=900;
   const [screen,setScreen]=useState(()=>storage.get('lastDispScreen','combo'));
@@ -848,19 +849,26 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
         {screen==='queue'&&<div style={{padding:'12px 14px 24px'}}><AthleteQueueView {...dataProps} tvMode={wide}/></div>}
         {['combo','LK1','LK2'].includes(screen)&&(()=>{
           const screenCats=screen==='LK1'?LK1_CATS:screen==='LK2'?LK2_CATS:null;
+          // How many stages have a live runner right now (scoped to this screen's categories)?
+          const actStages=activeRuns?Object.values(activeRuns).filter(r=>r&&r.athleteId&&(r.phase==='active'||r.phase==='countdown')&&(!screenCats||screenCats.includes(r.catId))):[];
+          const multiActive=actStages.length>1; // 2+ parallel stages → give survival room, shrink next-up
           return(
-          <div style={{padding:'12px 12px 20px',display:'grid',gap:12,gridTemplateColumns:wide?'1fr 1fr':'1fr',alignItems:'start'}}>
-            <div className="sh-card" style={{padding:'12px 12px 8px',minWidth:0,overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:8,letterSpacing:'.06em'}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}{screenCats?` · ${screen}`:''}</div>
-              <StatsView {...dataProps} onlyCats={screenCats} tvMode={false}/>
+          <div style={{padding:12,display:'flex',flexDirection:'column',gap:12,...(wide?{height:'calc(100vh - 54px)'}:{})}}>
+            {/* Top: only the live/most-current survival + next-up (fixed share); next-up shrinks when 2 stages run parallel */}
+            <div style={{display:'grid',gap:12,gridTemplateColumns:wide?(multiActive?'2.4fr 0.85fr':'1.5fr 1fr'):'1fr',minHeight:0,...(wide?{height:multiActive?'52%':'44%'}:{})}}>
+              <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'LIVE — SURVIVAL':'LIVE — SURVIVAL'}{screenCats?` · ${screen}`:''}</div>
+                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={screenCats} activeOnly tvMode={false}/></div>
+              </div>
+              <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}{screenCats?` · ${screen}`:''}</div>
+                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><AthleteQueueView {...dataProps} onlyCats={screenCats} tvMode={false}/></div>
+              </div>
             </div>
-            <div className="sh-card" style={{padding:'12px 12px 8px',minWidth:0,overflow:'hidden'}}>
-              <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:8,letterSpacing:'.06em'}}>⏭ {lang==='de'?'NÄCHSTE STARTS':'NEXT UP'}{screenCats?` · ${screen}`:''}</div>
-              <AthleteQueueView {...dataProps} onlyCats={screenCats} tvMode={false}/>
-            </div>
-            <div className="sh-card" style={{padding:'12px 12px 10px',minWidth:0,overflow:'hidden',gridColumn:wide?'1 / -1':'auto'}}>
-              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:8,letterSpacing:'.06em'}}>🏆 {screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</div>
-              <RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang}/>
+            {/* Bottom: ranking list (no podium) — gets the remaining space so it never gets squashed */}
+            <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
+              <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🏆 {screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</div>
+              <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang} noPodium/></div>
             </div>
           </div>
           );
