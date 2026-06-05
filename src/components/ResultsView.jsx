@@ -613,7 +613,28 @@ const ResultsView=({compId,athletes})=>{
       })()}
       {/* Single stage / overall view */}
       {!allStagesView&&selCat&&ranked.length>0&&(()=>{
+        // Podium towers (2·1·3) above the ranking list — top-3 non-DSQ
+        const podAth=ranked.filter(r=>r.status!=='dsq').slice(0,3);
+        const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[78,54,42];
+        const podSub=(r)=>isOverall?`Σ P${r.placementSum??'?'}`:(r.status==='complete'?'🏁 Buzzer':rTime(r)>0?fmtMs(rTime(r)):`${r.doneCP?.length||0} CP`);
         return(
+          <>
+          {podAth.length>=3&&(
+            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:10,padding:'14px 16px 8px',maxWidth:560,margin:'0 auto'}}>
+              {[1,0,2].map(rank=>{
+                const r=podAth[rank];if(!r)return<div key={rank} style={{flex:1,maxWidth:150}}/>;
+                const a=athMap[r.athleteId]||{name:r.athleteName||'?'};const col=podCol[rank];const initials=(a.name||'?')[0].toUpperCase();const sz=rank===0?54:44;
+                return(
+                  <div key={rank} style={{flex:1,maxWidth:160,display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:0}}>
+                    {a.photo?<img src={a.photo} style={{width:sz,height:sz,borderRadius:'50%',objectFit:'cover',border:`2px solid ${col}`,boxShadow:`0 0 14px ${col}55`}}/>:<div style={{width:sz,height:sz,borderRadius:'50%',background:`${col}1A`,border:`2px solid ${col}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:rank===0?20:16,fontWeight:900,color:col,boxShadow:`0 0 14px ${col}55`}}>{initials}</div>}
+                    <div style={{fontSize:13,fontWeight:800,color:'#fff',textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{a.name}</div>
+                    <div style={{fontSize:11,fontWeight:700,color:col,fontFamily:'JetBrains Mono'}}>{podSub(r)}</div>
+                    <div style={{width:'100%',height:podH[rank],borderRadius:'10px 10px 0 0',background:`linear-gradient(180deg,${col}33,${col}10)`,border:`1.5px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:7,fontSize:rank===0?30:22,fontWeight:900,color:col,boxShadow:rank===0?`0 0 20px ${col}44`:'none'}}>{rank+1}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="section">
             {ranked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const initials=(a.name||'?')[0].toUpperCase();const isFirstNonQual=qualCount!=null&&i===qualCount;
 return(<React.Fragment key={r.athleteId}>
@@ -660,6 +681,7 @@ return(<React.Fragment key={r.athleteId}>
               </div>
             </React.Fragment>);})}
           </div>
+          </>
         );
       })()}
       {/* Edit mode unlock button */}
