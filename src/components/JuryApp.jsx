@@ -942,8 +942,9 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const handleFall=data=>{
     if(fallModal||stopModal||resetActive)return;
     if(info.mode==='lives'){
-      // Finite per-section mode: no life left to spend → run ends (DNF), no further restart.
-      if(lifeMode==='perSection'&&!isInfinityLives&&lives<=0){setFallModal(data);return;}
+      // Per-Sektion: N Leben = N Versuche. Der Sturz, der das LETZTE Leben aufbraucht (lives<=1),
+      // scheidet aus (DNF, kein Neustart). Bsp. 3 Leben → 3. Sturz raus (Ausschreibung: "nach 3 Fehlversuchen → ausscheiden").
+      if(lifeMode==='perSection'&&!isInfinityLives&&lives<=1){setLives(0);fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{livesLeft:0,livesUsed:activeFalls.length+1});setFallModal(data);return;}
       const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
       setActiveFalls(prev=>[...prev,newFall]);
       setFallFreezeTime(data.currentTime);
