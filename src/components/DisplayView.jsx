@@ -936,12 +936,12 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             {/* Right: Bambini run live + next-up (the parallel Bambini stages) */}
             <div style={{display:'flex',flexDirection:'column',gap:12,minWidth:0,...(wide?{flex:'1',minHeight:0}:{})}}>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'BAMBINI — LIVE':'BAMBINI — LIVE'}</div>
-                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={['bam']} activeOnly tvMode={false}/></div>
+                <div style={{fontSize:12,fontWeight:800,color:'var(--cor)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⚔️ {lang==='de'?'BAMBINI — SURVIVAL':'BAMBINI — SURVIVAL'}</div>
+                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><StatsView {...dataProps} onlyCats={['bam']} activeOnly noSkillPanel tvMode={false}/></div>
               </div>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
-                <div style={{fontSize:12,fontWeight:800,color:'var(--gold)',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>⏭ {lang==='de'?'BAMBINI — NÄCHSTE':'BAMBINI — NEXT UP'}</div>
-                <div style={{flex:1,minHeight:0,overflowY:'auto'}}><AthleteQueueView {...dataProps} onlyCats={['bam']} tvMode={false}/></div>
+                <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0}}>🏆 {lang==='de'?'BAMBINI — RESULTATE':'BAMBINI — RESULTS'}</div>
+                <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={['bam']} tvMode={false} lang={lang} noPodium/></div>
               </div>
             </div>
           </div>

@@ -585,7 +585,7 @@ const SkillStatsPanel=({compId,info,athletesMap,tvMode=false})=>{
   );
 };
 
-const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false,onlyCats=null,activeOnly=false})=>{
+const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false,onlyCats=null,activeOnly=false,noSkillPanel=false})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
   // Load global obstacles AND per-stage obstacles (via the stages subtree)
@@ -788,7 +788,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
   return(
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
       {/* Skill stats — TOP when skills are active */}
-      {skillsActive&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
+      {skillsActive&&!noSkillPanel&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
       {/* Chart type selector (applies to all stage sections) */}
       <div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
         {tabs.map(({k,ic,lb})=>(
@@ -829,7 +829,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         })}
       </div>
       {/* Skill stats — BOTTOM when skills are done */}
-      {skillsDone&&<div style={{marginTop:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
+      {skillsDone&&!noSkillPanel&&<div style={{marginTop:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
     </div>
   );
 };

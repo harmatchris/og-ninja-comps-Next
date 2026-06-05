@@ -73,7 +73,9 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   return(
     <div style={{
       display:'grid',
-      gridTemplateColumns:`repeat(${Math.min(activeStages.length,tvMode?4:4)},minmax(0,1fr))`,
+      // auto-fit so columns stay wide enough for full names (no clipping): narrow tiles (e.g. combo) get one
+      // full-width column, wide TV/queue screens get several. 250px guarantees room for long names.
+      gridTemplateColumns:`repeat(auto-fit,minmax(${tvMode?360:250}px,1fr))`,
       gap:tvMode?20:8,
       padding:tvMode?'20px 24px 40px':'4px 0 12px',
       alignItems:'start'}}>
@@ -83,18 +85,25 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
         const stageCatIds=isPipeline?(pStage?.categories==='all'?IGN_CATS.map(c=>c.id):(Array.isArray(pStage?.categories)?pStage.categories:[])):(catId?[catId]:[]);
         const stageCatSet=new Set(stageCatIds);
         const cat=isPipeline?(stageCatIds.length===1?IGN_CATS.find(c=>c.id===stageCatIds[0]):null):IGN_CATS.find(c=>c.id===catId);
+        // Membership: prefer the stage's seeded athletes (stage.athletes). For a continuation stage
+        // (predecessorStages) that isn't seeded yet, show nobody — it's waiting on its predecessor,
+        // not the whole category. First-round stages without explicit seeding fall back to category.
+        const seededIds=isPipeline&&pStage?.athletes&&Object.keys(pStage.athletes).length>0?new Set(Object.keys(pStage.athletes)):null;
+        const isContinuation=isPipeline&&Array.isArray(pStage?.predecessorStages)&&pStage.predecessorStages.length>0;
+        const memberOf=a=>seededIds?seededIds.has(a.id):(isContinuation?false:(isPipeline?stageCatSet.has(a.cat):(a.cat===catId)));
         const doneIds=new Set(runList.filter(r=>isPipeline?(r.stageId===sn&&stageCatSet.has(r.catId)):(r.catId===catId&&r.stNum===sn)).map(r=>r.athleteId));
         const activeRun=allActiveRuns?.[sn];
         const runningId=(activeRun&&(activeRun.phase==='active'||activeRun.phase==='countdown'))?activeRun.athleteId:null;
         // exclude currently-running athlete from queue so next-up shows at top
         if(runningId)doneIds.add(runningId);
-        const queue=athList.filter(a=>isPipeline?(stageCatSet.has(a.cat)&&!doneIds.has(a.id)):(a.cat===catId&&!doneIds.has(a.id)))
+        const queue=athList.filter(a=>memberOf(a)&&!doneIds.has(a.id))
           .sort((a,b)=>{
             const aOrd=isPipeline?(a.pipelineQueueOrder?.[sn]??a.queueOrder??999):(a.queueOrder??999);
             const bOrd=isPipeline?(b.pipelineQueueOrder?.[sn]??b.queueOrder??999):(b.queueOrder??999);
             return aOrd-bOrd;
           });
-        const total=athList.filter(a=>isPipeline?stageCatSet.has(a.cat):(a.cat===catId)).length;
+        const total=athList.filter(memberOf).length;
+        if(total===0)return null;
         const done=doneIds.size;
 
         if(queue.length===0)return(
