@@ -67,9 +67,10 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
   },[resetting,resetUntil]);
   // Quips — speech bubbles that pop on a reached checkpoint / a fall (special on 2 falls in a row)
   const [quip,setQuip]=useState(null);
+  const [burst,setBurst]=useState(0); // checkpoint impact (dust + ring), increments to retrigger
   const prevCPRef=useRef(doneCPCount),prevFallRef=useRef(livesUsed),lastFallCPRef=useRef(-99);
   useEffect(()=>{
-    if(doneCPCount>prevCPRef.current&&doneCPCount>0)setQuip({t:pickQuip(QUIPS_CP),good:true,id:Math.random()});
+    if(doneCPCount>prevCPRef.current&&doneCPCount>0){setQuip({t:pickQuip(QUIPS_CP),good:true,id:Math.random()});setBurst(b=>b+1);}
     prevCPRef.current=doneCPCount;
   },[doneCPCount]);
   useEffect(()=>{
@@ -130,6 +131,8 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         @keyframes ninjaGlow{0%{opacity:.4}50%{opacity:.9}100%{opacity:.4}}
         @keyframes countPulse{0%{transform:scale(1);opacity:.8}100%{transform:scale(1.15);opacity:1}}
         @keyframes quipPop{0%{opacity:0;transform:translateY(7px) scale(.7)}55%{opacity:1;transform:translateY(-2px) scale(1.06)}100%{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes cpRing{0%{transform:scale(.35);opacity:.8}100%{transform:scale(2.6);opacity:0}}
+        @keyframes dustFly{0%{transform:translateY(0);opacity:.85}100%{transform:translateY(-${size*.55}px);opacity:0}}
       `}</style>
       <defs>
         <filter id={fid} x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -157,14 +160,25 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
       <ellipse cx={size/2} cy={size*.45} rx={size*.72} ry={size*.64} fill={`url(#halo-${fid})`} style={{animation:'ninjaGlow 1.4s ease-in-out infinite'}}/>
       {/* Ground shadow */}
       <ellipse cx={size/2} cy={size*.99} rx={size*(isRunning?.36:.3)} ry={size*.085} fill="rgba(0,0,0,.42)" style={{filter:`url(#${fid})`}}/>
+      {/* Checkpoint impact — expanding ring + dust kick */}
+      {burst>0&&(
+        <g key={`burst-${burst}`}>
+          <circle cx={size/2} cy={size*.96} r={size*.16} fill="none" stroke={color} strokeWidth={size*.045} style={{animation:'cpRing .6s ease-out forwards',transformBox:'fill-box',transformOrigin:'center'}}/>
+          {[...Array(7)].map((_,i)=>(
+            <g key={i} transform={`rotate(${-54+i*18} ${size/2} ${size*.95})`}>
+              <circle cx={size/2} cy={size*.95} r={size*(.032+(i%2)*.014)} fill={adjust(color,.28)} style={{animation:`dustFly ${.5+(i%3)*.12}s ease-out forwards`}}/>
+            </g>
+          ))}
+        </g>
+      )}
       {/* Motion trail — fading afterimages of the prior frames while running */}
       {isRunning&&[2,1].map(k=>(
         <g key={k} transform={`translate(${-k*size*.2},0) scale(${sc})`} opacity={.14*(3-k)}>
           <path d={frames[(frame-k+4)%4]} fill={color}/>
         </g>
       ))}
-      {/* Athlete figure — layered volumetric (pseudo-3D) shading */}
-      <g transform={`scale(${sc})`}>
+      {/* Athlete figure — layered volumetric (pseudo-3D) shading, leaning into the run */}
+      <g transform={`scale(${sc}) rotate(${isRunning?6:0} 50 92)`} style={{transition:'transform .25s ease'}}>
         {/* depth / thickness behind the body */}
         <path d={silhouette} fill={adjust(color,-0.6)} opacity=".5" transform="translate(2.6,3.2)"/>
         {/* lit body: directional gradient + bright rim on the light edge */}
