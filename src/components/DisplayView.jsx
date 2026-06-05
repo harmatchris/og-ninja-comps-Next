@@ -865,12 +865,15 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   useEffect(()=>{storage.set('lastDispScreen',screen);},[screen]);
   const cur=DISP_SCREENS.find(s=>s.k===screen)||DISP_SCREENS[0];
   const CurIc=cur.ic;
+  // Division-colour theming: each screen carries an accent so spectators instantly read which division is on
+  const themeC=screen==='LK1'?'#0A84FF':screen==='LK2'?'#32ADE6':screen==='phase1'?'#FFD60A':'#FF5E3A';
+  const onTheme=screen==='phase1'?'#1a1a2e':'#fff'; // dark text on the light (gold) theme
   const dataProps={compId,info,completedRuns,athletesMap:athletes,pipelineData};
   const btnBase={background:'rgba(18,18,28,.86)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:700};
   return(
     <div style={{minHeight:'100vh'}}>
       {/* Compact header — comp logo + name + current screen, with picker + Home (saves top space) */}
-      <div style={{position:'sticky',top:0,zIndex:300,display:'flex',alignItems:'center',gap:11,padding:'7px 12px',background:'rgba(11,11,20,.94)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderBottom:'1px solid var(--border)'}}>
+      <div style={{position:'sticky',top:0,zIndex:300,display:'flex',alignItems:'center',gap:11,padding:'7px 12px',background:'rgba(11,11,20,.94)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',borderBottom:`2px solid ${themeC}55`,transition:'border-color .4s ease'}}>
         {info?.logo
           ?<img src={info.logo} alt="" style={{width:36,height:36,borderRadius:9,objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.12)'}}/>
           :<div style={{width:36,height:36,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(255,255,255,.05)',flexShrink:0,overflow:'hidden'}}><I.NinjaLogo s={32}/></div>}
@@ -879,15 +882,15 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           <div style={{fontSize:10.5,color:'var(--muted)',letterSpacing:'.04em',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'flex',alignItems:'center',gap:5}}><CurIc s={11} c="currentColor"/><span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{cur[lang]}{info?.date?` · ${info.date}`:''}</span></div>
         </div>
         <div style={{position:'relative',flexShrink:0}}>
-          <button style={{...btnBase,padding:'8px 12px',background:'rgba(255,94,58,.94)',border:'1px solid rgba(255,94,58,.55)',color:'#fff',fontSize:13,fontWeight:800}} onClick={()=>{setPickOpen(o=>!o);SFX.click();}}>
+          <button style={{...btnBase,padding:'8px 12px',background:themeC,border:`1px solid ${themeC}`,color:onTheme,fontSize:13,fontWeight:800,transition:'background .4s ease'}} onClick={()=>{setPickOpen(o=>!o);SFX.click();}}>
             <CurIc s={15} c="currentColor"/>{wide&&<span>{cur[lang]}</span>}<span style={{display:'inline-flex',transform:'rotate(90deg)',opacity:.85}}><I.ChevR s={11} c="currentColor"/></span>
           </button>
           {pickOpen&&(
             <div style={{position:'absolute',top:'calc(100% + 7px)',right:0,background:'rgba(16,16,26,.98)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:13,padding:6,minWidth:190,boxShadow:'0 14px 44px rgba(0,0,0,.55)',display:'flex',flexDirection:'column',gap:2,zIndex:301}}>
               <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.1em',textTransform:'uppercase',padding:'4px 8px 3px'}}>{lang==='de'?'Anzeige wählen':'Choose display'}</div>
               {DISP_SCREENS.map(s=>(
-                <button key={s.k} onClick={()=>{setScreen(s.k);setPickOpen(false);SFX.hover();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 11px',borderRadius:9,border:'none',cursor:'pointer',background:screen===s.k?'rgba(255,94,58,.18)':'transparent',color:screen===s.k?'var(--cor)':'rgba(255,255,255,.78)',fontSize:13.5,fontWeight:screen===s.k?800:600,textAlign:'left'}}>
-                  <span style={{width:18,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><s.ic s={16} c={screen===s.k?'var(--cor)':'currentColor'}/></span>{s[lang]}
+                <button key={s.k} onClick={()=>{setScreen(s.k);setPickOpen(false);SFX.hover();}} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 11px',borderRadius:9,border:'none',cursor:'pointer',background:screen===s.k?`${themeC}2e`:'transparent',color:screen===s.k?themeC:'rgba(255,255,255,.78)',fontSize:13.5,fontWeight:screen===s.k?800:600,textAlign:'left'}}>
+                  <span style={{width:18,display:'inline-flex',alignItems:'center',justifyContent:'center'}}><s.ic s={16} c={screen===s.k?themeC:'currentColor'}/></span>{s[lang]}
                 </button>
               ))}
             </div>
