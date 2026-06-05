@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
 import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
@@ -750,9 +750,27 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
   if(onlyCats)cats=cats.filter(c=>onlyCats.includes(c));
   const [idx,setIdx]=useState(0);
   useEffect(()=>{if(cats.length<=1)return;const iv=setInterval(()=>setIdx(i=>(i+1)%cats.length),9000);return()=>clearInterval(iv);},[cats.length]);
+  const catId=cats.length?cats[idx%cats.length]:null;
+  const cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
+  const ranked=catId?computeRanked(runList,catId):[],top3=ranked.slice(0,3);
+  // FLIP: when the order changes, rows slide from their old position to the new one; upward movers get a gold glow.
+  const rowRefs=useRef(new Map()),prevPos=useRef(new Map()),prevCat=useRef(catId);
+  const orderSig=ranked.map(r=>r.athleteId).join(',');
+  useLayoutEffect(()=>{
+    const catChanged=prevCat.current!==catId;prevCat.current=catId;
+    rowRefs.current.forEach((el,id)=>{
+      if(!el||!el.isConnected){if(!el)rowRefs.current.delete(id);return;}
+      const newTop=el.offsetTop,old=prevPos.current.get(id);
+      if(!catChanged&&old!=null&&old!==newTop){
+        const d=old-newTop;
+        el.style.transition='none';el.style.transform=`translateY(${d}px)`;
+        if(d>4){el.classList.add('rank-up');setTimeout(()=>{try{el.classList.remove('rank-up');}catch(e){}},900);}
+        requestAnimationFrame(()=>{el.style.transition='transform .55s cubic-bezier(.22,1,.36,1)';el.style.transform='translateY(0)';});
+      }
+      prevPos.current.set(id,newTop);
+    });
+  },[orderSig,catId]);
   if(!cats.length)return<EmptyState icon={<I.Trophy s={26} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Noch keine Resultate':'No results yet'}/>;
-  const catId=cats[idx%cats.length],cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
-  const ranked=computeRanked(runList,catId),top3=ranked.slice(0,3);
   const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[tvMode?120:78,tvMode?88:58,tvMode?64:44];
   const res=r=>r.status==='complete'?'':r.status==='dsq'?'DSQ':`${r.doneCP?.length||0}/${r.totalCPs||'?'}`;
   const nm=r=>(athMap[r.athleteId]?.name)||r.athleteName||'?';
@@ -772,9 +790,10 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
           </div>
         );})}
       </div>}
+      <style>{`@keyframes rankGlow{0%{box-shadow:0 0 0 0 rgba(255,214,10,0)}30%{box-shadow:0 0 16px 2px rgba(255,214,10,.5)}100%{box-shadow:0 0 0 0 rgba(255,214,10,0)}}.rank-up{animation:rankGlow .9s ease;border-radius:8px}`}</style>
       <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={noPodium?'100%':(tvMode?'40vh':'38vh')}>
         {ranked.map((r,i)=>(
-          <div key={r.athleteId||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+          <div key={r.athleteId||i} ref={el=>{if(el)rowRefs.current.set(r.athleteId,el);else rowRefs.current.delete(r.athleteId);}} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)',willChange:'transform'}}>
             <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
             <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{nm(r)}</span>
             <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0,display:'inline-flex',alignItems:'center'}}>{r.status==='complete'?<I.FlagCheck s={tvMode?14:12} c="#30D158"/>:res(r)}</span>
