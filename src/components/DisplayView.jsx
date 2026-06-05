@@ -682,6 +682,7 @@ const StatsDisplayView=({compId,onBack})=>{
   const info=useFbVal(`ogn/${compId}/info`);
   const athletesMap=useFbVal(`ogn/${compId}/athletes`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+  const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
   if(!info)return<div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}><Spinner/></div>;
   return(
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)'}}>

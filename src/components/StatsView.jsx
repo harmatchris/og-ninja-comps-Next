@@ -23,6 +23,8 @@ const QUIPS_FALL=["Oh noo…","Miss!","Argh!","Knapp!","Ups!"];
 const QUIPS_FALL2=["Not again!","Komm schon!","Fokus!","Konzentration!"];
 const QUIPS_FINISH=["BUZZER! 🎉","GG!","Was für ein Lauf!","Geschafft!"];
 const pickQuip=a=>a[Math.floor(Math.random()*a.length)];
+// Lighten (amt>0) / darken (amt<0) a hex colour → rgb() string, for volumetric shading
+const adjust=(hex,amt)=>{let h=(hex||'#888').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);if(isNaN(n))return hex;let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=amt<0?0:255,p=Math.min(Math.abs(amt),1);r=Math.round(r+(t-r)*p);g=Math.round(g+(t-g)*p);b=Math.round(b+(t-b)*p);return `rgb(${r},${g},${b})`;};
 // Running gait cycle frames (viewBox 0 0 100 100) — 4 poses per gender
 const MALE_FRAMES=[
   // Frame 1: Right leg far forward, left arm forward (contact)
@@ -142,6 +144,12 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
           <stop offset="0%" stopColor={color} stopOpacity=".5"/>
           <stop offset="100%" stopColor={color} stopOpacity="0"/>
         </radialGradient>
+        {/* Volumetric body: lit top-left → core → shadowed bottom-right (pseudo-3D form) */}
+        <linearGradient id={`body-${fid}`} x1="12%" y1="2%" x2="88%" y2="100%">
+          <stop offset="0%" stopColor={adjust(color,0.52)}/>
+          <stop offset="44%" stopColor={color}/>
+          <stop offset="100%" stopColor={adjust(color,-0.42)}/>
+        </linearGradient>
       </defs>
       {/* Rope — visible only during swing recovery */}
       {swinging&&<line x1={size/2} y1={-size*4} x2={size/2} y2={size*.15} stroke="#C8A96E" strokeWidth="1.5" strokeLinecap="round" opacity=".7" style={{animation:`ropeAppear-${rid} 4s ease-in-out forwards`}}/>}
@@ -155,10 +163,17 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
           <path d={frames[(frame-k+4)%4]} fill={color}/>
         </g>
       ))}
-      {/* Athlete silhouette — core colour + rim light + gradient sheen */}
+      {/* Athlete figure — layered volumetric (pseudo-3D) shading */}
       <g transform={`scale(${sc})`}>
-        <path d={silhouette} fill={color} stroke="rgba(255,255,255,.5)" strokeWidth="2.5" strokeLinejoin="round"/>
+        {/* depth / thickness behind the body */}
+        <path d={silhouette} fill={adjust(color,-0.6)} opacity=".5" transform="translate(2.6,3.2)"/>
+        {/* lit body: directional gradient + bright rim on the light edge */}
+        <path d={silhouette} fill={`url(#body-${fid})`} stroke={adjust(color,0.55)} strokeWidth="1.5" strokeLinejoin="round"/>
+        {/* top sheen + crisp white rim light */}
         <path d={silhouette} fill={`url(#sheen-${fid})`}/>
+        <path d={silhouette} fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="0.9" strokeLinejoin="round"/>
+        {/* specular highlight on the head */}
+        <ellipse cx="48.5" cy="5.5" rx="2.6" ry="2" fill="#fff" opacity=".5"/>
       </g>
       {/* Hearts for lives */}
       {livesLeft>=999
@@ -330,10 +345,15 @@ const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPe
       }
     });
     const loCP=Math.max(0,Math.min(...cps)),hiCP=Math.min(nPts-1,Math.max(...cps));
-    const padX=PW*0.12,rawX0=xs(loCP)-padX,rawX1=xs(hiCP)+padX;
-    let zw=Math.min(W,Math.max(rawX1-rawX0,PW*0.42));
-    const zx=Math.max(0,Math.min((rawX0+rawX1)/2-zw/2,W-zw));
-    zTarget={x:zx,y:0,w:zw,h:H};
+    const padX=PW*0.16,spanX=(xs(hiCP)-xs(loCP))+padX*2;
+    // Gentle zoom (cap ~1.4×), and keep the viewBox ASPECT RATIO = W:H so the frame size
+    // never changes — we only move the "camera" closer inside the same window.
+    const vw=Math.min(W,Math.max(spanX,W/1.4));
+    const vh=H*(vw/W);
+    const cx=(xs(loCP)+xs(hiCP))/2,cy=MT+PH*0.32; // bias to the top action band → names + quips stay readable
+    const vx=Math.max(0,Math.min(cx-vw/2,W-vw));
+    const vy=Math.max(0,Math.min(cy-vh/2,H-vh));
+    zTarget={x:vx,y:vy,w:vw,h:vh};
   }
   const [vb,setVb]=useState(zTarget);
   const vbRef=useRef(zTarget);
