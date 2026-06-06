@@ -776,6 +776,9 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
   const hasSkills=!!info?.skillPhase?.enabled&&(info?.skillPhase?.skills||[]).length>0;
   const skillsActive=hasSkills&&!skillStatus?.finalized&&!skillStatus?.seedingDone;
   const skillsDone=hasSkills&&(skillStatus?.finalized||skillStatus?.seedingDone);
+  // Operator can take the skill points off the display (after the skill phase) so the stage
+  // survival curve becomes the hero. `noSkillPanel` is the per-tile override (e.g. Bambini).
+  const hideSkillPanel=noSkillPanel||!!skillStatus?.hideOnDisplay;
 
   if(stageDataArr.length===0&&!hasSkills)return(
     <div style={{padding:'40px 0',textAlign:'center',color:'var(--muted)',fontSize:13}}>
@@ -788,7 +791,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
   return(
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
       {/* Skill stats — TOP when skills are active */}
-      {skillsActive&&!noSkillPanel&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
+      {skillsActive&&!hideSkillPanel&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
       {/* Chart type selector (applies to all stage sections) */}
       <div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
         {tabs.map(({k,ic,lb})=>(
@@ -829,7 +832,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
         })}
       </div>
       {/* Skill stats — BOTTOM when skills are done */}
-      {skillsDone&&!noSkillPanel&&<div style={{marginTop:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
+      {skillsDone&&!hideSkillPanel&&<div style={{marginTop:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
     </div>
   );
 };

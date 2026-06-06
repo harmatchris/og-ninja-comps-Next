@@ -928,8 +928,11 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const athletes=useFbVal(`ogn/${compId}/athletes`);
   const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
+  const skillStatus=useFbVal(`ogn/${compId}/skillPhaseStatus`);
   const w=useWinW();
   const wide=w>=900;
+  const hasSkills=!!info?.skillPhase?.enabled&&(info?.skillPhase?.skills||[]).length>0;
+  const skillsHidden=!!skillStatus?.hideOnDisplay;  // operator took the skill points off the display
   const [screen,setScreen]=useState(()=>storage.get('lastDispScreen','combo'));
   const [pickOpen,setPickOpen]=useState(false);
   useEffect(()=>{storage.set('lastDispScreen',screen);},[screen]);
@@ -964,6 +967,14 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             </div>
           )}
         </div>
+        {hasSkills&&(
+          <button title={skillsHidden?(lang==='de'?'Skill-Punkte wieder einblenden':'Show skill points again'):(lang==='de'?'Skill-Punkte ausblenden — Stage-Survival nach oben':'Hide skill points — stage survival on top')}
+            style={{...btnBase,padding:'8px 11px',flexShrink:0,fontSize:12,
+              ...(skillsHidden?{color:'#FF9F0A',border:'1px solid rgba(255,159,10,.45)',background:'rgba(255,159,10,.12)'}:{color:'rgba(255,255,255,.6)'})}}
+            onClick={()=>{fbSet(`ogn/${compId}/skillPhaseStatus/hideOnDisplay`,!skillsHidden);SFX.click();}}>
+            {skillsHidden?<I.EyeOff s={15} c="currentColor"/>:<I.Eye s={15} c="currentColor"/>}{wide&&<span>Skills</span>}
+          </button>
+        )}
         <button title={lang==='de'?'Hauptmenü':'Home'} style={{...btnBase,padding:'8px 10px',color:'rgba(255,255,255,.6)',flexShrink:0}} onClick={()=>{SFX.click();onBack&&onBack();}}>
           <I.Home s={16} c="currentColor"/>
         </button>
