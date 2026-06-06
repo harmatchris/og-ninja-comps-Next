@@ -42,7 +42,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const activeArr=activeRuns
     ?Object.entries(activeRuns)
       .filter(([,r])=>r?.athleteId&&!(r.phase==='done'&&r.doneAt&&(nowMs-r.doneAt)>8000))
-      .map(([stNum,r])=>({stNum:parseInt(stNum,10),...r}))
+      .map(([stNum,r])=>({stNum:parseInt(stNum,10),stageKey:stNum,stageName:(pipelineData?.[stNum]?.name||info?.stageNames?.[stNum]||`Stage ${stNum}`),...r}))
     :[];
   // Include categories that have ANY data — completed runs OR active/countdown runs — so live runner always has a chip
   const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id)||activeArr.some(r=>r.catId===c.id));
@@ -136,17 +136,17 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             const isCountdown=run.phase==='countdown'&&(run.countdown>0);
             const elapsed=run.startEpoch?nowMs-run.startEpoch:0;
             const catColor=cat?.color||'#FF5E3A';
-            const stageTimeLimit=(()=>{const sl=info.stageLimits?.[run.stNum];return((sl!=null&&sl!=='')?sl:(info.timeLimit||0))*1000;})();
+            const stageTimeLimit=(()=>{const sl=info.stageLimits?.[run.stageKey];return((sl!=null&&sl!=='')?sl:(pipelineData?.[run.stageKey]?.timeLimit||info.timeLimit||0))*1000;})();
             const isTimedOut=stageTimeLimit>0&&elapsed>=stageTimeLimit&&run.phase!=='done'&&!isCountdown;
             return(
-              <div key={run.stNum} style={{position:'relative',background:'var(--card)',borderRadius:20,border:`1px solid ${catColor}30`,overflow:'hidden',boxShadow:`0 8px 32px rgba(0,0,0,.4),0 0 0 1px ${catColor}18`}}>
+              <div key={run.stageKey} style={{position:'relative',background:'var(--card)',borderRadius:20,border:`1px solid ${catColor}30`,overflow:'hidden',boxShadow:`0 8px 32px rgba(0,0,0,.4),0 0 0 1px ${catColor}18`}}>
                 {/* Accent strip */}
                 <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${catColor},${catColor}60)`}}/>
                 {/* Countdown overlay */}
                 {isCountdown&&(
                   <div style={{position:'absolute',inset:0,background:'rgba(11,11,20,.94)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:10,borderRadius:20}}>
                     <div className="timer-grad" style={{fontSize:cols===1?150:110,lineHeight:1,letterSpacing:'-6px',animation:'scaleIn .3s cubic-bezier(.16,1,.3,1)'}}>{run.countdown}</div>
-                    <div style={{fontSize:13,color:'rgba(255,255,255,.5)',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700,marginTop:8}}>{info.stageNames?.[run.stNum]||`Stage ${run.stNum}`} · {lang==='de'?'Bereit…':'Get ready…'}</div>
+                    <div style={{fontSize:13,color:'rgba(255,255,255,.5)',letterSpacing:'.18em',textTransform:'uppercase',fontWeight:700,marginTop:8}}>{run.stageName} · {lang==='de'?'Bereit…':'Get ready…'}</div>
                   </div>
                 )}
                 {/* Timeout overlay */}
@@ -225,7 +225,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                   {/* Stage + category row */}
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
                     <div style={{display:'flex',alignItems:'center',gap:7}}>
-                      <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>Stage {info.stageNames?.[run.stNum]||run.stNum}</div>
+                      <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,.35)',letterSpacing:'.1em',textTransform:'uppercase'}}>{run.stageName}</div>
                       {stageTimeLimit>0&&<div style={{fontSize:10,fontWeight:700,color:isTimedOut?'var(--gold)':'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',background:'rgba(255,255,255,.05)',borderRadius:6,padding:'1px 6px',display:'flex',alignItems:'center',gap:3}}><I.Clock s={9} c={isTimedOut?'var(--gold)':'rgba(255,255,255,.25)'}/> {fmtMs(stageTimeLimit).slice(0,-4)}</div>}
                     </div>
                     {cat&&<div style={{fontSize:11,padding:'3px 11px',borderRadius:20,background:`${catColor}20`,border:`1px solid ${catColor}40`,color:catColor,fontWeight:700}}>{catName(cat)}</div>}
@@ -305,14 +305,14 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
           if(q.length===0)return null;
           const cat=IGN_CATS.find(c=>c.id===run.catId);
           const catColor=cat?.color||'#FF5E3A';
-          return{stNum:run.stNum,q:q.slice(0,2),catColor,cat};
+          return{stNum:run.stNum,stageKey:run.stageKey,stageName:run.stageName,q:q.slice(0,2),catColor,cat};
         }).filter(Boolean);
         if(!strips.length)return null;
         return(
           <div style={{padding:'0 20px 14px',display:'grid',gridTemplateColumns:`repeat(${Math.min(strips.length,cols)},1fr)`,gap:12}}>
-            {strips.map(({stNum,q,catColor,cat})=>(
-              <div key={stNum} style={{background:'rgba(255,255,255,.03)',border:`1px solid ${catColor}20`,borderRadius:14,padding:'10px 14px'}}>
-                <div style={{fontSize:10,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8}}>{lang==='de'?'Nächste':'Up Next'} · {info.stageNames?.[stNum]||`Stage ${stNum}`}</div>
+            {strips.map(({stageKey,stageName,q,catColor,cat})=>(
+              <div key={stageKey} style={{background:'rgba(255,255,255,.03)',border:`1px solid ${catColor}20`,borderRadius:14,padding:'10px 14px'}}>
+                <div style={{fontSize:10,fontWeight:800,color:'rgba(255,255,255,.3)',letterSpacing:'.12em',textTransform:'uppercase',marginBottom:8}}>{lang==='de'?'Nächste':'Up Next'} · {stageName}</div>
                 <div style={{display:'flex',flexDirection:'column',gap:7}}>
                   {q.map((a,i)=>(
                     <div key={a.id} className={i===0?'slide-up-in':''} style={{display:'flex',alignItems:'center',gap:10,animationDelay:i===0?'0s':'0.1s'}}>
