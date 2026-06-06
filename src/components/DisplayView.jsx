@@ -951,6 +951,15 @@ const renderBuilderWidget=(it,dataProps,lang)=>{
     default:return null;
   }
 };
+// Auto-placement: scan the grid for the first free slot, trying the default size then progressively smaller.
+const findFreeSpot=(items)=>{
+  const occ=Array.from({length:GRID_ROWS},()=>new Array(GRID_COLS).fill(false));
+  (items||[]).forEach(it=>{for(let y=Math.max(0,it.y);y<Math.min(GRID_ROWS,it.y+it.h);y++)for(let x=Math.max(0,it.x);x<Math.min(GRID_COLS,it.x+it.w);x++)occ[y][x]=true;});
+  const fits=(x,y,w,h)=>{for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)if(occ[yy][xx])return false;return true;};
+  for(const [w,h] of [[6,4],[6,3],[4,4],[4,3],[6,2],[4,2],[3,3],[3,2],[2,2]])
+    for(let y=0;y<=GRID_ROWS-h;y++)for(let x=0;x<=GRID_COLS-w;x++)if(fits(x,y,w,h))return {x,y,w,h};
+  return {x:0,y:0,w:6,h:4}; // grid full → place at origin (user can rearrange)
+};
 const DisplayBuilder=({compId,dataProps,lang})=>{
   const saved=useFbVal(`ogn/${compId}/displayLayout`);
   const [edit,setEdit]=useState(false);
@@ -980,7 +989,7 @@ const DisplayBuilder=({compId,dataProps,lang})=>{
   const endDrag=()=>{const d=dragRef.current;if(!d)return;dragRef.current=null;setDraft(cur=>{if(cur)fbSet(`ogn/${compId}/displayLayout/items`,cur);return cur;});SFX.hover();};
   const beginEdit=()=>{setDraft(saved?.items||DEFAULT_DISPLAY_LAYOUT);setEdit(true);SFX.click();};
   const endEdit=()=>{setEdit(false);setDraft(null);SFX.click();};
-  const addWidget=type=>persist([...draftRef.current,{id:uid(),type,cats:'all',x:0,y:0,w:6,h:4}]);
+  const addWidget=type=>persist([...draftRef.current,{id:uid(),type,cats:'all',...findFreeSpot(draftRef.current)}]);
   const removeWidget=id=>persist(draftRef.current.filter(i=>i.id!==id));
   const cycleCats=id=>persist(draftRef.current.map(i=>{if(i.id!==id)return i;const idx=BUILDER_CATS.findIndex(c=>c.k===(i.cats||'all'));return {...i,cats:BUILDER_CATS[(idx+1)%BUILDER_CATS.length].k};}));
   return(
@@ -1008,9 +1017,9 @@ const DisplayBuilder=({compId,dataProps,lang})=>{
                 <Ic s={12} c={edit?'var(--cor)':'var(--muted)'}/>
                 <span style={{fontSize:11,fontWeight:800,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{meta[lang]}</span>
                 {edit
-                  ?<button onClick={()=>cycleCats(it.id)} title={lang==='de'?'Division wechseln':'Cycle division'} style={{fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',color:'var(--muted)',cursor:'pointer',flexShrink:0}}>{cat?cat[lang]:'Alle'}</button>
+                  ?<button onClick={e=>{e.stopPropagation();cycleCats(it.id);}} onPointerDown={e=>e.stopPropagation()} title={lang==='de'?'Division wechseln':'Cycle division'} style={{fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',color:'var(--muted)',cursor:'pointer',flexShrink:0}}>{cat?cat[lang]:'Alle'}</button>
                   :(it.cats&&it.cats!=='all'?<span style={{fontSize:9,fontWeight:800,color:'var(--muted)',padding:'2px 7px',borderRadius:6,background:'rgba(255,255,255,.05)'}}>{cat?cat[lang]:''}</span>:null)}
-                {edit&&<button onClick={()=>removeWidget(it.id)} title={lang==='de'?'Entfernen':'Remove'} style={{display:'flex',padding:2,background:'none',border:'none',cursor:'pointer',flexShrink:0}}><I.X s={13} c="var(--red)"/></button>}
+                {edit&&<button onClick={e=>{e.stopPropagation();removeWidget(it.id);}} onPointerDown={e=>e.stopPropagation()} title={lang==='de'?'Fenster entfernen':'Remove window'} style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'3px 5px',background:'rgba(255,59,48,.12)',border:'1px solid rgba(255,59,48,.3)',borderRadius:6,cursor:'pointer',flexShrink:0}}><I.X s={14} c="var(--red)"/></button>}
               </div>
               <div style={{flex:1,minHeight:0,overflow:'auto',padding:'4px 8px 6px',pointerEvents:edit?'none':'auto'}}>{renderBuilderWidget(it,dataProps,lang)}</div>
               {edit&&<div onPointerDown={e=>startDrag(e,it.id,'resize')} onPointerMove={moveDrag} onPointerUp={endDrag} title={lang==='de'?'Grösse ändern':'Resize'} style={{position:'absolute',right:0,bottom:0,width:22,height:22,cursor:'nwse-resize',display:'flex',alignItems:'flex-end',justifyContent:'flex-end',padding:3,touchAction:'none'}}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--cor)" strokeWidth="1.6" strokeLinecap="round"><path d="M11 5L5 11M11 9l-2 2"/></svg></div>}
