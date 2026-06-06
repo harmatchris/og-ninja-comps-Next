@@ -450,6 +450,9 @@ const ResultsView=({compId,athletes})=>{
   const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
   const allStagesView=selStage==='all';
   const isOverall=selStage==='overall';
+  // Division chips: for a specific stage, show only the divisions that actually ran in THAT stage
+  // (not every division in the comp) — otherwise unrelated divisions are confusing on a stage ranking.
+  const stageCats=(allStagesView||isOverall||selStage==null)?catsWithRuns:catsWithRuns.filter(c=>runList.some(r=>r.catId===c.id&&(isPipeline?r.stageId===selStage:r.stNum===selStage)));
   const isMultiOverall=false;
   const ranked=selCat&&!allStagesView?(isOverall
     ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
@@ -531,14 +534,16 @@ const ResultsView=({compId,athletes})=>{
   const [autoRotateCat,setAutoRotateCat]=useState(true);
   const [catRotateIdx,setCatRotateIdx]=useState(0);
   useEffect(()=>{
-    if(!autoRotateCat||catsWithRuns.length<=1)return;
-    const iv=setInterval(()=>setCatRotateIdx(i=>(i+1)%catsWithRuns.length),6000);
+    if(!autoRotateCat||stageCats.length<=1)return;
+    const iv=setInterval(()=>setCatRotateIdx(i=>(i+1)%stageCats.length),6000);
     return()=>clearInterval(iv);
-  },[autoRotateCat,catsWithRuns.length]);
+  },[autoRotateCat,stageCats.length]);
   // Sync selCat with auto-rotate
   useEffect(()=>{
-    if(autoRotateCat&&catsWithRuns.length>1&&catsWithRuns[catRotateIdx])setSelCat(catsWithRuns[catRotateIdx].id);
+    if(autoRotateCat&&stageCats.length>1&&stageCats[catRotateIdx])setSelCat(stageCats[catRotateIdx].id);
   },[catRotateIdx,autoRotateCat]);
+  // Keep the selected division valid for the chosen stage (reset when it isn't in that stage's divisions)
+  useEffect(()=>{setCatRotateIdx(0);if(stageCats.length&&(selCat==null||!stageCats.some(c=>c.id===selCat)))setSelCat(stageCats[0].id);},[selStage]);
   const stageList=isPipeline?pipelineStages.map(s=>s.id):stageNums;
   // Auto-select first stage if none selected
   useEffect(()=>{if(selStage===null&&stageList.length>0)setSelStage(multiStage?'all':stageList[0]);},[stageList.length]);
@@ -570,16 +575,16 @@ const ResultsView=({compId,athletes})=>{
       )}
       {/* Division tabs — auto-rotating, smaller */}
       <div style={{padding:'6px 16px',display:'flex',gap:4,alignItems:'center',borderBottom:'1px solid var(--border)',background:'rgba(255,255,255,.02)',overflowX:'auto',scrollbarWidth:'none'}}>
-        {catsWithRuns.map((c,ci)=>(
+        {stageCats.map((c,ci)=>(
           <button key={c.id} className={`chip${selCat===c.id?' active':''}`}
             style={{flexShrink:0,fontSize:10,padding:'2px 9px',...(selCat===c.id?{background:`${c.color}1A`,borderColor:`${c.color}55`,color:c.color}:{})}}
             onClick={()=>{setSelCat(c.id);setAutoRotateCat(false);setCatRotateIdx(ci);SFX.hover();}}>{c.name[lang]}</button>
         ))}
-        {catsWithRuns.length>1&&<button className={`chip${autoRotateCat?' active':''}`} style={{fontSize:9,padding:'2px 7px',marginLeft:'auto'}} onClick={()=>setAutoRotateCat(!autoRotateCat)}>
+        {stageCats.length>1&&<button className={`chip${autoRotateCat?' active':''}`} style={{fontSize:9,padding:'2px 7px',marginLeft:'auto'}} onClick={()=>setAutoRotateCat(!autoRotateCat)}>
           <I.RefreshCw s={9}/> Auto
         </button>}
       </div>
-      {catsWithRuns.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
+      {stageCats.length===0&&<EmptyState icon={<I.FileText s={28} c="rgba(255,255,255,.3)"/>} text={t('noRuns')}/>}
       {/* ALL STAGES side-by-side view: each stage + overall as last column */}
       {allStagesView&&selCat&&(()=>{
         const cols=stageList.length+1; // stages + overall
