@@ -907,8 +907,13 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const _stageCatsCfg=pipelineStageCfg?.categories;
   const _stageAllowAll=!_stageCatsCfg||_stageCatsCfg==='all'||(Array.isArray(_stageCatsCfg)&&_stageCatsCfg.length===0);
   const _stageCatSet=_stageAllowAll?null:new Set(Array.isArray(_stageCatsCfg)?_stageCatsCfg:[]);
+  // Restrict the run queue to the SEEDED athletes when the stage has an explicit start field, so a
+  // continuation/quali stage (e.g. a Final) only runs the QUALIFIED athletes, not the whole division.
+  // Mirrors QueueView.memberOf; uses global athlete DATA but the seeded IDs as the membership filter.
+  const _seededIds=isPipeline&&stageAthletesRaw&&Object.keys(stageAthletesRaw).length>0?new Set(Object.keys(stageAthletesRaw)):null;
+  const _isContinuation=isPipeline&&Array.isArray(pipelineStageCfg?.predecessorStages)&&pipelineStageCfg.predecessorStages.length>0;
   const stageAthList=isPipeline
-    ?(()=>{const _cats=_stageAllowAll?IGN_CATS.map(c=>c.id):Array.from(_stageCatSet||[]);const _cs=new Set(_cats);return athList.filter(a=>_cs.has(a.cat));})()
+    ?athList.filter(a=>_seededIds?_seededIds.has(a.id):(_isContinuation?false:(_stageAllowAll||_stageCatSet?.has(a.cat))))
     :(athList.filter(a=>a.cat===catId));
   const doneIds=new Set(completedRuns?Object.values(completedRuns).filter(r=>isPipeline?(r.stageId===stageId||(!r.stageId&&stNum!=null&&String(r.stNum)===String(stNum))):(r.catId===catId&&String(r.stNum)===String(stNum))).map(r=>r.athleteId):[]);
   const getQueueOrder=a=>(isPipeline&&a.pipelineQueueOrder&&a.pipelineQueueOrder[stageId]!=null)?a.pipelineQueueOrder[stageId]:(a.queueOrder??999);
@@ -941,6 +946,10 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   //       Classic mode → open FallModal immediately (old behavior)
   const handleFall=data=>{
     if(fallModal||stopModal||resetActive)return;
+    // A time-limit expiry is a HARD STOP: end the run via the timeout modal regardless of life mode.
+    // (Without this, lives/infinite/pool stages routed the timeout through the 10s life-reset and the
+    //  athlete kept running past the limit — the per-stage Zeitlimit was effectively not enforced.)
+    if(data.reason==='timeout'){setFallFreezeTime(data.currentTime);setFallModal(data);return;}
     if(info.mode==='lives'){
       // Per-Sektion: N Leben = N Versuche. Der Sturz, der das LETZTE Leben aufbraucht (lives<=1),
       // scheidet aus (DNF, kein Neustart). Bsp. 3 Leben → 3. Sturz raus (Ausschreibung: "nach 3 Fehlversuchen → ausscheiden").
