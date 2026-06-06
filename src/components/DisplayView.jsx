@@ -879,6 +879,7 @@ const DISP_SCREENS=[
   {k:'live',  de:'Live Runs',en:'Live Runs',ic:I.Bolt},
   {k:'stats', de:'Statistik',en:'Stats',    ic:I.BarChart},
   {k:'queue', de:'Next Up',  en:'Next Up',  ic:I.SkipFwd},
+  {k:'custom',de:'Builder',  en:'Builder',  ic:I.Layout},
 ];
 // ── Live-run strip: when an athlete is on the course, show their running time, latest checkpoint,
 //    and the remaining time (if the stage has a limit). Renders nothing when nobody is running.
@@ -918,6 +919,105 @@ const LiveRunStrip=({compId,info,athletesMap,pipelineData,onlyCats,tvMode,lang})
           </div>
         );
       })}
+    </div>
+  );
+};
+// ── Display Builder: compose a custom display via drag & drop on a 12×12 grid (the "Builder" screen). ──
+const GRID_COLS=12,GRID_ROWS=12;
+const BUILDER_WIDGETS=[
+  {type:'liverun', de:'Live-Lauf',     en:'Live Run', ic:I.Bolt},
+  {type:'survival',de:'Survival-Kurve',en:'Survival', ic:I.TrendUp},
+  {type:'nextup',  de:'Nächste Starts',en:'Next Up',  ic:I.SkipFwd},
+  {type:'ranking', de:'Rangliste',     en:'Ranking',  ic:I.Trophy},
+  {type:'skills',  de:'Skill-Wertung', en:'Skills',   ic:I.Target},
+];
+const BUILDER_CATS=[{k:'all',de:'Alle',en:'All'},{k:'LK1',de:'LK1',en:'LK1'},{k:'LK2',de:'LK2',en:'LK2'},{k:'bam',de:'Bambini',en:'Bambini'}];
+const builderCatsFor=k=>k==='LK1'?LK1_CATS:k==='LK2'?LK2_CATS:k==='bam'?['bam']:null;
+const widgetMeta=t=>BUILDER_WIDGETS.find(w=>w.type===t)||{de:t,en:t,ic:I.Grid};
+const DEFAULT_DISPLAY_LAYOUT=[
+  {id:'b1',type:'liverun', cats:'all',x:0,y:0,w:12,h:2},
+  {id:'b2',type:'survival',cats:'all',x:0,y:2,w:8, h:6},
+  {id:'b3',type:'ranking', cats:'all',x:8,y:2,w:4, h:10},
+  {id:'b4',type:'nextup',  cats:'all',x:0,y:8,w:8, h:4},
+];
+const renderBuilderWidget=(it,dataProps,lang)=>{
+  const cats=builderCatsFor(it.cats);
+  switch(it.type){
+    case 'survival':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false}/>;
+    case 'nextup':  return <AthleteQueueView {...dataProps} onlyCats={cats} tvMode={false}/>;
+    case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium/>;
+    case 'skills':  return <SkillStandings compId={dataProps.compId} info={dataProps.info} athletesMap={dataProps.athletesMap} tvMode={false} lang={lang}/>;
+    case 'liverun': return <LiveRunStrip {...dataProps} onlyCats={cats} tvMode={false} lang={lang}/>;
+    default:return null;
+  }
+};
+const DisplayBuilder=({compId,dataProps,lang})=>{
+  const saved=useFbVal(`ogn/${compId}/displayLayout`);
+  const [edit,setEdit]=useState(false);
+  const [draft,setDraft]=useState(null);
+  const containerRef=useRef(null);
+  const dragRef=useRef(null);
+  const items=(edit?draft:null)||saved?.items||DEFAULT_DISPLAY_LAYOUT;
+  const draftRef=useRef(items);draftRef.current=items;  // synchronous latest — survives multiple mutations within one tick
+  const persist=next=>{draftRef.current=next;setDraft(next);fbSet(`ogn/${compId}/displayLayout/items`,next);};
+  const startDrag=(e,id,mode)=>{
+    if(!edit||!containerRef.current)return;
+    e.preventDefault();e.stopPropagation();
+    const rect=containerRef.current.getBoundingClientRect();
+    const it=items.find(i=>i.id===id);if(!it)return;
+    dragRef.current={id,mode,sx:e.clientX,sy:e.clientY,orig:{...it},cellW:rect.width/GRID_COLS,cellH:rect.height/GRID_ROWS};
+    try{e.currentTarget.setPointerCapture(e.pointerId);}catch{}
+  };
+  const moveDrag=e=>{
+    const d=dragRef.current;if(!d)return;
+    const dcx=Math.round((e.clientX-d.sx)/d.cellW),dcy=Math.round((e.clientY-d.sy)/d.cellH);
+    setDraft(cur=>(cur||items).map(it=>{
+      if(it.id!==d.id)return it;
+      if(d.mode==='move')return {...it,x:Math.max(0,Math.min(GRID_COLS-d.orig.w,d.orig.x+dcx)),y:Math.max(0,Math.min(GRID_ROWS-d.orig.h,d.orig.y+dcy))};
+      return {...it,w:Math.max(2,Math.min(GRID_COLS-d.orig.x,d.orig.w+dcx)),h:Math.max(2,Math.min(GRID_ROWS-d.orig.y,d.orig.h+dcy))};
+    }));
+  };
+  const endDrag=()=>{const d=dragRef.current;if(!d)return;dragRef.current=null;setDraft(cur=>{if(cur)fbSet(`ogn/${compId}/displayLayout/items`,cur);return cur;});SFX.hover();};
+  const beginEdit=()=>{setDraft(saved?.items||DEFAULT_DISPLAY_LAYOUT);setEdit(true);SFX.click();};
+  const endEdit=()=>{setEdit(false);setDraft(null);SFX.click();};
+  const addWidget=type=>persist([...draftRef.current,{id:uid(),type,cats:'all',x:0,y:0,w:6,h:4}]);
+  const removeWidget=id=>persist(draftRef.current.filter(i=>i.id!==id));
+  const cycleCats=id=>persist(draftRef.current.map(i=>{if(i.id!==id)return i;const idx=BUILDER_CATS.findIndex(c=>c.k===(i.cats||'all'));return {...i,cats:BUILDER_CATS[(idx+1)%BUILDER_CATS.length].k};}));
+  return(
+    <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 54px)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',flexWrap:'wrap',borderBottom:'1px solid var(--border)',flexShrink:0}}>
+        <button className="btn btn-coral" style={{padding:'7px 13px',fontSize:12,gap:6}} onClick={edit?endEdit:beginEdit}>{edit?<><I.Check s={13}/> {lang==='de'?'Fertig':'Done'}</>:<><I.Layout s={13}/> {lang==='de'?'Layout bearbeiten':'Edit layout'}</>}</button>
+        {edit&&<>
+          <div style={{width:1,height:22,background:'var(--border)'}}/>
+          <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em'}}>{lang==='de'?'Hinzufügen':'Add'}</span>
+          {BUILDER_WIDGETS.map(w=>{const Ic=w.ic;return <button key={w.type} className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5}} onClick={()=>addWidget(w.type)}><Ic s={12}/> {w[lang]}</button>;})}
+          <div style={{flex:1}}/>
+          <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5,color:'var(--muted)'}} onClick={()=>{if(window.confirm(lang==='de'?'Auf Standard-Layout zurücksetzen?':'Reset to default layout?'))persist(DEFAULT_DISPLAY_LAYOUT);}}><I.RefreshCw s={12}/> {lang==='de'?'Standard':'Default'}</button>
+          <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5,color:'var(--red)'}} onClick={()=>{if(window.confirm(lang==='de'?'Alle Fenster entfernen?':'Remove all windows?'))persist([]);}}><I.Trash s={12}/> {lang==='de'?'Leeren':'Clear'}</button>
+        </>}
+        {!edit&&<span style={{fontSize:10.5,color:'var(--muted)'}}>{lang==='de'?'Eigene Anzeige — frei zusammenstellbar':'Custom display — compose it yourself'}</span>}
+      </div>
+      <div ref={containerRef} style={{flex:1,minHeight:0,display:'grid',gridTemplateColumns:`repeat(${GRID_COLS},1fr)`,gridTemplateRows:`repeat(${GRID_ROWS},1fr)`,gap:8,padding:10,
+        ...(edit?{backgroundImage:'linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px)',backgroundSize:'calc((100% - 20px)/12) calc((100% - 20px)/12)',backgroundPosition:'10px 10px'}:{})}}>
+        {items.length===0&&<div style={{gridColumn:'1 / -1',gridRow:'1 / -1',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:'var(--muted)',gap:12}}><I.Layout s={42} c="var(--muted)"/><div style={{fontSize:14,textAlign:'center',lineHeight:1.5}}>{lang==='de'?'Leeres Layout.':'Empty layout.'}<br/>{lang==='de'?'„Layout bearbeiten" → Fenster hinzufügen.':'"Edit layout" → add windows.'}</div></div>}
+        {items.map(it=>{
+          const meta=widgetMeta(it.type);const Ic=meta.ic;const cat=BUILDER_CATS.find(c=>c.k===(it.cats||'all'));
+          return(
+            <div key={it.id} className="sh-card" style={{gridColumn:`${it.x+1} / span ${it.w}`,gridRow:`${it.y+1} / span ${it.h}`,minWidth:0,minHeight:0,overflow:'hidden',display:'flex',flexDirection:'column',padding:0,position:'relative',...(edit?{outline:'1.5px solid rgba(255,94,58,.45)',outlineOffset:-1}:{})}}>
+              <div onPointerDown={edit?e=>startDrag(e,it.id,'move'):undefined} onPointerMove={edit?moveDrag:undefined} onPointerUp={edit?endDrag:undefined} style={{display:'flex',alignItems:'center',gap:6,padding:'6px 9px',borderBottom:'1px solid var(--border)',flexShrink:0,cursor:edit?'grab':'default',background:edit?'rgba(255,94,58,.08)':'rgba(255,255,255,.02)',touchAction:'none',userSelect:'none'}}>
+                <Ic s={12} c={edit?'var(--cor)':'var(--muted)'}/>
+                <span style={{fontSize:11,fontWeight:800,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{meta[lang]}</span>
+                {edit
+                  ?<button onClick={()=>cycleCats(it.id)} title={lang==='de'?'Division wechseln':'Cycle division'} style={{fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',color:'var(--muted)',cursor:'pointer',flexShrink:0}}>{cat?cat[lang]:'Alle'}</button>
+                  :(it.cats&&it.cats!=='all'?<span style={{fontSize:9,fontWeight:800,color:'var(--muted)',padding:'2px 7px',borderRadius:6,background:'rgba(255,255,255,.05)'}}>{cat?cat[lang]:''}</span>:null)}
+                {edit&&<button onClick={()=>removeWidget(it.id)} title={lang==='de'?'Entfernen':'Remove'} style={{display:'flex',padding:2,background:'none',border:'none',cursor:'pointer',flexShrink:0}}><I.X s={13} c="var(--red)"/></button>}
+              </div>
+              <div style={{flex:1,minHeight:0,overflow:'auto',padding:'4px 8px 6px',pointerEvents:edit?'none':'auto'}}>{renderBuilderWidget(it,dataProps,lang)}</div>
+              {edit&&<div onPointerDown={e=>startDrag(e,it.id,'resize')} onPointerMove={moveDrag} onPointerUp={endDrag} title={lang==='de'?'Grösse ändern':'Resize'} style={{position:'absolute',right:0,bottom:0,width:22,height:22,cursor:'nwse-resize',display:'flex',alignItems:'flex-end',justifyContent:'flex-end',padding:3,touchAction:'none'}}><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--cor)" strokeWidth="1.6" strokeLinecap="round"><path d="M11 5L5 11M11 9l-2 2"/></svg></div>}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -972,7 +1072,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             style={{...btnBase,padding:'8px 11px',flexShrink:0,fontSize:12,
               ...(skillsHidden?{color:'#FF9F0A',border:'1px solid rgba(255,159,10,.45)',background:'rgba(255,159,10,.12)'}:{color:'rgba(255,255,255,.6)'})}}
             onClick={()=>{fbSet(`ogn/${compId}/skillPhaseStatus/hideOnDisplay`,!skillsHidden);SFX.click();}}>
-            {skillsHidden?<I.EyeOff s={15} c="currentColor"/>:<I.Eye s={15} c="currentColor"/>}{wide&&<span>Skills</span>}
+            {skillsHidden?<I.EyeOff s={15} c="currentColor"/>:<I.Eye s={15} c="currentColor"/>}<span>{skillsHidden?(lang==='de'?'Skills aus':'Skills off'):'Skills'}</span>
           </button>
         )}
         <button title={lang==='de'?'Hauptmenü':'Home'} style={{...btnBase,padding:'8px 10px',color:'rgba(255,255,255,.6)',flexShrink:0}} onClick={()=>{SFX.click();onBack&&onBack();}}>
@@ -985,6 +1085,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
         {screen==='live'&&<DisplayView compId={compId} onBack={null} onOpenJury={onOpenJury} onBackToCoordinator={onBackToCoordinator}/>}
         {screen==='stats'&&<div style={{padding:'12px 14px 24px'}}><StatsView {...dataProps} tvMode={wide}/></div>}
         {screen==='queue'&&<div style={{padding:'12px 14px 24px'}}><AthleteQueueView {...dataProps} tvMode={wide}/></div>}
+        {screen==='custom'&&<DisplayBuilder compId={compId} dataProps={dataProps} lang={lang}/>}
         {['combo','LK1','LK2'].includes(screen)&&(()=>{
           const screenCats=screen==='LK1'?LK1_CATS:screen==='LK2'?LK2_CATS:null;
           // How many stages have a live runner right now (scoped to this screen's categories)?
