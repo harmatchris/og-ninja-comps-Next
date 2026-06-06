@@ -1200,8 +1200,8 @@ const handleDeleteAth=async(a)=>{
                     </div>
                   </div>
                   :<button className="btn btn-ghost" style={{width:'100%',padding:'7px 12px',fontSize:11,gap:5,marginTop:4}}
-                    onClick={()=>{const cur=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(info.timeLimit||0);setTimeLimitDraft(cur);setEditTimeLimitStage(stageKey);}}>
-                    <I.Clock s={12}/> {lang==='de'?'Zeitlimit':'Time limit'}: <span style={{fontFamily:'JetBrains Mono',color:'var(--gold)'}}>{(()=>{const v=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(info.timeLimit||0);return v===0?(lang==='de'?'Kein Limit':'No limit'):`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;})()}</span>
+                    onClick={()=>{const cur=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(pStage?.timeLimit!=null?pStage.timeLimit:(info.timeLimit||0));setTimeLimitDraft(cur);setEditTimeLimitStage(stageKey);}}>
+                    <I.Clock s={12}/> {lang==='de'?'Zeitlimit':'Time limit'}: <span style={{fontFamily:'JetBrains Mono',color:'var(--gold)'}}>{(()=>{const v=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(pStage?.timeLimit!=null?pStage.timeLimit:(info.timeLimit||0));return v===0?(lang==='de'?'Kein Limit':'No limit'):`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;})()}</span>
                   </button>
                 )}
               </div>
