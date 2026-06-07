@@ -71,6 +71,20 @@ export const fmtMs = ms => {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms3).padStart(3, '0')}`;
 };
 
+// ── EFFECTIVE STAGE TIME LIMIT (seconds; 0 = no limit) ──
+// One source of truth for every limit reader. Limits can live in info.stageLimits[key]
+// (written by the coordinator editor) OR pipeline[key].timeLimit (written by the setup wizard),
+// with info.timeLimit as the global fallback. The coordinator editor keeps both in sync, but the
+// setup wizard writes only pipeline.timeLimit — so a reader looking at just info.stageLimits would
+// miss setup-configured limits (showing "no limit"). Use this everywhere instead.
+export const effectiveStageLimit = (info, pipelineData, key) => {
+  const sl = info?.stageLimits?.[key];
+  if (sl != null && sl !== '') return +sl || 0;
+  const pl = pipelineData?.[key]?.timeLimit;
+  if (pl != null && pl !== '') return +pl || 0;
+  return +(info?.timeLimit) || 0;
+};
+
 // ── FLAG EMOJI
 export const toFlag = code => {
   if (!code || code.length < 2) return '';

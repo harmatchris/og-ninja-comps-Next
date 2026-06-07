@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang } from '../i18n.js';
 import { IGN_CATS, MODES, DEF_OBS, STAGE_LETTERS, db, fbSet, fbUpdate, fbRemove } from '../config.js';
-import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes, verifyCompPassword, unlockSession, isUnlocked } from '../utils.js';
+import { uid, fmtMs, toFlag, storage, AC_KEYS, acSave, acProfileSave, resizePhotoUtil, resizeLogoUtil, computeRanked, computeRankedStage, computeRankedPipeline, computeQualifiedAthletes, verifyCompPassword, unlockSession, isUnlocked, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, CompEmoji, Heart, DragList, AutocompleteInput, QRCodeComp, TimePicker } from './shared.jsx';
@@ -203,7 +203,7 @@ const LiveRunBanner=({compId,info,athletes,pipelineData})=>{
         const isCountdown=r.phase==='countdown';
         const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
         const stageName=isPipeline?(pipelineStages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
-        const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
+        const limitMs=effectiveStageLimit(info,pipelineData,key)*1000;
         const remaining=(!isCountdown&&limitMs>0)?Math.max(0,limitMs-elapsed):null;
         const timeCritical=remaining!==null&&remaining<15000;
         const catId=a?.cat||r.catId;
@@ -1200,8 +1200,8 @@ const handleDeleteAth=async(a)=>{
                     </div>
                   </div>
                   :<button className="btn btn-ghost" style={{width:'100%',padding:'7px 12px',fontSize:11,gap:5,marginTop:4}}
-                    onClick={()=>{const cur=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(pStage?.timeLimit!=null?pStage.timeLimit:(info.timeLimit||0));setTimeLimitDraft(cur);setEditTimeLimitStage(stageKey);}}>
-                    <I.Clock s={12}/> {lang==='de'?'Zeitlimit':'Time limit'}: <span style={{fontFamily:'JetBrains Mono',color:'var(--gold)'}}>{(()=>{const v=info.stageLimits?.[stageKey]!=null?info.stageLimits[stageKey]:(pStage?.timeLimit!=null?pStage.timeLimit:(info.timeLimit||0));return v===0?(lang==='de'?'Kein Limit':'No limit'):`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;})()}</span>
+                    onClick={()=>{const cur=effectiveStageLimit(info,pipelineData,stageKey);setTimeLimitDraft(cur);setEditTimeLimitStage(stageKey);}}>
+                    <I.Clock s={12}/> {lang==='de'?'Zeitlimit':'Time limit'}: <span style={{fontFamily:'JetBrains Mono',color:'var(--gold)'}}>{(()=>{const v=effectiveStageLimit(info,pipelineData,stageKey);return v===0?(lang==='de'?'Kein Limit':'No limit'):`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;})()}</span>
                   </button>
                 )}
               </div>

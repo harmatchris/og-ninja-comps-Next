@@ -9,7 +9,7 @@ const obsShortName=name=>{
   if(/endplattform|end plattform/.test(n))return '⬛ End';
   return name;
 };
-import { fmtMs, computeRanked, computeRankedStage } from '../utils.js';
+import { fmtMs, computeRanked, computeRankedStage, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState } from './shared.jsx';
@@ -661,7 +661,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const livesUsed=r.livesUsed!=null?r.livesUsed:(livesLeft>=999?0:Math.max(0,stageTotalLives-livesLeft));
       const cpArr=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
       const lastCPTime=cpArr.length>0?cpArr[cpArr.length-1]?.time:null;
-      const limitSec=pStage.timeLimit||info?.stageLimits?.[stageKey]||info?.timeLimit||0;
+      const limitSec=effectiveStageLimit(info,pipelineData,stageKey);
       const elapsed=r.startEpoch?Date.now()-r.startEpoch:0;
       const timeRemaining=limitSec>0?Math.max(0,limitSec*1000-elapsed):null;
       const bestRun=stageRuns.filter(x=>x.catId===catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((a,b)=>(Array.isArray(b.doneCP)?b.doneCP.length:Object.keys(b.doneCP||{}).length)-(Array.isArray(a.doneCP)?a.doneCP.length:Object.keys(a.doneCP||{}).length)||(a.finalTime||Infinity)-(b.finalTime||Infinity))[0];
@@ -741,7 +741,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const livesUsed=r.livesUsed!=null?r.livesUsed:(livesLeft>=999?0:Math.max(0,totalLives-livesLeft));
       const cpArr=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
       const lastCPTime=cpArr.length>0?cpArr[cpArr.length-1]?.time:null;
-      const limitSec=info?.stageLimits?.[sn]??info?.timeLimit??0;
+      const limitSec=effectiveStageLimit(info,pipelineData,sn);
       const elapsed=r.startEpoch?Date.now()-r.startEpoch:0;
       const timeRemaining=limitSec>0?Math.max(0,limitSec*1000-elapsed):null;
       const _catId=r.catId||(a?.cat)||null;

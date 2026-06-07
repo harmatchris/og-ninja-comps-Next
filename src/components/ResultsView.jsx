@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag, verifyCompPassword } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag, verifyCompPassword, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -223,7 +223,7 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
         const isCountdown=r.phase==='countdown';
         const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
         const stageName=isPipeline?(pipelineStages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
-        const limitMs=(info?.stageLimits?.[key]??info?.timeLimit??0)*1000;
+        const limitMs=effectiveStageLimit(info,pipelineData,key)*1000;
         const remaining=(!isCountdown&&limitMs>0)?Math.max(0,limitMs-elapsed):null;
         const timeCritical=remaining!==null&&remaining<15000;
         const timerVal=isCountdown?0:remaining!==null?remaining:elapsed;

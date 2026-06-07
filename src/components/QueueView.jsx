@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLang } from '../i18n.js';
 import { IGN_CATS } from '../config.js';
-import { toFlag, fmtMs } from '../utils.js';
+import { toFlag, fmtMs, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, CompEmoji } from './shared.jsx';
@@ -44,7 +44,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   const runList=completedRuns?Object.values(completedRuns):[];
 
   const getAvgMs=(sn)=>{
-    const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
+    const lim=effectiveStageLimit(info,pipelineData,sn);
     if(lim>0)return lim*1000;
     const recent=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000)
       .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,6);
@@ -117,7 +117,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
         const avgMs=getAvgMs(sn);
         const slotMs=avgMs+22000;
         const recentCnt=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
-        const lim=info?.stageLimits?.[sn]??info?.timeLimit??0;
+        const lim=effectiveStageLimit(info,pipelineData,sn);
         const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`\u00d8${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
 
         return(

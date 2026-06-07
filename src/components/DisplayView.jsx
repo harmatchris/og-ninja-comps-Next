@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
-import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage } from '../utils.js';
+import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage, effectiveStageLimit } from '../utils.js';
 import { useFbVal, useTimer, useWinW, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, Heart, LifeDots } from './shared.jsx';
@@ -136,7 +136,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             const isCountdown=run.phase==='countdown'&&(run.countdown>0);
             const elapsed=run.startEpoch?nowMs-run.startEpoch:0;
             const catColor=cat?.color||'#FF5E3A';
-            const stageTimeLimit=(()=>{const sl=info.stageLimits?.[run.stageKey];return((sl!=null&&sl!=='')?sl:(pipelineData?.[run.stageKey]?.timeLimit||info.timeLimit||0))*1000;})();
+            const stageTimeLimit=effectiveStageLimit(info,pipelineData,run.stageKey)*1000;
             const isTimedOut=stageTimeLimit>0&&elapsed>=stageTimeLimit&&run.phase!=='done'&&!isCountdown;
             return(
               <div key={run.stageKey} style={{position:'relative',background:'var(--card)',borderRadius:20,border:`1px solid ${catColor}30`,overflow:'hidden',boxShadow:`0 8px 32px rgba(0,0,0,.4),0 0 0 1px ${catColor}18`}}>
@@ -899,7 +899,7 @@ const LiveRunStrip=({compId,info,athletesMap,pipelineData,onlyCats,tvMode,lang})
         const isCountdown=r.phase==='countdown';
         const elapsed=r.startEpoch?Math.max(0,now-r.startEpoch):0;
         const stageName=isPipeline?(stages.find(s=>s.id===key)?.name||key):`Stage ${key}`;
-        const limitSec=(isPipeline?(stages.find(s=>s.id===key)?.timeLimit||0):0)||info?.stageLimits?.[key]||info?.timeLimit||0;
+        const limitSec=effectiveStageLimit(info,pipelineData,key);
         const remaining=(!isCountdown&&limitSec>0)?Math.max(0,limitSec*1000-elapsed):null;
         const cps=Array.isArray(r.doneCP)?r.doneCP:(r.doneCP&&typeof r.doneCP==='object'?Object.values(r.doneCP):[]);
         const cpCount=r.doneCPCount!=null?r.doneCPCount:cps.length;
