@@ -1000,7 +1000,10 @@ const BUILDER_WIDGETS=[
   {type:'skills',  de:'Skill-Wertung', en:'Skills',   ic:I.Target},
 ];
 const BUILDER_CATS=[{k:'all',de:'Alle',en:'All'},{k:'LK1',de:'LK1',en:'LK1'},{k:'LK2',de:'LK2',en:'LK2'},{k:'bam',de:'Bambini',en:'Bambini'}];
-const builderCatsFor=k=>k==='LK1'?LK1_CATS:k==='LK2'?LK2_CATS:k==='bam'?['bam']:null;
+// Individual divisions for the per-window picker — selecting one pins the window to it (no auto-cycle).
+const BUILDER_DIVISIONS=[...LK1_CATS,...LK2_CATS].map(id=>IGN_CATS.find(c=>c.id===id)).filter(Boolean);
+const builderCatsFor=k=>k==='LK1'?LK1_CATS:k==='LK2'?LK2_CATS:k==='bam'?['bam']:(k&&k!=='all'&&IGN_CATS.some(c=>c.id===k))?[k]:null;
+const builderCatsLabel=(k,lang)=>{const b=BUILDER_CATS.find(c=>c.k===k);if(b)return b[lang];const d=IGN_CATS.find(c=>c.id===k);return d?(d.name?.[lang]||d.id):'Alle';};
 const widgetMeta=t=>BUILDER_WIDGETS.find(w=>w.type===t)||{de:t,en:t,ic:I.Grid};
 const DEFAULT_DISPLAY_LAYOUT=[
   {id:'b1',type:'liverun', cats:'all',x:0,y:0,w:12,h:2},
@@ -1059,7 +1062,11 @@ const DisplayBuilder=({compId,dataProps,lang})=>{
   const endEdit=()=>{setEdit(false);setDraft(null);SFX.click();};
   const addWidget=type=>persist([...draftRef.current,{id:uid(),type,cats:'all',...findFreeSpot(draftRef.current)}]);
   const removeWidget=id=>persist(draftRef.current.filter(i=>i.id!==id));
-  const cycleCats=id=>persist(draftRef.current.map(i=>{if(i.id!==id)return i;const idx=BUILDER_CATS.findIndex(c=>c.k===(i.cats||'all'));return {...i,cats:BUILDER_CATS[(idx+1)%BUILDER_CATS.length].k};}));
+  const setCats=(id,val)=>persist(draftRef.current.map(i=>i.id===id?{...i,cats:val}:i));
+  const savedLayouts=saved?.saved||{};
+  const saveLayout=()=>{const name=(window.prompt(lang==='de'?'Layout speichern als:':'Save layout as:')||'').trim();if(name)fbSet(`ogn/${compId}/displayLayout/saved/${uid()}`,{name,items:draftRef.current});};
+  const loadLayout=its=>{persist(Array.isArray(its)?its:[]);SFX.click();};
+  const deleteLayout=id=>{if(window.confirm(lang==='de'?'Gespeichertes Layout löschen?':'Delete saved layout?'))fbSet(`ogn/${compId}/displayLayout/saved/${id}`,null);};
   return(
     <div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 54px)'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',flexWrap:'wrap',borderBottom:'1px solid var(--border)',flexShrink:0}}>
@@ -1068,6 +1075,14 @@ const DisplayBuilder=({compId,dataProps,lang})=>{
           <div style={{width:1,height:22,background:'var(--border)'}}/>
           <span style={{fontSize:10,color:'var(--muted)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.06em'}}>{lang==='de'?'Hinzufügen':'Add'}</span>
           {BUILDER_WIDGETS.map(w=>{const Ic=w.ic;return <button key={w.type} className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5}} onClick={()=>addWidget(w.type)}><Ic s={12}/> {w[lang]}</button>;})}
+          <div style={{width:1,height:22,background:'var(--border)'}}/>
+          <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5,color:'var(--gold)'}} onClick={saveLayout} title={lang==='de'?'Aktuelles Layout speichern':'Save current layout'}>★ {lang==='de'?'Speichern':'Save'}</button>
+          {Object.entries(savedLayouts).map(([id,L])=>(
+            <span key={id} style={{display:'inline-flex',alignItems:'center',gap:3,fontSize:11,padding:'3px 4px 3px 9px',borderRadius:8,background:'rgba(255,214,10,.08)',border:'1px solid rgba(255,214,10,.25)'}}>
+              <button onClick={()=>loadLayout(L.items)} title={lang==='de'?'Laden':'Load'} style={{background:'none',border:'none',color:'var(--gold)',cursor:'pointer',fontWeight:800,fontSize:11,padding:0,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{L.name||'Layout'}</button>
+              <button onClick={()=>deleteLayout(id)} title={lang==='de'?'Löschen':'Delete'} style={{background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',padding:'2px'}}><I.X s={11} c="var(--red)"/></button>
+            </span>
+          ))}
           <div style={{flex:1}}/>
           <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5,color:'var(--muted)'}} onClick={()=>{if(window.confirm(lang==='de'?'Auf Standard-Layout zurücksetzen?':'Reset to default layout?'))persist(DEFAULT_DISPLAY_LAYOUT);}}><I.RefreshCw s={12}/> {lang==='de'?'Standard':'Default'}</button>
           <button className="btn btn-ghost" style={{padding:'6px 10px',fontSize:11,gap:5,color:'var(--red)'}} onClick={()=>{if(window.confirm(lang==='de'?'Alle Fenster entfernen?':'Remove all windows?'))persist([]);}}><I.Trash s={12}/> {lang==='de'?'Leeren':'Clear'}</button>
@@ -1085,8 +1100,14 @@ const DisplayBuilder=({compId,dataProps,lang})=>{
                 <Ic s={12} c={edit?'var(--cor)':'var(--muted)'}/>
                 <span style={{fontSize:11,fontWeight:800,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{meta[lang]}</span>
                 {edit
-                  ?<button onClick={e=>{e.stopPropagation();cycleCats(it.id);}} onPointerDown={e=>e.stopPropagation()} title={lang==='de'?'Division wechseln':'Cycle division'} style={{fontSize:9,fontWeight:800,padding:'2px 8px',borderRadius:6,border:'1px solid var(--border)',background:'rgba(255,255,255,.06)',color:'var(--muted)',cursor:'pointer',flexShrink:0}}>{cat?cat[lang]:'Alle'}</button>
-                  :(it.cats&&it.cats!=='all'?<span style={{fontSize:9,fontWeight:800,color:'var(--muted)',padding:'2px 7px',borderRadius:6,background:'rgba(255,255,255,.05)'}}>{cat?cat[lang]:''}</span>:null)}
+                  ?<select value={it.cats||'all'} onChange={e=>{e.stopPropagation();setCats(it.id,e.target.value);}} onPointerDown={e=>e.stopPropagation()} onClick={e=>e.stopPropagation()} title={lang==='de'?'Division wählen (einzelne Division bleibt fix, „Alle" rotiert)':'Pick division'} style={{fontSize:9,fontWeight:800,padding:'2px 4px',borderRadius:6,border:'1px solid var(--border)',background:'rgba(18,18,22,.96)',color:'var(--text)',cursor:'pointer',flexShrink:0,maxWidth:120}}>
+                    <option value="all">{lang==='de'?'Alle · Auto ⟳':'All · auto ⟳'}</option>
+                    <option value="LK1">{lang==='de'?'LK1 · alle':'LK1 · all'}</option>
+                    <option value="LK2">{lang==='de'?'LK2 · alle':'LK2 · all'}</option>
+                    <option value="bam">Bambini</option>
+                    {BUILDER_DIVISIONS.map(c=><option key={c.id} value={c.id}>{c.name?.[lang]||c.id}</option>)}
+                  </select>
+                  :(it.cats&&it.cats!=='all'?<span style={{fontSize:9,fontWeight:800,color:'var(--muted)',padding:'2px 7px',borderRadius:6,background:'rgba(255,255,255,.05)'}}>{builderCatsLabel(it.cats,lang)}</span>:null)}
                 {edit&&<button onClick={e=>{e.stopPropagation();removeWidget(it.id);}} onPointerDown={e=>e.stopPropagation()} title={lang==='de'?'Fenster entfernen':'Remove window'} style={{display:'flex',alignItems:'center',justifyContent:'center',padding:'3px 5px',background:'rgba(255,59,48,.12)',border:'1px solid rgba(255,59,48,.3)',borderRadius:6,cursor:'pointer',flexShrink:0}}><I.X s={14} c="var(--red)"/></button>}
               </div>
               <div style={{flex:1,minHeight:0,overflow:'auto',padding:'4px 8px 6px',pointerEvents:edit?'none':'auto'}}>{renderBuilderWidget(it,dataProps,lang)}</div>
