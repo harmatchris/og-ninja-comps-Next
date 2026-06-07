@@ -352,7 +352,7 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
 };
 
 // Auto-scrolling ranking list: pauses at top 2s, scrolls slowly down, resets
-const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[],isPipeline=false,pipelineStages=[]})=>{
+const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[],isPipeline=false,pipelineStages=[],speedStageId=null})=>{
   const ref=useRef(null);
   useEffect(()=>{
     const el=ref.current;if(!el||!items?.length||items.length<=6)return;
@@ -407,7 +407,7 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
                   </div>
                   <div style={{display:'flex',gap:4,justifyContent:'flex-end',marginTop:2,alignItems:'center'}}>
                     <span style={{color:'var(--gold)',fontSize:9}}>= P{r.placementSum||'?'}</span>
-                    {r.totalTime>0&&<span style={{color:'var(--muted)',fontSize:8}}>{fmtMs(r.totalTime)}</span>}
+                    {(()=>{const st=speedStageId&&r.stageBreakdown?.[speedStageId]?.finalTime;return st?<span style={{color:'var(--cor)',fontSize:8.5,fontWeight:700}} title="Speed-Zeit (Tiebreak)">⚡{fmtMs(st)}</span>:(r.totalTime>0?<span style={{color:'var(--muted)',fontSize:8}}>{fmtMs(r.totalTime)}</span>:null);})()}
                   </div>
                 </div>
               ):(
@@ -465,12 +465,16 @@ const ResultsView=({compId,athletes})=>{
   const multiStage=isPipeline?stageIds.length>1:stageNums.length>1;
   const allStagesView=selStage==='all';
   const isOverall=selStage==='overall';
+  // The "Speed" stage drives the placement-sum tiebreak (on a placement tie the faster Speed-parcours
+  // time wins) and, when its own ranking is shown, the qualification cut-line (top X% → successor).
+  const speedStage=isPipeline?(pipelineStages.find(s=>/speed/i.test(s.name||''))||pipelineStages.find(s=>+s.qualiPercent>0&&+s.qualiPercent<100)||null):null;
+  const speedStageId=speedStage?.id||null;
   // Division chips: for a specific stage, show only the divisions that actually ran in THAT stage
   // (not every division in the comp) — otherwise unrelated divisions are confusing on a stage ranking.
   const stageCats=isSkillView?catsWithSkills:((allStagesView||isOverall||selStage==null)?catsWithRuns:catsWithRuns.filter(c=>runList.some(r=>r.catId===c.id&&(isPipeline?r.stageId===selStage:r.stNum===selStage))));
   const isMultiOverall=false;
   const ranked=selCat&&!allStagesView?(isOverall
-    ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
+    ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline,speedStageId):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
     :selStage!=null?(isPipeline?computeRankedPipeline(runList,selCat,selStage):computeRankedStage(runList,selCat,selStage))
     :computeRanked(runList,selCat)):[];
   const rCPs=r=>isOverall?null:(r.doneCP?.length||0);
@@ -478,8 +482,12 @@ const ResultsView=({compId,athletes})=>{
   const rMaxCPs=r=>{if(isMultiOverall){const tot=stageNums.reduce((s,sn)=>{const bd=r.stageBreakdown?.[String(sn)];return s+(bd?.totalCPs||0);},0);return tot||r.totalCPs||1;}return Math.max(r.totalCPs||0,r.doneCP?.length||0)||1;};
   const StageBreakdown=({r,compact=false})=>{if(!isMultiOverall||!r.stageBreakdown)return null;const totCPs=rCPs(r),totT=rTime(r);const _stages=isPipeline?stageIds:stageNums;return(<div style={{marginTop:compact?3:6,display:'flex',flexWrap:'wrap',gap:3,alignItems:'center'}}>{_stages.map(sn=>{const bd=r.stageBreakdown[String(sn)];const cps=bd?.doneCP?.length||0;const maxC=bd?.totalCPs||'?';const tm=bd?.finalTime||0;return(<span key={sn} style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 5px',borderRadius:6,background:'rgba(255,255,255,.05)',border:'1px solid rgba(255,255,255,.08)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.5)'}}><span style={{color:'rgba(255,144,64,.9)',fontWeight:700,fontSize:8}}>{isPipeline?(pipelineStages.find(s=>s.id===sn)?.name||sn).substring(0,3):`S${sn}`}</span><span>{cps}/{maxC}</span><span style={{opacity:.35}}>·</span><span>{tm>0?fmtMs(tm):'—'}</span></span>);})}  {stageNums.length>1&&<span style={{display:'inline-flex',alignItems:'center',gap:2,padding:'1px 6px',borderRadius:6,background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,144,64,.25)',fontSize:9,fontFamily:'JetBrains Mono',color:'rgba(255,144,64,.9)',fontWeight:700}}>Σ {totCPs}{totT>0?` · ${fmtMs(totT)}`:''}</span>}</div>);};
   const medalColors=['#FFD60A','#C0C0C0','#CD7F32'];
-  const qualRule=comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null);
-  const qualCount=qualRule?.enabled&&ranked.length>0?Math.max(qualRule.minimum||1,Math.ceil(ranked.filter(r=>r.status!=='dsq').length*(qualRule.percent||50)/100)):null;
+  // On a pipeline stage that feeds a successor (e.g. LK1 Speedstage → Final), the cut-line comes from
+  // THAT stage's own qualiPercent — so "top 40% qualify for the final" is drawn right on its ranking.
+  const selStageCfg=isPipeline&&selStage!=null&&selStage!=='overall'&&selStage!=='all'?pipelineStages.find(s=>s.id===selStage):null;
+  const pipeQualPct=selStageCfg&&+selStageCfg.qualiPercent>0&&+selStageCfg.qualiPercent<100?+selStageCfg.qualiPercent:null;
+  const qualRule=pipeQualPct?{enabled:true,percent:pipeQualPct,minimum:+(selStageCfg.qualiMin||selStageCfg.minPerDivision||0)}:(comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null));
+  const qualCount=qualRule?.enabled&&ranked.length>0&&!isOverall?Math.max(qualRule.minimum||1,Math.ceil(ranked.filter(r=>r.status!=='dsq').length*(qualRule.percent||50)/100)):null;
   const exportAll=(format='csv')=>{
     if(format==='csv'){
       // Excel-compatible HTML with one worksheet per division + stage info
@@ -652,7 +660,7 @@ const ResultsView=({compId,athletes})=>{
       {allStagesView&&selCat&&(()=>{
         const cols=stageList.length+1; // stages + overall
         const cat=IGN_CATS.find(c=>c.id===selCat);
-        const overallRanked=isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
+        const overallRanked=isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline,speedStageId):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
         return(
         <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},minmax(130px,1fr))`,gap:6,padding:'6px 8px',height:'calc(100vh - 200px)',overflowX:'auto'}}>
           {stageList.map(sid=>{
@@ -674,7 +682,7 @@ const ResultsView=({compId,athletes})=>{
               <div style={{width:18,height:18,borderRadius:5,background:'linear-gradient(135deg,#FFD60A,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#000',flexShrink:0}}>Σ</div>
               <div style={{fontSize:11,fontWeight:800,color:'var(--gold)'}}>{lang==='de'?'Gesamt':'Overall'}</div>
             </div>
-            <AutoScrollRanking items={overallRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t} isOverall stageList={stageList} isPipeline={isPipeline} pipelineStages={pipelineStages}/>
+            <AutoScrollRanking items={overallRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t} isOverall stageList={stageList} isPipeline={isPipeline} pipelineStages={pipelineStages} speedStageId={speedStageId}/>
           </div>
         </div>
         );

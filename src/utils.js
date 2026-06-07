@@ -170,7 +170,7 @@ export const computeRankedMultiStagePipeline = (runList, catId, stageIds) => {
 
 
 // ── PLACEMENT-BASED OVERALL RANKING (sum of per-stage placements, tiebreak by total time)
-export const computeRankedByPlacement = (runList, catId, stageIds, computeStageFn) => {
+export const computeRankedByPlacement = (runList, catId, stageIds, computeStageFn, tieBreakStageId = null) => {
   // 1. Compute per-stage rankings
   const stageRankings = {};
   stageIds.forEach(sid => {
@@ -190,11 +190,17 @@ export const computeRankedByPlacement = (runList, catId, stageIds, computeStageF
       athMap[aid].stageBreakdown[sid] = r;
     });
   });
-  // 3. Sort: most stages run → lowest placement sum → fastest total time
+  // 3. Sort: most stages run → lowest placement sum → fastest tiebreak time.
+  //    Tiebreak = the time in `tieBreakStageId` (e.g. the LK1 Speed parcours) when ties occur,
+  //    falling back to the summed time across all stages when no tiebreak stage is supplied.
+  const _tie = (a) => {
+    const br = tieBreakStageId && a.stageBreakdown ? a.stageBreakdown[tieBreakStageId] : null;
+    return (br && br.finalTime) ? br.finalTime : (a.totalTime || Infinity);
+  };
   const sorted = Object.values(athMap).sort((a, b) =>
     b.stagesRun - a.stagesRun ||
     a.placementSum - b.placementSum ||
-    a.totalTime - b.totalTime
+    _tie(a) - _tie(b)
   );
   // 4. Add DSQ athletes at the end
   const inMain = new Set(sorted.map(a => a.athleteId));
