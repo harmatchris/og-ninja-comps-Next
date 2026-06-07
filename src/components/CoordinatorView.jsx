@@ -843,7 +843,9 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
         // Qualified athlete IDs per category, ranked best-first
         const qualifiedByCat=cats.map(catId=>{
           const ranked=computeRankedPipeline(allRuns,catId,stageId);
-          const {qualified}=computeQualifiedAthletes(ranked,qualiPercent,pipelineStageCfg.minPerDivision||0,athletes||{});
+          // Default: mindestens 3 pro Division qualifizieren (sofern vorhanden), die % greift erst darüber.
+          const _minQ=pipelineStageCfg.qualiMin!=null?+pipelineStageCfg.qualiMin:(pipelineStageCfg.minPerDivision!=null?+pipelineStageCfg.minPerDivision:3);
+          const {qualified}=computeQualifiedAthletes(ranked,qualiPercent,_minQ,athletes||{});
           return qualified;
         });
         successors.forEach(succ=>{
