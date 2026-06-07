@@ -52,7 +52,7 @@ const FEMALE_SWING='M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-
 // (kw/tw contain 'w') only when no gender is known — so mixed divisions like Bambini aren't all-male.
 const isFemale=(catId,gender)=>gender?/^(w|f)/i.test(String(gender)):!!(catId&&(catId.includes('w')||catId.includes('W')||catId.endsWith('f')));
 
-const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId='',gender=''})=>{
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId='',gender='',nameAnchor='middle',nameDx=0})=>{
   const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
   const rid=`rope-${(name||'n').replace(/\s/g,'')}`;
   const trick=TRICKS[doneCPCount%TRICKS.length];
@@ -201,7 +201,7 @@ const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3
         })
       }
       {/* Name */}
-      {name&&<text x={size/2} y={-16} textAnchor="middle" fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
+      {name&&<text x={size/2+nameDx} y={-16} textAnchor={nameAnchor} fontSize={size*.32} fontWeight="800" fill="#fff" fontFamily="system-ui" style={{paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:3,strokeLinejoin:'round'}}>{name}</text>}
       {/* Quip speech bubble — pops on a reached CP / a fall */}
       {quip&&!allDead&&(()=>{const w=quip.t.length*6.4+18;return(
         <g key={quip.id} transform={`translate(${size/2},${-30})`}>
@@ -324,9 +324,12 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   // Leader is green, trailer is red — applies to BOTH ninjas
   const runnerColor=lr.bestRunCPs?.length>0?(runnerLeads?'#30D158':'#FF5E3A'):(catData?.cat?.color||'#FF5E3A');
   const countdownNum=isCountdown?(lr.countdown||3):0;
+  // Keep the runner's name inside the chart: anchor it left/right near an edge so it never clips.
+  const _nm=lr.name||'',_sz=tvMode?46:32,_half=_nm.length*_sz*0.09;
+  const nameAnchor=(animX+_half>xs(nPts-1)+14)?'end':(animX-_half<xs(0)-28)?'start':'middle';
   return<>
     {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?34:24} name={lr.bestRunName||'Best'} ahead={!runnerLeads} catId={lr.catId}/>}
-    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?46:32} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId} gender={lr.gender||''}/>
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?46:32} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId} gender={lr.gender||''} nameAnchor={nameAnchor}/>
     {/* Big countdown number above ninja */}
     {isCountdown&&(
       <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
