@@ -37,19 +37,32 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allActiveRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const [,setTick]=useState(0);
-  useEffect(()=>{const iv=setInterval(()=>setTick(t=>t+1),15000);return()=>clearInterval(iv);},[]);
+  // Re-render every 5s so the ETA / "next starter" countdown stays live and keeps re-checking the pace.
+  useEffect(()=>{const iv=setInterval(()=>setTick(t=>t+1),5000);return()=>clearInterval(iv);},[]);
 
   const numStages=info?.numStations||1;
   const athList=athletesMap?Object.values(athletesMap):[];
   const runList=completedRuns?Object.values(completedRuns):[];
 
-  const getAvgMs=(sn)=>{
+  // Realistic, self-adapting per-athlete SLOT time (start-to-start, ms). Adapts after a few runners and
+  // self-corrects if the pace slows down:
+  //   1) realized throughput = avg gap between recent completions (breaks/outliers capped) — the truest
+  //      measure once ≥4 athletes are through (covers run + jury/transition time automatically),
+  //   2) else avg of recent run times + ~22s transition,
+  //   3) else the stage time-limit + transition, 4) else a 90s default. The limit is now only the
+  //      fallback for the very first runners — not the permanent assumption.
+  const getSlot=(sn)=>{
+    const on=r=>isPipeline?r.stageId===sn:String(r.stNum)===String(sn);
+    const done=runList.filter(r=>on(r)&&(r.timestamp||0)>0).sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+    if(done.length>=4){
+      const recent=done.slice(-8),gaps=[];
+      for(let i=1;i<recent.length;i++){const g=(recent[i].timestamp||0)-(recent[i-1].timestamp||0);if(g>5000&&g<600000)gaps.push(g);}
+      if(gaps.length>=3)return{ms:Math.round(gaps.reduce((s,g)=>s+g,0)/gaps.length),src:'pace'};
+    }
+    const runs=runList.filter(r=>on(r)&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,6);
+    if(runs.length>=3)return{ms:Math.round(runs.reduce((s,r)=>s+(r.finalTime||0),0)/runs.length)+22000,src:'avg'};
     const lim=effectiveStageLimit(info,pipelineData,sn);
-    if(lim>0)return lim*1000;
-    const recent=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000)
-      .sort((a,b)=>(b.timestamp||0)-(a.timestamp||0)).slice(0,6);
-    if(recent.length===0)return 90000;
-    return Math.round(recent.reduce((s,r)=>s+(r.finalTime||0),0)/recent.length);
+    return{ms:(lim>0?lim*1000:90000)+22000,src:lim>0?'limit':'default'};
   };
 
   const isPipeline=!!(info?.pipelineEnabled&&pipelineData);
@@ -114,11 +127,14 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
           </div>
         );
 
-        const avgMs=getAvgMs(sn);
-        const slotMs=avgMs+22000;
-        const recentCnt=runList.filter(r=>(isPipeline?r.stageId===sn:String(r.stNum)===String(sn))&&(r.finalTime||0)>0&&(r.finalTime||0)<1200000).length;
-        const lim=effectiveStageLimit(info,pipelineData,sn);
-        const basisLabel=lim>0?`${lim}s`:(recentCnt>=2?`\u00d8${Math.round(avgMs/60000)}m`:`~${Math.round(avgMs/60000)}m`);
+        const slot=getSlot(sn);
+        const slotMs=slot.ms,slotSec=Math.round(slotMs/1000);
+        // Basis shown so the operator can sanity-check the estimate: \u00d8 Takt (realized pace) / \u00d8 Lauf
+        // (avg run) / Limit (fallback), with the per-athlete time.
+        const basisLabel=`${slot.src==='pace'?'\u00d8 Takt':slot.src==='avg'?'\u00d8 Lauf':'Limit'} ${Math.floor(slotSec/60)}:${String(slotSec%60).padStart(2,'0')}`;
+        // Live countdown to the next starter: subtract how long the current athlete has already been running.
+        const hasRunner=!!(activeRun&&(activeRun.phase==='active'||activeRun.phase==='countdown')&&activeRun.startEpoch);
+        const firstGap=hasRunner?Math.max(0,slotMs-(Date.now()-activeRun.startEpoch)):0;
 
         return(
           <div key={sn} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:tvMode?18:12,overflow:'hidden'}}>
@@ -140,9 +156,12 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
                 const isNowRunning=ath.id===runningId;
                 const slotsAhead=i;
                 let etaLabel,etaColor;
+                // Time until THIS athlete starts: remaining time of the current run + a full slot per athlete ahead.
+                const etaMs=firstGap+slotsAhead*slotMs;
                 if(isNowRunning){etaLabel='\u25b6';etaColor='#30D158';}
-                else if(slotsAhead===0){etaLabel=lang==='de'?'Next \u2192':'Next \u2192';etaColor='var(--coral)';}
-                else{const mins=Math.max(1,Math.round((slotsAhead*slotMs)/60000));etaLabel=`~${mins}m`;etaColor=mins<=3?'var(--gold)':'var(--muted)';}
+                else if(etaMs<20000){etaLabel='Next \u2192';etaColor='var(--coral)';}
+                else if(etaMs<90000){const s=Math.round(etaMs/1000);etaLabel=`in ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;etaColor='var(--gold)';}
+                else{const mins=Math.max(1,Math.round(etaMs/60000));etaLabel=`~${mins}m`;etaColor=mins<=3?'var(--gold)':'var(--muted)';}
                 const isNext=!runningId&&i===0;
                 const isLast=i===queue.length-1;
                 return(

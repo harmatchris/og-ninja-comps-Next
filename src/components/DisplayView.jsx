@@ -658,6 +658,7 @@ const QueueDisplayView=({compId,onBack})=>{
   const info=useFbVal(`ogn/${compId}/info`);
   const athletesMap=useFbVal(`ogn/${compId}/athletes`);
   const completedRuns=useFbVal(`ogn/${compId}/completedRuns`);
+  const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
   if(!info)return<div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--bg)'}}><Spinner/></div>;
   return(
     <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',background:'var(--bg)',overflow:'hidden'}}>
@@ -674,7 +675,7 @@ const QueueDisplayView=({compId,onBack})=>{
       </div>
       {/* Queue grid */}
       <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}}>
-        <AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} tvMode={true}/>
+        <AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} pipelineData={pipelineData} tvMode={true}/>
       </div>
     </div>
   );
