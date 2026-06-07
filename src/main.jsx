@@ -37,7 +37,7 @@ const App=()=>{
       {view==='coordinator'&&compId&&<CoordinatorView compId={compId} onBack={()=>{setView('home');setCompId(null);}} onStage={(n,sid)=>{setPrevView('coordinator');openStage(n,sid);}} lang={lang} setLang={setLang}/>}
       {view==='coordinator'&&compId&&<StageRecoveryBanner compId={compId} lang={lang} onJoin={n=>{setPrevView('coordinator');if(typeof n==='number'){setStageId(null);setStNum(n);}else{setStageId(n);setStNum(1);}setView('jury');}}/>}
       {view==='jury'&&compId&&<JuryApp compId={compId} stNum={stNum} stageId={stageId} onBack={()=>setView(prevView)}/>}
-      {view==='display'&&compId&&<DisplayComposer compId={compId} onBack={()=>{setView('home');setCompId(null);}} onOpenJury={n=>{setPrevView('display');setStNum(n);setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
+      {view==='display'&&compId&&<DisplayComposer compId={compId} onBack={()=>{setView('home');setCompId(null);}} onOpenJury={n=>{setPrevView('display');if(typeof n==='number'){setStageId(null);setStNum(n);}else{setStageId(n);setStNum(1);}setView('jury');}} onBackToCoordinator={prevView==='coordinator'?()=>{setView('coordinator');}:null}/>}
       {view==='display'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('display');}}/>}
       {view==='queue'&&compId&&<QueueDisplayView compId={compId} onBack={null}/>}
       {view==='queue'&&!compId&&<DisplayNoComp onSelect={id=>{setCompId(id);setView('queue');}}/>}

@@ -29,7 +29,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
       if(!r.doneCP||r.doneCP.length===0||r.status==='dsq')return;
       r.doneCP.forEach((cp,idx)=>{
         if(!cp.time)return;
-        const key=`${r.catId}_${r.stNum||1}_${idx}`;
+        const key=`${r.catId}_${r.stageId||r.stNum||1}_${idx}`;
         if(!map[key]||cp.time<map[key].time){
           const a=athMap[r.athleteId];
           map[key]={time:cp.time,athleteName:a?.name||r.athleteName||'?'};
@@ -48,8 +48,8 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const catsWithData=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id)||activeArr.some(r=>r.catId===c.id));
   // Track done phase start times
   activeArr.forEach(run=>{
-    if(run.phase==='done'){if(!doneStartRef.current[run.stNum])doneStartRef.current[run.stNum]=Date.now();}
-    else{delete doneStartRef.current[run.stNum];}
+    if(run.phase==='done'){if(!doneStartRef.current[run.stageKey])doneStartRef.current[run.stageKey]=Date.now();}
+    else{delete doneStartRef.current[run.stageKey];}
   });
   // Compute queue for a given catId (athletes not yet done)
   const getQueue=(catId)=>{
@@ -107,18 +107,23 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             {showJuryPicker&&(
               <div style={{position:'absolute',top:'calc(100% + 6px)',right:0,background:'#1c1c1e',border:'1px solid rgba(255,255,255,.12)',borderRadius:12,padding:8,display:'flex',flexDirection:'column',gap:5,zIndex:200,minWidth:130,boxShadow:'0 8px 32px rgba(0,0,0,.5)'}}>
                 <div style={{fontSize:10,color:'rgba(255,255,255,.4)',letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 8px 4px'}}>Stage wählen</div>
-                {Array.from({length:info.numStations||1},(_,i)=>{
-                  const n=i+1;
-                  const stageName=info.stageNames?.[n]||`Stage ${n}`;
-                  const isOcc=activeArr.some(r=>r.stNum===n&&r.phase!=='done');
-                  return(
-                    <button key={n} onClick={()=>{setShowJuryPicker(false);onOpenJury(n);}}
-                      style={{background:isOcc?'rgba(255,94,58,.12)':'rgba(255,255,255,.05)',border:`1px solid ${isOcc?'rgba(255,94,58,.35)':'rgba(255,255,255,.08)'}`,borderRadius:8,padding:'8px 12px',cursor:'pointer',color:'#fff',fontSize:13,fontWeight:600,textAlign:'left',display:'flex',alignItems:'center',gap:8}}>
-                      {isOcc&&<span style={{width:7,height:7,borderRadius:'50%',background:'#FF5E3A',display:'inline-block',animation:'pulse 1.4s infinite'}}/>}
-                      {stageName}
-                    </button>
-                  );
-                })}
+                {(()=>{
+                  const isPipe=!!(info?.pipelineEnabled&&pipelineData);
+                  const stages=isPipe
+                    ?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0))
+                    :Array.from({length:info.numStations||1},(_,i)=>({id:i+1,name:info.stageNames?.[i+1]||`Stage ${i+1}`}));
+                  return stages.map(stg=>{
+                    const key=stg.id;const stageName=stg.name||`Stage ${key}`;
+                    const isOcc=activeArr.some(r=>(isPipe?r.stageKey===key:r.stNum===key)&&r.phase!=='done');
+                    return(
+                      <button key={key} onClick={()=>{setShowJuryPicker(false);onOpenJury(key);}}
+                        style={{background:isOcc?'rgba(255,94,58,.12)':'rgba(255,255,255,.05)',border:`1px solid ${isOcc?'rgba(255,94,58,.35)':'rgba(255,255,255,.08)'}`,borderRadius:8,padding:'8px 12px',cursor:'pointer',color:'#fff',fontSize:13,fontWeight:600,textAlign:'left',display:'flex',alignItems:'center',gap:8}}>
+                        {isOcc&&<span style={{width:7,height:7,borderRadius:'50%',background:'#FF5E3A',display:'inline-block',animation:'pulse 1.4s infinite'}}/>}
+                        {stageName}
+                      </button>
+                    );
+                  });
+                })()}
               </div>
             )}
             {showJuryPicker&&<div style={{position:'fixed',inset:0,zIndex:199}} onClick={()=>setShowJuryPicker(false)}/>}
@@ -169,7 +174,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                 )}
                 {/* Done result overlay — fades after 3s, shows next athlete after 5s */}
                 {run.phase==='done'&&(()=>{
-                  const doneAge=nowMs-(doneStartRef.current[run.stNum]||nowMs);
+                  const doneAge=nowMs-(doneStartRef.current[run.stageKey]||nowMs);
                   const showNext=doneAge>5000;
                   const resultOpacity=showNext?0:1;
                   const nextQueue=getQueue(run.catId);
@@ -265,7 +270,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                   {lastCP&&(()=>{
                     const cpIdx=run.doneCP.length-1;
                     const cpTime=lastCP.time;
-                    const bestKey=`${run.catId}_${run.stNum||1}_${cpIdx}`;
+                    const bestKey=`${run.catId}_${run.stageKey||run.stNum||1}_${cpIdx}`;
                     const best=bestSplits[bestKey];
                     const delta=best&&typeof cpTime==='number'&&typeof best.time==='number'?(cpTime-best.time):null;
                     return(
@@ -300,7 +305,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
         const strips=activeArr.map(run=>{
           const q=getQueue(run.catId);
           // show next 2, but skip if "done" phase already shows next inline (after 5s)
-          const doneAge=run.phase==='done'?nowMs-(doneStartRef.current[run.stNum]||nowMs):0;
+          const doneAge=run.phase==='done'?nowMs-(doneStartRef.current[run.stageKey]||nowMs):0;
           if(run.phase==='done'&&doneAge>5000)return null; // inline already showing
           if(q.length===0)return null;
           const cat=IGN_CATS.find(c=>c.id===run.catId);
@@ -450,7 +455,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     })}
                   </div>
                 ):(<>
-                  {(()=>{const liveRun=activeArr.find(r=>r.catId===cat.id&&(r.phase==='active'||r.phase==='countdown'));const liveAth=liveRun?athMap[liveRun.athleteId]:null;if(!liveRun||!liveAth)return null;const elapsed=liveRun.phase==='countdown'?0:(nowMs-(liveRun.startEpoch||nowMs));const lastCP=liveRun.doneCP?.[liveRun.doneCP.length-1];const cpIdx=(liveRun.doneCP?.length||0)-1;const bestKey=`${cat.id}_${liveRun.stNum||1}_${cpIdx}`;const best=bestSplits[bestKey];const delta=(lastCP&&best)?(lastCP.time-best.time):null;return(
+                  {(()=>{const liveRun=activeArr.find(r=>r.catId===cat.id&&(r.phase==='active'||r.phase==='countdown'));const liveAth=liveRun?athMap[liveRun.athleteId]:null;if(!liveRun||!liveAth)return null;const elapsed=liveRun.phase==='countdown'?0:(nowMs-(liveRun.startEpoch||nowMs));const lastCP=liveRun.doneCP?.[liveRun.doneCP.length-1];const cpIdx=(liveRun.doneCP?.length||0)-1;const bestKey=`${cat.id}_${liveRun.stageKey||liveRun.stNum||1}_${cpIdx}`;const best=bestSplits[bestKey];const delta=(lastCP&&best)?(lastCP.time-best.time):null;return(
                     <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 16px',background:'linear-gradient(90deg,rgba(48,209,88,.18),rgba(48,209,88,.05))',borderBottom:'2px solid rgba(48,209,88,.4)'}}>
                       <div style={{fontSize:10,fontWeight:900,color:'#30D158',width:22,textAlign:'center',flexShrink:0,letterSpacing:'.04em'}}>● LIVE</div>
                       {liveAth.photo?<img src={liveAth.photo} style={{width:32,height:32,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'2px solid #30D158'}}/>:null}

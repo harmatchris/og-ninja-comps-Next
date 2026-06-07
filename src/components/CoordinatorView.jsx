@@ -865,12 +865,10 @@ const CoordinatorView=({compId,onBack,onStage,lang,setLang})=>{
             const ordered=succ.invertSeeding?[...qualified].reverse():qualified;
             ordered.forEach(athId=>{
               const a=(athletes||{})[athId]||{name:'?'};
-              const entry={...a,qualifiedFrom:stageId};
-              if(succ.invertSeeding){
-                entry.queueOrder=qi;
-                updates[`ogn/${compId}/athletes/${athId}/pipelineQueueOrder/${succ.id}`]=qi;
-              }
-              updates[`ogn/${compId}/pipeline/${succ.id}/athletes/${athId}`]=entry;
+              // Always set the start order (queueOrder + pipelineQueueOrder), not only when inverted —
+              // otherwise a non-inverted final lands the qualifiers without any order (all 999, arbitrary).
+              updates[`ogn/${compId}/athletes/${athId}/pipelineQueueOrder/${succ.id}`]=qi;
+              updates[`ogn/${compId}/pipeline/${succ.id}/athletes/${athId}`]={...a,qualifiedFrom:stageId,queueOrder:qi};
               qi++;
             });
           });

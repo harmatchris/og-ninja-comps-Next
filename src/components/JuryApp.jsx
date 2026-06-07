@@ -358,6 +358,10 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   },[]);
   useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives,livesUsed:activeFalls.length});},[doneCP,lives]);
 
+  // Latest-handler refs so the []-deps timeout effect (and the BLE buzzer effect) invoke the CURRENT
+  // onFall/onComplete — not the instance captured at mount — avoiding stale lives/falls being written.
+  const onFallRef=useRef(onFall);onFallRef.current=onFall;
+  const onCompleteRef=useRef(onComplete);onCompleteRef.current=onComplete;
   // Auto-stop when time limit expires — treated as fall at the time limit
   useEffect(()=>{
     if(!timeLimitMs)return;
@@ -366,7 +370,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
       // Find the last obstacle the athlete was on (fell at)
       const lastCPIdx=dc.length;
       const fellAtObs=cpObst[lastCPIdx]||cpObst[cpObst.length-1]||null;
-      onFall({
+      onFallRef.current({
         doneCP:maxDoneCPRef.current.length>dc.length?maxDoneCPRef.current:dc,
         pendingFallIdx:lastCPIdx,
         currentTime:timeLimitMs,
@@ -393,7 +397,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     const buzzerStop=()=>{
       const t=Math.round(performance.now()-startPerf);
       SFX.complete();vib(200);
-      onComplete({doneCP:doneCPRef.current,finalTime:t,lives,protested:false});
+      onCompleteRef.current({doneCP:doneCPRef.current,finalTime:t,lives,protested:false});
     };
     BLE.onPress(stNum,buzzerStop);
     return()=>BLE.onPress(stNum,null);
