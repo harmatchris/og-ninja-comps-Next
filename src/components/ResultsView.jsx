@@ -265,7 +265,7 @@ const LiveStageTimerBanner=({compId,info,athletes,pipelineData})=>{
 };
 
 // Floating export button — always visible, opens in new window so Jury can continue
-const ExportFAB=({exportAll,lang,catName,selCat,selStage,catsWithRuns,runList,athMap,comp,isPipeline,pipelineStages,fmtMs,computeRanked,computeRankedPipeline,computeRankedStage,stageIds,stageNums})=>{
+const ExportFAB=({doExport,curLabel,exportAll,lang,catName,selCat,selStage,catsWithRuns,runList,athMap,comp,isPipeline,pipelineStages,fmtMs,computeRanked,computeRankedPipeline,computeRankedStage,stageIds,stageNums})=>{
   const [open,setOpen]=useState(false);
   const printStyle=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:12px 0 6px;color:#555;}
 table{width:100%;border-collapse:collapse;font-size:12px;}th{background:#f5f5f5;text-align:left;padding:6px 8px;font-weight:700;border-bottom:2px solid #ddd;}
@@ -325,17 +325,21 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
       {open&&<div style={{position:'fixed',inset:0,zIndex:998}} onClick={()=>setOpen(false)}/>}
       <div style={{position:'fixed',bottom:20,right:20,zIndex:999,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
         {open&&(
-          <div className="scale-in" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:10,minWidth:220,boxShadow:'0 8px 32px rgba(0,0,0,.5)'}}>
-            {/* Primary: print what's currently visible */}
-            <button style={{width:'100%',padding:'10px 10px',borderRadius:8,border:'none',background:'rgba(255,94,58,.12)',color:'var(--cor)',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:13,fontWeight:800,textAlign:'left',marginBottom:6}} onClick={()=>{printCurrent();setOpen(false);}}>
-              <I.FileText s={15} c="var(--cor)"/> {lang==='de'?'Aktuelle Ansicht drucken':'Print current view'}
+          <div className="scale-in" style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:14,padding:10,minWidth:250,boxShadow:'0 8px 32px rgba(0,0,0,.5)'}}>
+            <div style={{fontSize:9,fontWeight:700,color:'var(--cor)',letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 8px 5px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{lang==='de'?'Aktuelles Ranking':'Current ranking'}{curLabel?` · ${curLabel}`:''}</div>
+            <button style={{width:'100%',padding:'9px 10px',borderRadius:8,border:'none',background:'rgba(255,94,58,.12)',color:'var(--cor)',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12.5,fontWeight:800,textAlign:'left'}} onClick={()=>{doExport('pdf','current');setOpen(false);}}>
+              <I.FileText s={15} c="var(--cor)"/> {lang==='de'?'PDF — zum Aushängen':'PDF — to post'}
             </button>
-            <div style={{height:1,background:'var(--border)',margin:'4px 0'}}/>
-            <button style={{width:'100%',padding:'6px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:600,textAlign:'left'}} onClick={()=>{exportAll('csv');setOpen(false);}}>
-              <I.Download s={13} c="var(--muted)"/> Excel (alle)
+            <button style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'none',background:'rgba(255,94,58,.06)',color:'var(--cor)',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:700,textAlign:'left',marginTop:4}} onClick={()=>{doExport('excel','current');setOpen(false);}}>
+              <I.Download s={14} c="var(--cor)"/> Excel
             </button>
-            <button style={{width:'100%',padding:'6px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:11,fontWeight:600,textAlign:'left'}} onClick={()=>{exportAll('print');setOpen(false);}}>
-              <I.FileText s={13} c="var(--muted)"/> Drucken (alle)
+            <div style={{height:1,background:'var(--border)',margin:'8px 0 5px'}}/>
+            <div style={{fontSize:9,fontWeight:700,color:'var(--muted)',letterSpacing:'.08em',textTransform:'uppercase',padding:'0 8px 5px'}}>{lang==='de'?'Alles · Backoffice':'All · Back office'}</div>
+            <button style={{width:'100%',padding:'7px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:11.5,fontWeight:600,textAlign:'left'}} onClick={()=>{doExport('pdf','all');setOpen(false);}}>
+              <I.FileText s={13} c="var(--muted)"/> {lang==='de'?'PDF — alle Ranglisten':'PDF — all rankings'}
+            </button>
+            <button style={{width:'100%',padding:'7px 10px',borderRadius:8,border:'none',background:'transparent',color:'#fff',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:11.5,fontWeight:600,textAlign:'left'}} onClick={()=>{doExport('excel','all');setOpen(false);}}>
+              <I.Download s={13} c="var(--muted)"/> {lang==='de'?'Excel — alle':'Excel — all'}
             </button>
           </div>
         )}
@@ -438,6 +442,17 @@ const ResultsView=({compId,athletes})=>{
   const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
   const catsWithRuns=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
   useEffect(()=>{if(!selCat&&catsWithRuns.length>0)setSelCat(catsWithRuns[0].id);},[catsWithRuns.length]);
+  // ── Skill ranking as its own selectable pill (selStage==='skills') ──
+  const skillScores=useFbVal(`ogn/${compId}/skillScores`);
+  const skillPhase=comp?.skillPhase||{};
+  const skillsList=skillPhase.skills||[];
+  const isSkillOldschool=(skillPhase.type||'oldschool')==='oldschool';
+  const SKILL_MULT={easy:0.8,medium:1.0,hard:1.5};
+  const computeSkillTotal=(athId)=>{if(!skillScores)return 0;let tot=0;skillsList.forEach(sk=>{const s=skillScores?.[athId]?.[sk.id];if(!s)return;const m=SKILL_MULT[sk.difficulty||'medium']||1;if(isSkillOldschool){if(s.a1===true)tot+=100*m;else if(s.a2===true)tot+=50*m;else if(s.a3===true)tot+=20*m;}else{tot+=(s.poolScore||0)*(s.flashed?1.2:1)*m;}});return Math.round(tot);};
+  const hasSkills=!!skillPhase.enabled&&!!skillScores&&Object.keys(skillScores).length>0;
+  const catsWithSkills=IGN_CATS.filter(c=>Object.keys(athMap).some(aid=>athMap[aid]?.cat===c.id&&skillScores?.[aid]&&Object.keys(skillScores[aid]).length>0));
+  const isSkillView=selStage==='skills';
+  const skillRanked=(isSkillView&&selCat)?Object.keys(athMap).filter(aid=>athMap[aid]?.cat===selCat&&skillScores?.[aid]&&Object.keys(skillScores[aid]).length>0).map(aid=>({athleteId:aid,athleteName:athMap[aid]?.name,num:athMap[aid]?.num,team:athMap[aid]?.team,country:athMap[aid]?.country,photo:athMap[aid]?.photo,skillTotal:computeSkillTotal(aid)})).sort((a,b)=>b.skillTotal-a.skillTotal):[];
   const getRunKey=(r)=>r._fbKey||Object.entries(runs||{}).find(([,v])=>v.timestamp!=null&&v.timestamp===r.timestamp&&v.athleteId===r.athleteId)?.[0];
   const openEdit=(r)=>{if(!editMode)return;const key=getRunKey(r);if(key)setEditRun({key,run:r});};
   const handlePwSubmit=()=>{if(verifyCompPassword(comp,pwInput)){setEditMode(true);setShowPwModal(false);setPwInput('');setPwError(false);SFX.complete();}else{setPwError(true);SFX.fall();}};
@@ -452,7 +467,7 @@ const ResultsView=({compId,athletes})=>{
   const isOverall=selStage==='overall';
   // Division chips: for a specific stage, show only the divisions that actually ran in THAT stage
   // (not every division in the comp) — otherwise unrelated divisions are confusing on a stage ranking.
-  const stageCats=(allStagesView||isOverall||selStage==null)?catsWithRuns:catsWithRuns.filter(c=>runList.some(r=>r.catId===c.id&&(isPipeline?r.stageId===selStage:r.stNum===selStage)));
+  const stageCats=isSkillView?catsWithSkills:((allStagesView||isOverall||selStage==null)?catsWithRuns:catsWithRuns.filter(c=>runList.some(r=>r.catId===c.id&&(isPipeline?r.stageId===selStage:r.stNum===selStage))));
   const isMultiOverall=false;
   const ranked=selCat&&!allStagesView?(isOverall
     ?(isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage))
@@ -547,10 +562,51 @@ const ResultsView=({compId,athletes})=>{
   const stageList=isPipeline?pipelineStages.map(s=>s.id):stageNums;
   // Auto-select first stage if none selected
   useEffect(()=>{if(selStage===null&&stageList.length>0)setSelStage(multiStage?'all':stageList[0]);},[stageList.length]);
+  // ── Unified export: format 'excel'|'pdf', scope 'current'|'all' — handles stage rankings AND skills ──
+  const buildExportSections=(scope)=>{
+    const out=[];const stages=isPipeline?stageIds:stageNums;
+    const skillRankFor=(catId)=>Object.keys(athMap).filter(aid=>athMap[aid]?.cat===catId&&skillScores?.[aid]&&Object.keys(skillScores[aid]).length>0).map(aid=>({aid,total:computeSkillTotal(aid)})).sort((a,b)=>b.total-a.total);
+    const stageRows=(ranked)=>ranked.map((run,i)=>{const a=athMap[run.athleteId]||{};return{rank:run.status==='dsq'?'DSQ':(i+1),pos:i+1,num:a.num??run.num??'?',name:a.name||run.athleteName||'?',team:a.team||'',country:a.country||'',cps:(Array.isArray(run.doneCP)?run.doneCP.length:0),time:run.finalTime>0?fmtMs(run.finalTime):'',result:run.status==='complete'?'Buzzer':run.fellAt?.name?`Fall @ ${run.fellAt.name}`:(run.status||'DNF')};});
+    const skillRows=(rk)=>rk.map((r,i)=>{const a=athMap[r.aid]||{};return{rank:i+1,pos:i+1,num:a.num??'?',name:a.name||'?',team:a.team||'',country:a.country||'',points:r.total};});
+    if(scope==='current'&&isSkillView){catsWithSkills.forEach(c=>{const rk=skillRankFor(c.id);if(rk.length)out.push({title:`${catName(c)} — Skills`,skill:true,rows:skillRows(rk)});});}
+    else if(scope==='current'){const stagesToDo=(allStagesView||isOverall||!selStage)?stages:[selStage];stageCats.forEach(c=>{stagesToDo.forEach(sid=>{const r=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);if(r.length){const sn=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;out.push({title:`${catName(c)} — ${sn}`,rows:stageRows(r)});}});});}
+    else{catsWithRuns.forEach(c=>{stages.forEach(sid=>{const r=isPipeline?computeRankedPipeline(runList,c.id,sid):computeRankedStage(runList,c.id,sid);if(r.length){const sn=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||sid):`Stage ${sid}`;out.push({title:`${catName(c)} — ${sn}`,rows:stageRows(r)});}});});if(hasSkills)catsWithSkills.forEach(c=>{const rk=skillRankFor(c.id);if(rk.length)out.push({title:`${catName(c)} — Skills`,skill:true,rows:skillRows(rk)});});}
+    return out;
+  };
+  const doExport=(format,scope)=>{
+    const sections=buildExportSections(scope);
+    if(!sections.length){alert(lang==='de'?'Nichts zum Exportieren':'Nothing to export');return;}
+    const esc=s=>String(s==null?'':s).replace(/[<>&]/g,m=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[m]));
+    if(format==='excel'){
+      let x=`<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table>`;
+      x+=`<tr><td colspan="8" style="font-size:16px;font-weight:bold;">${esc(comp?.name)}</td></tr><tr><td colspan="8" style="color:#888;">${esc(comp?.date)} · ${esc(comp?.location)}</td></tr><tr></tr>`;
+      sections.forEach(sec=>{
+        x+=`<tr><td colspan="8" style="font-weight:bold;background:#f5f5f5;border-bottom:2px solid #FF5E3A;">${esc(sec.title)} (${sec.rows.length})</td></tr>`;
+        if(sec.skill){x+=`<tr style="font-weight:bold;background:#eee;"><td>Platz</td><td>Startnr</td><td>Name</td><td>Team</td><td>Land</td><td>Punkte</td></tr>`;sec.rows.forEach(r=>{x+=`<tr><td>${r.rank}</td><td>${esc(r.num)}</td><td>${esc(r.name)}</td><td>${esc(r.team)}</td><td>${esc(r.country)}</td><td>${r.points}</td></tr>`;});}
+        else{x+=`<tr style="font-weight:bold;background:#eee;"><td>Platz</td><td>Startnr</td><td>Name</td><td>Team</td><td>Land</td><td>CPs</td><td>Zeit</td><td>Ergebnis</td></tr>`;sec.rows.forEach(r=>{x+=`<tr><td>${r.rank}</td><td>${esc(r.num)}</td><td>${esc(r.name)}</td><td>${esc(r.team)}</td><td>${esc(r.country)}</td><td>${r.cps}</td><td>${esc(r.time)}</td><td>${esc(r.result)}</td></tr>`;});}
+        x+=`<tr></tr>`;
+      });
+      x+=`</table></body></html>`;
+      const blob=new Blob(['﻿'+x],{type:'application/vnd.ms-excel;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`ergebnisse-${scope==='current'?'aktuell':'alle'}-${new Date().toISOString().slice(0,10)}.xls`;a.click();URL.revokeObjectURL(url);SFX.complete();
+    }else{
+      const ps=`body{font-family:Arial,sans-serif;padding:20px;color:#333;}h1{font-size:18px;margin-bottom:4px;color:#FF5E3A;}h2{font-size:14px;margin:14px 0 6px;border-bottom:2px solid #FF5E3A;padding-bottom:4px;color:#555;}table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;}th{background:#f5f5f5;text-align:left;padding:6px 8px;font-weight:700;border-bottom:2px solid #ddd;}td{padding:5px 8px;border-bottom:1px solid #eee;}.m1{background:#FFF8DC;font-weight:700;}.m2{background:#F5F5F5;}.m3{background:#FDF5ED;}.bz{color:#34C759;font-weight:700;}@media print{body{padding:8px;font-size:11px;}h2{page-break-after:avoid;}tr{page-break-inside:avoid;}}`;
+      let h=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(comp?.name)}</title><style>${ps}</style></head><body>`;
+      h+=`<h1>${esc(comp?.name||'Wettkampf')}</h1><p style="font-size:11px;color:#888;">${esc(comp?.date)} · ${esc(comp?.location)}</p>`;
+      sections.forEach(sec=>{
+        h+=`<h2>${esc(sec.title)} (${sec.rows.length})</h2>`;const mc=r=>(typeof r.pos==='number'&&r.pos<=3)?` class="m${r.pos}"`:'';
+        if(sec.skill){h+=`<table><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Land</th><th>Punkte</th></tr>`;sec.rows.forEach(r=>{h+=`<tr${mc(r)}><td>${r.rank}</td><td>${esc(r.num)}</td><td>${esc(r.name)}</td><td>${esc(r.team)}</td><td>${esc(r.country)}</td><td><b>${r.points}</b></td></tr>`;});}
+        else{h+=`<table><tr><th>#</th><th>Nr</th><th>Name</th><th>Team</th><th>Land</th><th>CPs</th><th>Zeit</th><th>Ergebnis</th></tr>`;sec.rows.forEach(r=>{const erg=r.result==='Buzzer'?'<span class="bz">Buzzer ✓</span>':esc(r.result);h+=`<tr${mc(r)}><td>${r.rank}</td><td>${esc(r.num)}</td><td>${esc(r.name)}</td><td>${esc(r.team)}</td><td>${esc(r.country)}</td><td>${r.cps}</td><td>${esc(r.time)}</td><td>${erg}</td></tr>`;});}
+        h+=`</table>`;
+      });
+      h+=`<p style="font-size:9px;color:#aaa;margin-top:16px;">OG Comps · ${new Date().toLocaleString()}</p>`;
+      h=h.replace('</body>',`</body>`);h+=`</body></html>`;
+      const w=window.open('','_blank');if(w){w.document.write(h);w.document.close();setTimeout(()=>w.print(),400);}SFX.complete();
+    }
+  };
   return(
     <div style={{paddingBottom:82,overflowX:'hidden',maxWidth:'100%'}}>
       {/* Stage tabs — BIG, on top */}
-      {multiStage&&(
+      {(multiStage||hasSkills)&&(
         <div style={{display:'flex',gap:6,padding:'8px 16px',borderBottom:'1px solid var(--border)',overflowX:'auto',scrollbarWidth:'none'}}>
           <button className={`chip${allStagesView?' active':''}`}
             style={{flex:'1 0 auto',whiteSpace:'nowrap',padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(allStagesView?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
@@ -564,6 +620,13 @@ const ResultsView=({compId,athletes})=>{
               {stg.name||stg.id}
             </button>
           ))}
+          {hasSkills&&(
+            <button className={`chip${isSkillView?' active':''}`}
+              style={{flex:'1 0 auto',whiteSpace:'nowrap',padding:'8px 14px',fontSize:13,fontWeight:800,justifyContent:'center',gap:5,...(isSkillView?{background:'rgba(52,199,89,.16)',borderColor:'rgba(52,199,89,.45)',color:'var(--green)'}:{})}}
+              onClick={()=>{setSelStage('skills');SFX.hover();}}>
+              <I.Target s={13} c="currentColor"/>{lang==='de'?'Skills':'Skills'}
+            </button>
+          )}
           {(!isPipeline?stageNums:[]).map(n=>(
             <button key={n} className={`chip${selStage===n?' active':''}`}
               style={{flex:1,padding:'8px 12px',fontSize:13,fontWeight:800,justifyContent:'center',...(selStage===n?{background:'rgba(255,94,58,.15)',borderColor:'rgba(255,94,58,.4)',color:'var(--cor)'}:{})}}
@@ -689,6 +752,36 @@ return(<React.Fragment key={r.athleteId}>
           </>
         );
       })()}
+      {/* Skill ranking view (own pill) — ranked by skill points per division */}
+      {isSkillView&&selCat&&skillRanked.length>0&&(()=>{
+        const pod=skillRanked.slice(0,3);const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[78,54,42];
+        return(<>
+          {pod.length>=3&&(
+            <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:10,padding:'14px 16px 8px',maxWidth:560,margin:'0 auto'}}>
+              {[1,0,2].map(rank=>{const r=pod[rank];if(!r)return<div key={rank} style={{flex:1,maxWidth:150}}/>;const a=athMap[r.athleteId]||{};const col=podCol[rank];const initials=(r.athleteName||'?')[0].toUpperCase();const sz=rank===0?54:44;
+                return(<div key={rank} style={{flex:1,maxWidth:160,display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:0}}>
+                  {a.photo?<img src={a.photo} style={{width:sz,height:sz,borderRadius:'50%',objectFit:'cover',border:`2px solid ${col}`,boxShadow:`0 0 14px ${col}55`}}/>:<div style={{width:sz,height:sz,borderRadius:'50%',background:`${col}1A`,border:`2px solid ${col}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:rank===0?20:16,fontWeight:900,color:col,boxShadow:`0 0 14px ${col}55`}}>{initials}</div>}
+                  <div style={{fontSize:13,fontWeight:800,color:'#fff',textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{r.athleteName}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:col,fontFamily:'JetBrains Mono'}}>{r.skillTotal} P</div>
+                  <div style={{width:'100%',height:podH[rank],borderRadius:'10px 10px 0 0',background:`linear-gradient(180deg,${col}33,${col}10)`,border:`1.5px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:7,fontSize:rank===0?30:22,fontWeight:900,color:col,boxShadow:rank===0?`0 0 20px ${col}44`:'none'}}>{rank+1}</div>
+                </div>);})}
+            </div>
+          )}
+          <div className="section">
+            {skillRanked.map((r,i)=>{const a=athMap[r.athleteId]||{};const initials=(r.athleteName||'?')[0].toUpperCase();
+              return(<div key={r.athleteId} className="sh-card fade-up" style={{padding:'6px 10px',display:'flex',alignItems:'center',gap:8,animationDelay:`${(i+1)*.03}s`}}>
+                <div style={{flexShrink:0}}>{i<3?<MedalBadge pos={i} s={22}/>:<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'var(--muted)'}}>{i+1}</div>}</div>
+                {a.photo?<img src={a.photo} style={{width:30,height:30,borderRadius:'50%',objectFit:'cover',flexShrink:0,border:'1px solid rgba(255,255,255,.1)'}}/>:<div style={{width:30,height:30,borderRadius:'50%',flexShrink:0,background:'linear-gradient(135deg,rgba(52,199,89,.2),rgba(52,199,89,.06))',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,color:'var(--green)',border:'1px solid rgba(52,199,89,.15)'}}>{initials}</div>}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{r.athleteName}<span style={{fontSize:9,fontFamily:'JetBrains Mono',color:'var(--muted)',marginLeft:4}}>#{r.num}</span></div>
+                  {r.team&&<div style={{fontSize:9,color:'var(--cor2)',fontWeight:600,marginTop:1}}>{r.team}</div>}
+                </div>
+                <div className="timer-grad" style={{fontSize:15,flexShrink:0}}>{r.skillTotal}<span style={{fontSize:10,color:'var(--muted)',marginLeft:2}}>P</span></div>
+              </div>);})}
+          </div>
+        </>);
+      })()}
+      {isSkillView&&skillRanked.length===0&&<EmptyState icon={<I.Target s={28} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Keine Skill-Wertungen':'No skill scores'}/>}
       {/* Edit mode unlock button */}
       <div style={{padding:'12px 16px 4px',display:'flex',justifyContent:'center'}}>
         <button style={{padding:'7px 16px',borderRadius:20,border:`1px solid ${editMode?'rgba(255,200,80,.4)':'rgba(255,255,255,.1)'}`,background:editMode?'rgba(255,200,80,.08)':'rgba(255,255,255,.03)',color:editMode?'var(--gold)':'rgba(255,255,255,.3)',cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontSize:11,fontWeight:700,fontFamily:'Inter,sans-serif'}} onClick={()=>editMode?setEditMode(false):setShowPwModal(true)}>
@@ -712,7 +805,7 @@ return(<React.Fragment key={r.athleteId}>
       )}
       {editRun&&<EditRunModal run={editRun.run} runKey={editRun.key} compId={compId} onClose={()=>setEditRun(null)}/>}
       {/* Floating export FAB — always accessible */}
-      <ExportFAB exportAll={exportAll} lang={lang} catName={catName} selCat={selCat} selStage={selStage} catsWithRuns={catsWithRuns} runList={runList} athMap={athMap} comp={comp} isPipeline={isPipeline} pipelineStages={pipelineStages} fmtMs={fmtMs} computeRanked={computeRanked} computeRankedPipeline={computeRankedPipeline} computeRankedStage={computeRankedStage} stageIds={stageIds} stageNums={stageNums}/>
+      <ExportFAB doExport={doExport} curLabel={isSkillView?'Skills':(allStagesView?(lang==='de'?'Alle Stages':'All Stages'):(isPipeline?(pipelineStages.find(s=>s.id===selStage)?.name||selStage):`Stage ${selStage}`))} exportAll={exportAll} lang={lang} catName={catName} selCat={selCat} selStage={selStage} catsWithRuns={catsWithRuns} runList={runList} athMap={athMap} comp={comp} isPipeline={isPipeline} pipelineStages={pipelineStages} fmtMs={fmtMs} computeRanked={computeRanked} computeRankedPipeline={computeRankedPipeline} computeRankedStage={computeRankedStage} stageIds={stageIds} stageNums={stageNums}/>
     </div>
   );
 };
