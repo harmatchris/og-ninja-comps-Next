@@ -7,6 +7,7 @@ import { I } from '../icons.jsx';
 
 // Division groups — the scoring list is filtered by these instead of by all 8 categories.
 const GROUP_CATS={LK1:['km1','kw1','tm1','tw1'],LK2:['km2','kw2','tm2','tw2']};
+const SKILL_DIFFS={LK1:['medium','hard'],LK2:['easy','medium']}; // difficulty band each league actually attempts
 
 const SkillPhaseView=({compId,info,athletes})=>{
   const {lang}=useLang();
@@ -108,9 +109,13 @@ const SkillPhaseView=({compId,info,athletes})=>{
     ['LK1','LK2'].forEach(gid=>{
       if(!timers?.[gid]?.closed||timers?.[gid]?.autoFailed)return;
       const gCats=GROUP_CATS[gid];
+      // Only auto-fail the skills this league actually attempts — never the out-of-band ones the
+      // jury never showed (e.g. LK1 easy / LK2 hard), which would otherwise create phantom 0-scores.
+      const band=SKILL_DIFFS[gid]||null;
+      const gSkills=band?skills.filter(sk=>band.includes(sk.difficulty||'medium')):skills;
       const updates={};
       athList.filter(a=>gCats.includes(a.cat)).forEach(a=>{
-        skills.forEach(sk=>{
+        gSkills.forEach(sk=>{
           const sc=skillScores?.[a.id]?.[sk.id];
           if(sc==null){ // only fill in completely untouched skills — never overwrite a recorded attempt
             updates[`ogn/${compId}/skillScores/${a.id}/${sk.id}`]=isOldschool?{a1:false,a2:false,a3:false,autoFailed:true}:{attempts:0,completed:false,flashed:false,poolScore:0,autoFailed:true};
@@ -198,7 +203,6 @@ const SkillPhaseView=({compId,info,athletes})=>{
   const activeGroupLabel=activeGroupObj.label;
   // Skill list filtered by the division's difficulty band so the jury only sees the relevant skills:
   // LK2 = Leicht + Mittel, LK1 = Mittel + Schwer (the 'Alle' view keeps everything).
-  const SKILL_DIFFS={LK1:['medium','hard'],LK2:['easy','medium']};
   const skillDiffFilter=SKILL_DIFFS[activeGroup]||null;
   const visibleSkills=skillDiffFilter?skills.filter(sk=>skillDiffFilter.includes(sk.difficulty||'medium')):skills;
   useEffect(()=>{if(!visibleSkills.length)return;if(!selSkill||!visibleSkills.find(s=>s.id===selSkill))setSelSkill(visibleSkills[0].id);},[activeGroup,visibleSkills.length]);

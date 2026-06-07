@@ -1007,7 +1007,10 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   };
   const handleStopConfirm=async({selCount,time,fellAtObst,dsq})=>{
     try{
-      const corrected=(stopModal.doneCP||[]).slice(0,selCount);
+      // Firebase may deliver doneCP as an object (sparse array) on the recovery path — normalize like handleFallConfirm.
+      const rawCP=stopModal.doneCP||[];
+      const normDoneCP=Array.isArray(rawCP)?rawCP:(typeof rawCP==='object'?Object.values(rawCP):[]);
+      const corrected=normDoneCP.slice(0,selCount);
       const result=clean({athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat,stNum,...(isPipeline?{stageId}:{}),mode:info.mode,doneCP:corrected,totalCPs:cpObst.length,finalTime:time,lives,initialLives:effectiveLives,falls:activeFalls,protested:stopModal.protested||false,status:dsq?'dsq':(stopModal.reason||'dnf'),fellAt:fellAtObst?{id:fellAtObst.id,name:fellAtObst.name,order:fellAtObst.order}:null,timestamp:Date.now()});
       const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);setCompletedRunKey(rk);setStopModal(null);setDoneResult(null);setCurrentAth(null);setFallModal(null);setActiveFalls([]);setLives(isInfinityLives?999:effectiveLives);setGoTime(null);setPhase('wait');SFX.complete();
     }catch(err){console.error('Stop confirm error:',err);window.alert('Error: '+err.message);}

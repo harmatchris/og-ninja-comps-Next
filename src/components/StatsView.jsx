@@ -48,14 +48,16 @@ const FEMALE_FRAMES=[
 ];
 const MALE_SWING='M52 8a7.5 7.5 0 1 0-4 0zM44 17c-1.5.5-3 2-3 4l1 6-1 3-10 2c-2 .5-3 2-2 4l2 1 12-3 3-8 4 2 0 12c0 3 1 5 3 5.5l2-.5 1-14c0-3-1.5-5-3.5-6l-3-2 0-5 3 1c2 .5 3-.5 3.5-2l0-2-7-3c-2-.8-3.5-.5-5 .5z';
 const FEMALE_SWING='M53 7a7 7 0 1 0-6 0l-4-1c-2-1-3 0-3 1l3 2 4 0 4-1 2-2c0-1-1-2-3-1l-3 2zM43 17c-1.5.5-2.5 2-2.5 4l.5 5-1 3-9 2c-2 .5-2.5 2-1.5 3.5l2 .5 11-3 2-7 3.5 2-.5 11c0 3 1.5 5 3.5 5l1.5-.5 1-13c0-3-1.5-5-3-5.5l-3-2 .5-5 2.5 1c2 .5 3-.5 3.5-2l-.5-2-6-2.5c-2-.8-3-.5-4.5.5z';
-const isFemale=catId=>catId&&(catId.includes('w')||catId.includes('W')||catId.endsWith('f'));
+// Prefer the athlete's own gender field ('f'/'w'/'female'…); fall back to the category-id heuristic
+// (kw/tw contain 'w') only when no gender is known — so mixed divisions like Bambini aren't all-male.
+const isFemale=(catId,gender)=>gender?/^(w|f)/i.test(String(gender)):!!(catId&&(catId.includes('w')||catId.includes('W')||catId.endsWith('f')));
 
-const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId=''})=>{
+const NinjaRunner=({x,y,size=28,color='#FF5E3A',name='',fallen=false,livesLeft=3,livesUsed=0,doneCPCount=0,lastCPTime=null,timeRemaining=null,resetting=false,resetUntil=null,catId='',gender=''})=>{
   const fid=`gl-${(name||'n').replace(/\s/g,'')}`;
   const rid=`rope-${(name||'n').replace(/\s/g,'')}`;
   const trick=TRICKS[doneCPCount%TRICKS.length];
   const heartD='M6 1.5C4.5-.5 1-.5 0 2c-1 2.5 3 5 6 7.5C9 7 13 4.5 12 2c-1-2.5-4.5-2.5-6-.5z';
-  const female=isFemale(catId);
+  const female=isFemale(catId,gender);
   const frames=female?FEMALE_FRAMES:MALE_FRAMES;
   const [frame,setFrame]=useState(0);
   const allDead=livesLeft<=0&&livesUsed>0;
@@ -324,7 +326,7 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
   const countdownNum=isCountdown?(lr.countdown||3):0;
   return<>
     {lr.bestRunCPs?.length>0&&!isCountdown&&<GhostNinja x={ghostX} y={cy} size={tvMode?34:24} name={lr.bestRunName||'Best'} ahead={!runnerLeads} catId={lr.catId}/>}
-    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?46:32} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId}/>
+    <NinjaRunner x={isCountdown?xs(0):animX} y={cy} size={tvMode?46:32} color={lr.resetting?'#FF9500':isCountdown?'#FF9500':runnerColor} name={lr.name} fallen={lr.fallen} livesLeft={lr.livesLeft} livesUsed={lr.livesUsed} doneCPCount={isCountdown?0:lr.doneCPCount} lastCPTime={lr.lastCPTime} timeRemaining={lr.timeRemaining} resetting={lr.resetting} resetUntil={lr.resetUntil} catId={lr.catId} gender={lr.gender||''}/>
     {/* Big countdown number above ninja */}
     {isCountdown&&(
       <text x={xs(0)} y={cy-((tvMode?36:24)*1.5)} textAnchor="middle" fontSize={tvMode?48:32} fontWeight="900" fontFamily="JetBrains Mono,monospace" fill="#FF9500" style={{animation:'countPulse .8s ease-in-out infinite alternate',paintOrder:'stroke',stroke:'rgba(0,0,0,.8)',strokeWidth:4,strokeLinejoin:'round'}}>
@@ -336,7 +338,9 @@ const SmoothNinja=({lr,xs,ys,nPts,tvMode,catData})=>{
 
 const SurvivalChart=({data,tvMode,liveRunners=[],obsArr=[],allObs=[],livesUsedPerObs=[]})=>{
   const nPts=data?.[0]?.points?.length||0;
-  const extraMB=nPts>20?Math.min(nPts*1.5,60):0;
+  // Extra bottom margin so the -55°-rotated obstacle labels never clip past the SVG edge on dense
+  // stages (our event stages have ~29 elements). Kicks in earlier + reaches higher than before.
+  const extraMB=nPts>16?Math.min(nPts*2.2,96):0;
   const W=1000,H=(tvMode?420:300)+extraMB;
   const ML=46,MR=16,MT=tvMode?60:50,MB=(tvMode?90:80)+extraMB;
   const PW=W-ML-MR,PH=H-MT-MB;
@@ -748,7 +752,7 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
       const bestRun=stageRuns.filter(x=>x.catId===_catId&&x.status!=='dsq'&&(x.doneCP?.length||Object.keys(x.doneCP||{}).length)>0).sort((x,y)=>(Array.isArray(y.doneCP)?y.doneCP.length:Object.keys(y.doneCP||{}).length)-(Array.isArray(x.doneCP)?x.doneCP.length:Object.keys(x.doneCP||{}).length)||(x.finalTime||Infinity)-(y.finalTime||Infinity))[0];
       const bestRunCPs=bestRun?Array.isArray(bestRun.doneCP)?bestRun.doneCP:(bestRun.doneCP?Object.values(bestRun.doneCP):[]):[];
       const bestRunName=bestRun?(athletesMap?.[bestRun.athleteId]?.name||bestRun.athleteName||'?').split(' ')[0]:'';
-      return{id:r.athleteId,catId:_catId,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
+      return{id:r.athleteId,catId:_catId,gender:a?.gender,doneCPCount,name:a?.name?.split(' ')[0]||'',livesLeft,livesUsed,totalLives,fallen:livesLeft<=0&&livesLeft<999&&livesUsed>0,lastCPTime,timeRemaining,startEpoch:r.startEpoch,bestRunCPs,bestRunName,phase:r.phase,countdown:r.countdown,resetting:!!r.resetting,resetUntil:r.resetUntil||null};
     }):[];
 
     return{sn,catId,obsArr,allObs,survivalData,difficultyData,progressData,liveRunners,livesUsedPerObs};
