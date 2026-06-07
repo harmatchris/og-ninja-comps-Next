@@ -566,7 +566,11 @@ const SkillPhaseView=({compId,info,athletes})=>{
             <div key={sk.id} style={{padding:'6px 0',borderBottom:'1px solid var(--border)'}}>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <div style={{width:20,height:20,borderRadius:5,background:'rgba(255,255,255,.08)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'var(--muted)',flexShrink:0}}>{i+1}</div>
-                <div style={{flex:1,fontSize:13,fontWeight:500}}>{sk.name||`Skill ${i+1}`}</div>
+                <input defaultValue={sk.name||''} placeholder={`Skill ${i+1}`}
+                  onBlur={async e=>{const v=e.target.value.trim();if(v!==(sk.name||'')){const updated=skills.map(s=>s.id===sk.id?{...s,name:v}:s);await fbSet(`ogn/${compId}/info/skillPhase`,{...skillPhase,skills:updated});SFX.click();}}}
+                  onKeyDown={e=>{if(e.key==='Enter')e.currentTarget.blur();}}
+                  title={lang==='de'?'Skill-Name bearbeiten (Enter/Klick ausserhalb speichert)':'Edit skill name'}
+                  style={{flex:1,minWidth:0,fontSize:13,fontWeight:500,background:'rgba(255,255,255,.04)',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',color:'var(--text)'}}/>
                 <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:4,color:diffColors[diff],background:diffColors[diff]+'1A',border:`1px solid ${diffColors[diff]}44`}}>{diffLabels[diff]}</span>
                 <button style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex'}}
                   onClick={async()=>{
