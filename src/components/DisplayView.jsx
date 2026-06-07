@@ -909,8 +909,12 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
   };
   if(!cats.length)return<EmptyState icon={<I.Trophy s={26} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Noch keine Skill-Wertung':'No skill scores yet'}/>;
   const catId=cats[idx%cats.length],cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
+  // Only the league's difficulty band is shown per division (LK1=medium/hard, LK2=easy/medium).
+  const band=/1$/.test(catId)?['medium','hard']:/2$/.test(catId)?['easy','medium']:null;
+  const bandSkills=band?skills.filter(sk=>band.includes(sk.difficulty||'medium')):skills;
   const ranked=athList.filter(a=>a.cat===catId).map(a=>({...a,skillTotal:computeTotal(a.id)})).sort((a,b)=>b.skillTotal-a.skillTotal);
   const podCol=['#FFD60A','#C0C0C0','#CD7F32'];
+  const lvlOf=s=>s?.a1===true?1:s?.a2===true?2:s?.a3===true?3:0;const lvlCol=l=>l===1?'#30D158':l===2?'#FFD60A':l===3?'#FF9500':null;
   return(
     <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexShrink:0}}>
@@ -924,12 +928,57 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
           {ranked.map((a,i)=>(
             <div key={a.id||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
               <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
-              <span style={{flex:1,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||'?'}</span>
-              <span style={{fontSize:tvMode?13:11,fontFamily:'JetBrains Mono',fontWeight:800,color:i<3?podCol[i]:'rgba(255,255,255,.55)',flexShrink:0}}>{a.skillTotal}<span style={{fontSize:8,opacity:.5,marginLeft:1}}>P</span></span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||'?'}</div>
+                {bandSkills.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:tvMode?3:2,marginTop:2}}>
+                  {bandSkills.map(sk=>{const l=lvlOf(skillScores?.[a.id]?.[sk.id]);const col=lvlCol(l);return<span key={sk.id} title={`${sk.name||''}${l?` · v${l} ✓`:''}`} style={{minWidth:tvMode?15:11,height:tvMode?15:11,padding:'0 2px',borderRadius:3,background:col?`${col}26`:'transparent',border:`1.5px solid ${col||'rgba(255,255,255,.16)'}`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?9:7,fontWeight:900,color:col||'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',flexShrink:0}}>{l||''}</span>;})}
+                </div>}
+              </div>
+              <span style={{fontSize:tvMode?15:12,fontFamily:'JetBrains Mono',fontWeight:800,color:i<3?podCol[i]:'rgba(255,255,255,.7)',flexShrink:0}}>{a.skillTotal}<span style={{fontSize:8,opacity:.5,marginLeft:1}}>P</span></span>
             </div>
           ))}
         </AutoScrollList>
       </div>
+    </div>
+  );
+};
+
+// ── Skill-completion toast: pops a short celebration whenever the jury newly checks off a skill
+//    (watches skillScores for a not-done → done transition). Mounted on the Phase-1 main display.
+const SkillCompletionToast=({skillScores,athletesMap,skills,tvMode,lang})=>{
+  const prevRef=useRef(null);
+  const [toasts,setToasts]=useState([]);
+  const seqRef=useRef(0);
+  useEffect(()=>{
+    if(!skillScores)return;
+    const prev=prevRef.current; prevRef.current=skillScores;
+    if(!prev)return; // first snapshot on load — don't fire for already-scored skills
+    const lvl=s=>s?.a1===true?1:s?.a2===true?2:s?.a3===true?3:0;
+    const fresh=[];
+    Object.entries(skillScores).forEach(([aid,sks])=>{
+      Object.entries(sks||{}).forEach(([skid,s])=>{
+        if(lvl(s)>0&&lvl(prev[aid]?.[skid])===0){
+          const ath=athletesMap?.[aid],sk=(skills||[]).find(x=>x.id===skid);
+          if(ath&&sk)fresh.push({key:`${aid}_${skid}_${++seqRef.current}`,name:ath.name,skill:sk.name||'Skill',lvl:lvl(s),country:ath.country});
+        }
+      });
+    });
+    if(fresh.length)setToasts(t=>[...t,...fresh].slice(-3));
+  },[skillScores]);
+  useEffect(()=>{if(!toasts.length)return;const t=setTimeout(()=>setToasts(ts=>ts.slice(1)),5200);return()=>clearTimeout(t);},[toasts]);
+  if(!toasts.length)return null;
+  return(
+    <div style={{position:'fixed',top:tvMode?72:58,left:'50%',transform:'translateX(-50%)',zIndex:60,display:'flex',flexDirection:'column',gap:8,alignItems:'center',pointerEvents:'none'}}>
+      <style>{`@keyframes skillPop{0%{opacity:0;transform:translateY(-18px) scale(.9)}10%{opacity:1;transform:translateY(0) scale(1.05)}18%{transform:scale(1)}90%{opacity:1}100%{opacity:0;transform:translateY(-8px)}}`}</style>
+      {toasts.map(t=>(
+        <div key={t.key} style={{animation:'skillPop 5.2s ease forwards',background:'linear-gradient(135deg,rgba(48,209,88,.97),rgba(20,150,66,.97))',color:'#fff',borderRadius:14,padding:tvMode?'12px 22px':'9px 15px',boxShadow:'0 10px 34px rgba(48,209,88,.45)',display:'flex',alignItems:'center',gap:tvMode?12:9,border:'1.5px solid rgba(255,255,255,.32)'}}>
+          <I.CheckCircle s={tvMode?30:21} c="#fff"/>
+          <div>
+            <div style={{fontSize:tvMode?21:15,fontWeight:900,lineHeight:1.12}}>{t.country?toFlag(t.country)+' ':''}{t.name}</div>
+            <div style={{fontSize:tvMode?14:11,fontWeight:700,opacity:.96}}>{lang==='de'?'hat':'cleared'} <b>{t.skill}</b> {lang==='de'?'geschafft':''} · v{t.lvl} 🎉</div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
@@ -1215,6 +1264,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
         })()}
         {screen==='phase1'&&(
           <div style={{padding:12,display:'flex',gap:12,...(wide?{height:'calc(100vh - 54px)'}:{flexDirection:'column'})}}>
+            <SkillCompletionToast skillScores={skillScores} athletesMap={athletes} skills={info?.skillPhase?.skills||[]} tvMode={wide} lang={lang}/>
             {/* Left: live skill standings (LK1/LK2 auto-switch) — the parallel skill competition */}
             <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:'1.15',minHeight:0}:{})}}>
               <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Target s={13} c="currentColor"/><span>{lang==='de'?'SKILL-WERTUNG':'SKILL STANDINGS'}</span></div>
