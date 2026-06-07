@@ -289,3 +289,56 @@ export const computeCombinedRanking = (skillRanking, stageRanking) => {
   combined.sort((a, b) => a.combinedScore - b.combinedScore || a.tiebreakTime - b.tiebreakTime);
   return combined;
 };
+
+// Official per-division OVERALL ranking (per the Ausschreibung / OG Youth Games format):
+//   • Bambini  → only the LAST stage counts; earlier stages don't influence the final rank.
+//   • LK1      → Speed-placement + Final-placement (sum); tiebreak = faster Speed-parcours time.
+//   • LK2      → Skill-placement + Final-placement (sum); tiebreak = better Final result.
+// Each returned item carries `_overall = { cells:[{label,place}], score, tie }` for a simple, uniform
+// display. `skillRanking` is the division's skill standing (best first); only used for LK2.
+// `computeStageFn(runList, catId, stageId)` ranks a single pipeline stage (computeRankedPipeline).
+export const computeDivisionOverall = (catId, { runList, pipelineStages = [], skillRanking = [], computeStageFn }) => {
+  const div = (pipelineStages || []).filter(s => s && Array.isArray(s.categories) && s.categories.includes(catId)).sort((a, b) => (a.order || 0) - (b.order || 0));
+  const isLk1 = /1$/.test(catId || ''), isLk2 = /2$/.test(catId || '');
+  // LK1 — the FINAL is decisive, no matter what came before (Speed/Skills only qualify + seed).
+  // A tie on the final standing is broken by the faster Speed-parcours time.
+  if (isLk1 && div.length >= 2) {
+    const speed = div.find(s => /speed/i.test(s.name || '')) || div[0];
+    const final = div.find(s => Array.isArray(s.predecessorStages) && s.predecessorStages.length) || div[div.length - 1];
+    const speedT = {}; computeStageFn(runList, catId, speed.id).forEach(r => { speedT[r.athleteId] = r.finalTime || Infinity; });
+    const fr = computeStageFn(runList, catId, final.id);
+    const nonDsq = fr.filter(r => r.status !== 'dsq'), dsq = fr.filter(r => r.status === 'dsq');
+    nonDsq.sort((a, b) => {
+      const ac = a.doneCP?.length || 0, bc = b.doneCP?.length || 0; if (ac !== bc) return bc - ac;
+      const at = a.finalTime || Infinity, bt = b.finalTime || Infinity; if (at !== bt) return at - bt;
+      return (speedT[a.athleteId] || Infinity) - (speedT[b.athleteId] || Infinity);
+    });
+    const ranked = [...nonDsq, ...dsq];
+    ranked.forEach(r => { const sp = speedT[r.athleteId]; r._overall = { final: true, tie: (sp && sp !== Infinity) ? fmtMs(sp) : null }; });
+    return { mode: 'lk1', stageIds: [final.id], ranked };
+  }
+  // LK2 — Skills-placement + Final-placement (sum). Finalists rank first (making the final is an
+  // achievement); non-finalists follow, ordered by their skill placement.
+  if (isLk2 && div.length >= 1) {
+    const final = div.find(s => /final/i.test(s.name || '')) || div[div.length - 1];
+    const finalRanking = computeStageFn(runList, catId, final.id);
+    const skMap = {}; skillRanking.forEach((a, i) => { skMap[a.athleteId || a.id] = i + 1; });
+    const skN = skillRanking.length;
+    const finalIds = new Set(finalRanking.map(r => r.athleteId));
+    const finalists = finalRanking.map((r, i) => {
+      const sr = skMap[r.athleteId] || skN + 1, fr = i + 1;
+      return { athleteId: r.athleteId, athleteName: r.athleteName, status: r.status, placementSum: sr + fr, _tieMs: r.finalTime || Infinity,
+        _overall: { cells: [{ label: 'Skills', place: sr }, { label: 'Final', place: fr }], score: sr + fr, tie: r.finalTime > 0 ? fmtMs(r.finalTime) : null } };
+    }).sort((a, b) => a.placementSum - b.placementSum || a._tieMs - b._tieMs);
+    const nonFinalists = skillRanking.filter(a => !finalIds.has(a.athleteId || a.id)).map(a => {
+      const sr = skMap[a.athleteId || a.id];
+      return { athleteId: a.athleteId || a.id, athleteName: a.athleteName, status: 'skillonly', placementSum: null,
+        _overall: { cells: [{ label: 'Skills', place: sr }, { label: 'Final', place: null }], score: null, tie: null, skillOnly: true } };
+    });
+    return { mode: 'lk2', stageIds: [final.id], ranked: [...finalists, ...nonFinalists] };
+  }
+  // Bambini / single-stage fallback — only the last stage counts
+  const last = div[div.length - 1];
+  const ranked = last ? computeStageFn(runList, catId, last.id) : [];
+  return { mode: 'lastStage', stageIds: last ? [last.id] : [], ranked };
+};

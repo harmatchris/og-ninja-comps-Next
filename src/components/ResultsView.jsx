@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, toFlag, verifyCompPassword, effectiveStageLimit } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, computeDivisionOverall, toFlag, verifyCompPassword, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -352,7 +352,7 @@ td{padding:5px 8px;border-bottom:1px solid #eee;}.medal-1{background:#FFF8DC;fon
 };
 
 // Auto-scrolling ranking list: pauses at top 2s, scrolls slowly down, resets
-const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[],isPipeline=false,pipelineStages=[],speedStageId=null})=>{
+const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,overallMode=null,stageList=[],isPipeline=false,pipelineStages=[],speedStageId=null})=>{
   const ref=useRef(null);
   useEffect(()=>{
     const el=ref.current;if(!el||!items?.length||items.length<=6)return;
@@ -401,15 +401,22 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,stageList=[]
                 </div>
               </div>
               {isOverall?(
+                r._overall?.cells?(
                 <div style={{flexShrink:0,textAlign:'right',fontSize:8,fontFamily:'JetBrains Mono',fontWeight:700,lineHeight:1.3}}>
                   <div style={{display:'flex',gap:2,justifyContent:'flex-end',flexWrap:'wrap'}}>
-                    {stageList.map(sid=>{const pl=r.placements?.[sid];const nm=isPipeline?(pipelineStages.find(s=>s.id===sid)?.name||'').substring(0,6):(`S${sid}`);return pl?<span key={sid} style={{padding:'0 4px',borderRadius:3,background:pl<=3?['rgba(255,214,10,.2)','rgba(192,192,192,.15)','rgba(205,127,50,.15)'][pl-1]:'rgba(255,255,255,.06)',color:pl<=3?['var(--gold)','#C0C0C0','#CD7F32'][pl-1]:'var(--muted)'}}>{nm}:P{pl}</span>:<span key={sid} style={{padding:'0 4px',borderRadius:3,background:'rgba(255,255,255,.04)',color:'rgba(255,255,255,.2)'}}>{nm}:—</span>;})}
+                    {r._overall.cells.map((c,ci)=>{const pl=c.place;return<span key={ci} style={{padding:'0 4px',borderRadius:3,background:pl?(pl<=3?['rgba(255,214,10,.2)','rgba(192,192,192,.15)','rgba(205,127,50,.15)'][pl-1]:'rgba(255,255,255,.06)'):'rgba(255,255,255,.04)',color:pl?(pl<=3?['var(--gold)','#C0C0C0','#CD7F32'][pl-1]:'var(--muted)'):'rgba(255,255,255,.2)'}}>{c.label}:{pl?`P${pl}`:'—'}</span>;})}
                   </div>
                   <div style={{display:'flex',gap:4,justifyContent:'flex-end',marginTop:2,alignItems:'center'}}>
-                    <span style={{color:'var(--gold)',fontSize:9}}>= P{r.placementSum||'?'}</span>
-                    {(()=>{const st=speedStageId&&r.stageBreakdown?.[speedStageId]?.finalTime;return st?<span style={{color:'var(--cor)',fontSize:8.5,fontWeight:700}} title="Speed-Zeit (Tiebreak)">⚡{fmtMs(st)}</span>:(r.totalTime>0?<span style={{color:'var(--muted)',fontSize:8}}>{fmtMs(r.totalTime)}</span>:null);})()}
+                    {r._overall.score!=null&&<span style={{color:'var(--gold)',fontSize:9}}>= P{r._overall.score}</span>}
+                    {r._overall.tie&&<span style={{color:'var(--cor)',fontSize:8.5,fontWeight:700}} title="Tiebreak">⚡{r._overall.tie}</span>}
                   </div>
                 </div>
+                ):(
+                <div style={{fontSize:9,fontFamily:'JetBrains Mono',fontWeight:700,flexShrink:0,textAlign:'right',color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)',display:'flex',gap:4,justifyContent:'flex-end',alignItems:'center'}}>
+                  <span>{r.status==='dsq'?'DSQ':r.finalTime>0?fmtMs(r.finalTime):`${r.doneCP?.length||0} CP`}</span>
+                  {r._overall?.tie&&<span style={{color:'var(--cor)',fontWeight:700,fontSize:8}} title="Speed-Zeit (Tiebreak)">⚡{r._overall.tie}</span>}
+                </div>
+                )
               ):(
                 <div style={{fontSize:9,fontFamily:'JetBrains Mono',fontWeight:700,flexShrink:0,textAlign:'right',
                   color:r.status==='complete'?'var(--green)':r.status==='dsq'?'#FF3B6B':'var(--muted)'}}>
@@ -660,7 +667,11 @@ const ResultsView=({compId,athletes})=>{
       {allStagesView&&selCat&&(()=>{
         const cols=stageList.length+1; // stages + overall
         const cat=IGN_CATS.find(c=>c.id===selCat);
-        const overallRanked=isPipeline?computeRankedByPlacement(runList,selCat,stageIds,computeRankedPipeline,speedStageId):computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
+        // Official per-league overall: Bambini = letzte Stage · LK1 = Speed+Final · LK2 = Skills+Final.
+        const _skillRanking=Object.keys(athMap).filter(aid=>athMap[aid]?.cat===selCat).map(aid=>({athleteId:aid,athleteName:athMap[aid]?.name,skillTotal:computeSkillTotal(aid)})).sort((a,b)=>b.skillTotal-a.skillTotal);
+        const _ov=isPipeline?computeDivisionOverall(selCat,{runList,pipelineStages,skillRanking:_skillRanking,computeStageFn:computeRankedPipeline}):null;
+        const overallRanked=_ov?_ov.ranked:computeRankedByPlacement(runList,selCat,stageNums,computeRankedStage);
+        const overallMode=_ov?_ov.mode:null;
         return(
         <div style={{display:'grid',gridTemplateColumns:`repeat(${cols},minmax(130px,1fr))`,gap:6,padding:'6px 8px',height:'calc(100vh - 200px)',overflowX:'auto'}}>
           {stageList.map(sid=>{
@@ -682,7 +693,7 @@ const ResultsView=({compId,athletes})=>{
               <div style={{width:18,height:18,borderRadius:5,background:'linear-gradient(135deg,#FFD60A,#FF9500)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:900,color:'#000',flexShrink:0}}>Σ</div>
               <div style={{fontSize:11,fontWeight:800,color:'var(--gold)'}}>{lang==='de'?'Gesamt':'Overall'}</div>
             </div>
-            <AutoScrollRanking items={overallRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t} isOverall stageList={stageList} isPipeline={isPipeline} pipelineStages={pipelineStages} speedStageId={speedStageId}/>
+            <AutoScrollRanking items={overallRanked} athMap={athMap} fmtMs={fmtMs} lang={lang} t={t} isOverall overallMode={overallMode} stageList={stageList} isPipeline={isPipeline} pipelineStages={pipelineStages} speedStageId={speedStageId}/>
           </div>
         </div>
         );
