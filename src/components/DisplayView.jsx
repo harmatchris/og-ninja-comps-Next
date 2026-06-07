@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
-import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedByPlacement, effectiveStageLimit } from '../utils.js';
+import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedByPlacement, computeDivisionOverall, skillRankingOf, qualifyCount, effectiveStageLimit } from '../utils.js';
 import { useFbVal, useTimer, useWinW, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, Heart, LifeDots } from './shared.jsx';
@@ -748,7 +748,7 @@ const StageRecoveryBanner=({compId,onJoin,lang})=>{
 
 // ── Ranking towers: podium (2·1·3) per division, auto-switching divisions every 9s,
 //    with the full ranked list auto-scrolling below. onlyCats restricts to a league.
-const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=false,info=null,pipelineData=null})=>{
+const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=false,info=null,pipelineData=null,skillScores=null})=>{
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
   let cats=[...new Set(runList.map(r=>r.catId).filter(Boolean))].filter(c=>IGN_CATS.find(x=>x.id===c));
@@ -757,32 +757,39 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
   useEffect(()=>{if(cats.length<=1)return;const iv=setInterval(()=>setIdx(i=>(i+1)%cats.length),9000);return()=>clearInterval(iv);},[cats.length]);
   const catId=cats.length?cats[idx%cats.length]:null;
   const cat=IGN_CATS.find(c=>c.id===catId)||{color:'var(--cor)',name:{}};
-  // Pipeline divisions get the OFFICIAL placement-sum classification (Speed-Platz + Final-Platz, lowest
-  // wins, faster Speed-parcours time breaks ties) so the big screen matches the coordinator ranking + PDF.
-  // While only the Speed stage has run, the screen shows that stage's ranking with the quali cut-line
-  // (top X% advance); once the final has runs it flips to the combined Gesamt with a finalist cut-line.
+  // Pipeline divisions show the OFFICIAL per-league classification, identical to the coordinator ranking:
+  //   Bambini → letzte Stage · LK1 → der Final entscheidet (Speed-Zeit als Tiebreak) · LK2 → Skills + Final.
+  // Before the LK1 Final has run, the screen shows the Speedstage ranking + quali cut-line
+  // (min. 3 pro Division, sonst Top-X %).
   const pipeOn=!!(info?.pipelineEnabled&&pipelineData);
-  let rankMode='plain',ranked=[],cutLine=null,cutLabel='',speedStage=null,pipeStages=[];
+  let ranked=[],cutLine=null,cutLabel='',stageTitle='',ovMode='plain',pipeStages=[];
   if(pipeOn&&catId){
     pipeStages=Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v}))
       .filter(s=>(!s.categories||s.categories.length===0||s.categories.includes(catId))||runList.some(r=>r.catId===catId&&r.stageId===s.id))
       .sort((a,b)=>(a.order||0)-(b.order||0));
     const finalStage=pipeStages.find(s=>Array.isArray(s.predecessorStages)&&s.predecessorStages.length>0)||null;
-    speedStage=pipeStages.find(s=>/speed/i.test(s.name||''))||pipeStages.find(s=>+s.qualiPercent>0&&+s.qualiPercent<100)||null;
-    const finalHasRuns=finalStage&&runList.some(r=>r.catId===catId&&r.stageId===finalStage.id);
-    if(pipeStages.length>=2&&speedStage&&!finalHasRuns){
-      rankMode='speed';
+    const speedStage=pipeStages.find(s=>/speed/i.test(s.name||''))||pipeStages.find(s=>+s.qualiPercent>0&&+s.qualiPercent<100)||null;
+    const isLk1=/1$/.test(catId), finalHasRuns=finalStage&&runList.some(r=>r.catId===catId&&r.stageId===finalStage.id);
+    if(isLk1&&speedStage&&!finalHasRuns){
+      ovMode='speed';
       ranked=computeRankedPipeline(runList,catId,speedStage.id);
-      const nd=ranked.filter(r=>r.status!=='dsq').length,pct=+speedStage.qualiPercent||40;
-      cutLine=Math.max(1,Math.ceil(nd*pct/100));cutLabel=`Top ${pct}% → Final`;
-    }else if(pipeStages.length>=2&&(finalStage||speedStage)){
-      rankMode='overall';
-      ranked=computeRankedByPlacement(runList,catId,pipeStages.map(s=>s.id),computeRankedPipeline,speedStage?.id||pipeStages[0]?.id||null);
-      if(finalStage){const f=ranked.filter(r=>r.placements&&r.placements[finalStage.id]).length;if(f>0&&f<ranked.length){cutLine=f;cutLabel='Finalqualifikation';}}
-    }else{ranked=computeRanked(runList,catId);}
+      const nd=ranked.filter(r=>r.status!=='dsq').length;
+      const pct=+speedStage.qualiPercent||40, minQ=speedStage.qualiMin!=null?+speedStage.qualiMin:(speedStage.minPerDivision!=null?+speedStage.minPerDivision:3);
+      const qc=qualifyCount(nd,pct,minQ);
+      if(qc>0&&qc<nd){cutLine=qc;cutLabel='Finalqualifikation';}
+      stageTitle=speedStage.name||'Speedstage';
+    }else{
+      const skillRanking=/2$/.test(catId)&&skillScores?skillRankingOf(catId,athMap,skillScores,info?.skillPhase?.skills||[],(info?.skillPhase?.type||'oldschool')==='oldschool'):[];
+      const ov=computeDivisionOverall(catId,{runList,pipelineStages:pipeStages,skillRanking,computeStageFn:computeRankedPipeline});
+      ranked=ov.ranked; ovMode=ov.mode;
+      if(ov.cutLine>0&&ov.cutLine<ranked.length){cutLine=ov.cutLine;cutLabel='Finalqualifikation';}
+      const ovStage=(ov.stageIds&&ov.stageIds.length)?pipeStages.find(s=>s.id===ov.stageIds[ov.stageIds.length-1]):null;
+      if(ov.mode==='lk1') stageTitle=(ovStage?.name||'Final');
+      else if(ov.mode==='lk2') stageTitle='Skills + '+(ovStage?.name||'Final');
+      else stageTitle=(ovStage?.name||'');
+    }
   }else{ranked=catId?computeRanked(runList,catId):[];}
-  const isPlace=rankMode==='overall',speedId=speedStage?.id||null;
-  const abbrStage=nm=>{nm=nm||'';if(/speed/i.test(nm))return'Speed';if(/final/i.test(nm))return'Final';const m=nm.match(/stage\s*(\d+)/i);if(m)return'St'+m[1];return nm.substring(0,5);};
+  const isLk2=ovMode==='lk2';
   const top3=ranked.slice(0,3);
   // FLIP: when the order changes, rows slide from their old position to the new one; upward movers get a gold glow.
   const rowRefs=useRef(new Map()),prevPos=useRef(new Map()),prevCat=useRef(catId);
@@ -803,20 +810,23 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
   },[orderSig,catId]);
   if(!cats.length)return<EmptyState icon={<I.Trophy s={26} c="rgba(255,255,255,.3)"/>} text={lang==='de'?'Noch keine Resultate':'No results yet'}/>;
   const podCol=['#FFD60A','#C0C0C0','#CD7F32'],podH=[tvMode?120:78,tvMode?88:58,tvMode?64:44];
-  const res=r=>isPlace?`Σ${r.placementSum??'?'}`:r.status==='complete'?'':r.status==='dsq'?'DSQ':`${r.doneCP?.length||0}/${r.totalCPs||'?'}`;
   const nm=r=>(athMap[r.athleteId]?.name)||r.athleteName||'?';
+  // How an athlete finished — spectators always see the obstacle (or Buzzer) where the run ended.
+  const fellInfo=r=>r.status==='complete'?{label:'Buzzer',done:true}:r.status==='dsq'?{label:'DSQ',dsq:true}:r.reason==='timeout'?{label:'Zeit abgelaufen'}:{label:r.fellAt?.name||`${r.doneCP?.length||0} Hindernisse`};
+  const podRes=r=>isLk2&&r._overall?`P${r._overall.score}`:(r.finalTime>0?fmtMs(r.finalTime):r.status==='complete'?'🏁':`${r.doneCP?.length||0} CP`);
   return(
     <div>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
         <div style={{width:9,height:9,borderRadius:'50%',background:cat.color,flexShrink:0}}/>
         <div style={{fontSize:tvMode?17:14,fontWeight:900,color:cat.color}}>{cat.name?.[lang]||catId}</div>
+        {stageTitle&&<div style={{fontSize:tvMode?11:9,fontWeight:700,color:'rgba(255,255,255,.5)',letterSpacing:'.03em',background:'rgba(255,255,255,.07)',padding:'2px 9px',borderRadius:7,whiteSpace:'nowrap'}}>{stageTitle}</div>}
         {cats.length>1&&<div style={{marginLeft:'auto',display:'flex',gap:4}}>{cats.map((c,i)=><div key={c} style={{width:6,height:6,borderRadius:'50%',background:i===idx%cats.length?cat.color:'rgba(255,255,255,.22)',transition:'background .3s'}}/>)}</div>}
       </div>
       {!noPodium&&<div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:8,marginBottom:10}}>
         {[1,0,2].map(rank=>{const a=top3[rank];if(!a)return<div key={rank} style={{flex:1,maxWidth:140}}/>;const col=podCol[rank];return(
           <div key={rank} style={{flex:1,maxWidth:150,display:'flex',flexDirection:'column',alignItems:'center',gap:3,minWidth:0}}>
             <div style={{fontSize:tvMode?13:11,fontWeight:800,color:col,textAlign:'center',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}}>{nm(a)}</div>
-            <div style={{fontSize:tvMode?13:11,fontWeight:700,color:'rgba(255,255,255,.6)',fontFamily:'JetBrains Mono'}}>{res(a)}</div>
+            <div style={{fontSize:tvMode?13:11,fontWeight:700,color:'rgba(255,255,255,.6)',fontFamily:'JetBrains Mono'}}>{podRes(a)}</div>
             <div style={{width:'100%',height:podH[rank],borderRadius:'9px 9px 0 0',background:`linear-gradient(180deg,${col}33,${col}12)`,border:`1.5px solid ${col}`,borderBottom:'none',display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:6,fontSize:tvMode?28:20,fontWeight:900,color:col,boxShadow:rank===0?`0 0 18px ${col}44`:'none'}}>{rank+1}</div>
           </div>
         );})}
@@ -825,7 +835,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
       <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={noPodium?'100%':(tvMode?'40vh':'38vh')}>
         {ranked.map((r,i)=>{
           const a=athMap[r.athleteId]||{};const av=tvMode?30:22;const fl=a.country?toFlag(a.country):'';
-          const stime=speedId?r.stageBreakdown?.[speedId]?.finalTime:0;
+          const fin=fellInfo(r);const tm=r.finalTime>0?fmtMs(r.finalTime):'';
           return(
           <React.Fragment key={r.athleteId||i}>
             {cutLine!=null&&i===cutLine&&(
@@ -843,19 +853,24 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
                   {fl&&<span style={{flexShrink:0,fontSize:tvMode?13:11,lineHeight:1}}>{fl}</span>}
                   <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||r.athleteName||'?'}</span>
                 </div>
-                {isPlace?(
+                {isLk2&&r._overall?.cells?(
                   <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:2}}>
-                    {pipeStages.map(s=>{const pl=r.placements?.[s.id];if(!pl)return null;const mc=pl<=3?podCol[pl-1]:null;return<span key={s.id} style={{fontSize:tvMode?9.5:8,fontFamily:'JetBrains Mono',fontWeight:700,padding:'0 4px',borderRadius:4,background:mc?`${mc}22`:'rgba(255,255,255,.05)',color:mc||'rgba(255,255,255,.5)'}}>{abbrStage(s.name)} P{pl}</span>;})}
+                    {r._overall.cells.map((c,ci)=>{const pl=c.place;const mc=pl&&pl<=3?podCol[pl-1]:null;return<span key={ci} style={{fontSize:tvMode?9.5:8,fontFamily:'JetBrains Mono',fontWeight:700,padding:'0 4px',borderRadius:4,background:mc?`${mc}22`:'rgba(255,255,255,.05)',color:mc||'rgba(255,255,255,.5)'}}>{c.label} {pl?`P${pl}`:'—'}</span>;})}
                   </div>
-                ):(a.team&&<div style={{fontSize:tvMode?10:8.5,color:'var(--cor2)',fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1}}>{a.team}</div>)}
+                ):(
+                  <div style={{fontSize:tvMode?10:8.5,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',marginTop:1,color:fin.done?'#30D158':fin.dsq?'#FF3B6B':'rgba(255,255,255,.5)'}}>{fin.done?'🏁 Buzzer':fin.dsq?'DSQ':`↓ ${fin.label}`}</div>
+                )}
               </div>
-              {isPlace?(
+              {isLk2&&r._overall?(
                 <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0,lineHeight:1.15}}>
-                  <span style={{fontFamily:'JetBrains Mono',fontWeight:900,fontSize:tvMode?15:12,color:podCol[i]||'var(--gold)'}}>Σ{r.placementSum??'?'}</span>
-                  {stime>0&&<span style={{fontFamily:'JetBrains Mono',fontSize:tvMode?9.5:8,color:'var(--cor)'}} title="Speed-Zeit (Tiebreak)">⚡{fmtMs(stime)}</span>}
+                  <span style={{fontFamily:'JetBrains Mono',fontWeight:900,fontSize:tvMode?15:12,color:podCol[i]||'var(--gold)'}}>{r._overall.score!=null?`= ${r._overall.score}`:'—'}</span>
+                  {r._overall.tie&&<span style={{fontFamily:'JetBrains Mono',fontSize:tvMode?9:7.5,color:'var(--muted)'}} title="Final-Zeit (Tiebreak)">{r._overall.tie}</span>}
                 </div>
               ):(
-                <span style={{fontSize:tvMode?12:10,fontFamily:'JetBrains Mono',color:'rgba(255,255,255,.55)',flexShrink:0,display:'inline-flex',alignItems:'center'}}>{r.status==='complete'?<I.FlagCheck s={tvMode?14:12} c="#30D158"/>:res(r)}</span>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',flexShrink:0,lineHeight:1.15}}>
+                  <span style={{fontSize:tvMode?13:11,fontFamily:'JetBrains Mono',fontWeight:700,color:r.status==='complete'?'#30D158':'rgba(255,255,255,.6)'}}>{tm||(r.status==='complete'?'🏁':'—')}</span>
+                  {r._overall?.tie&&<span style={{fontFamily:'JetBrains Mono',fontSize:tvMode?9:7.5,color:'var(--cor)'}} title="Speed-Zeit (Tiebreak)">⚡{r._overall.tie}</span>}
+                </div>
               )}
             </div>
           </React.Fragment>
@@ -997,7 +1012,7 @@ const renderBuilderWidget=(it,dataProps,lang)=>{
   switch(it.type){
     case 'survival':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false}/>;
     case 'nextup':  return <AthleteQueueView {...dataProps} onlyCats={cats} tvMode={false}/>;
-    case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium info={dataProps.info} pipelineData={dataProps.pipelineData}/>;
+    case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium info={dataProps.info} pipelineData={dataProps.pipelineData} skillScores={dataProps.skillScores}/>;
     case 'skills':  return <SkillStandings compId={dataProps.compId} info={dataProps.info} athletesMap={dataProps.athletesMap} tvMode={false} lang={lang}/>;
     case 'liverun': return <LiveRunStrip {...dataProps} onlyCats={cats} tvMode={false} lang={lang}/>;
     default:return null;
@@ -1090,6 +1105,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const pipelineData=useFbVal(`ogn/${compId}/pipeline`);
   const activeRuns=useFbVal(`ogn/${compId}/activeRuns`);
   const skillStatus=useFbVal(`ogn/${compId}/skillPhaseStatus`);
+  const skillScores=useFbVal(info?.skillPhase?.enabled?`ogn/${compId}/skillScores`:null);
   const w=useWinW();
   const wide=w>=900;
   const hasSkills=!!info?.skillPhase?.enabled&&(info?.skillPhase?.skills||[]).length>0;
@@ -1102,7 +1118,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   // Division-colour theming: each screen carries an accent so spectators instantly read which division is on
   const themeC=screen==='LK1'?'#0A84FF':screen==='LK2'?'#32ADE6':screen==='phase1'?'#FFD60A':'#FF5E3A';
   const onTheme=screen==='phase1'?'#1a1a2e':'#fff'; // dark text on the light (gold) theme
-  const dataProps={compId,info,completedRuns,athletesMap:athletes,pipelineData};
+  const dataProps={compId,info,completedRuns,athletesMap:athletes,pipelineData,skillScores};
   const btnBase={background:'rgba(18,18,28,.86)',backdropFilter:'blur(10px)',WebkitBackdropFilter:'blur(10px)',border:'1px solid rgba(255,255,255,.12)',borderRadius:11,cursor:'pointer',display:'flex',alignItems:'center',gap:6,fontWeight:700};
   return(
     <div style={{minHeight:'100vh'}}>
@@ -1170,7 +1186,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             {/* Bottom: ranking list (no podium) — gets the remaining space so it never gets squashed */}
             <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
               <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Trophy s={13} c="currentColor"/><span>{screenCats?`RANGLISTE ${screen}`:(lang==='de'?'RANGLISTEN':'RANKINGS')}</span></div>
-              <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang} noPodium info={info} pipelineData={pipelineData}/></div>
+              <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={screenCats} tvMode={wide} lang={lang} noPodium info={info} pipelineData={pipelineData} skillScores={skillScores}/></div>
             </div>
           </div>
           );
@@ -1192,7 +1208,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
               </div>
               <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:1,minHeight:0}:{})}}>
                 <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Trophy s={13} c="currentColor"/><span>{lang==='de'?'BAMBINI — RESULTATE':'BAMBINI — RESULTS'}</span></div>
-                <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={['bam']} tvMode={false} lang={lang} noPodium info={info} pipelineData={pipelineData}/></div>
+                <div style={{flex:1,minHeight:0,overflow:'hidden'}}><RankingTowers completedRuns={completedRuns} athletesMap={athletes} onlyCats={['bam']} tvMode={false} lang={lang} noPodium info={info} pipelineData={pipelineData} skillScores={skillScores}/></div>
               </div>
             </div>
           </div>

@@ -290,6 +290,31 @@ export const computeCombinedRanking = (skillRanking, stageRanking) => {
   return combined;
 };
 
+// Skill scoring (shared so display + coordinator agree): oldschool a1/a2/a3 × difficulty multiplier.
+export const SKILL_DIFF_MULT = { easy: 0.8, medium: 1.0, hard: 1.5 };
+export const skillTotalOf = (athScore, skills = [], isOldschool = true) => {
+  if (!athScore) return 0;
+  let tot = 0;
+  (skills || []).forEach(sk => {
+    const s = athScore[sk.id]; if (!s) return;
+    const m = SKILL_DIFF_MULT[sk.difficulty || 'medium'] || 1;
+    if (isOldschool) { if (s.a1 === true) tot += 100 * m; else if (s.a2 === true) tot += 50 * m; else if (s.a3 === true) tot += 20 * m; }
+    else { tot += (s.poolScore || 0) * (s.flashed ? 1.2 : 1) * m; }
+  });
+  return Math.round(tot);
+};
+export const skillRankingOf = (catId, athletesMap = {}, skillScores = {}, skills = [], isOldschool = true) =>
+  Object.keys(athletesMap || {}).filter(aid => athletesMap[aid]?.cat === catId)
+    .map(aid => ({ athleteId: aid, athleteName: athletesMap[aid]?.name, skillTotal: skillTotalOf(skillScores?.[aid], skills, isOldschool) }))
+    .sort((a, b) => b.skillTotal - a.skillTotal);
+
+// Quali count per division: minimum N qualify (default 3) when at least N exist, else the qualiPercent
+// only widens the cut once it would exceed N. Capped at the division size.
+export const qualifyCount = (n, percent = 40, minPerDivision = 3) => {
+  if (n <= 0) return 0;
+  return Math.min(n, Math.max(minPerDivision, Math.ceil(n * percent / 100)));
+};
+
 // Official per-division OVERALL ranking (per the Ausschreibung / OG Youth Games format):
 //   • Bambini  → only the LAST stage counts; earlier stages don't influence the final rank.
 //   • LK1      → Speed-placement + Final-placement (sum); tiebreak = faster Speed-parcours time.
@@ -305,17 +330,22 @@ export const computeDivisionOverall = (catId, { runList, pipelineStages = [], sk
   if (isLk1 && div.length >= 2) {
     const speed = div.find(s => /speed/i.test(s.name || '')) || div[0];
     const final = div.find(s => Array.isArray(s.predecessorStages) && s.predecessorStages.length) || div[div.length - 1];
-    const speedT = {}; computeStageFn(runList, catId, speed.id).forEach(r => { speedT[r.athleteId] = r.finalTime || Infinity; });
+    const speedRanking = computeStageFn(runList, catId, speed.id);
+    const speedT = {}; speedRanking.forEach(r => { speedT[r.athleteId] = r.finalTime || Infinity; });
     const fr = computeStageFn(runList, catId, final.id);
+    const finalIds = new Set(fr.map(r => r.athleteId));
     const nonDsq = fr.filter(r => r.status !== 'dsq'), dsq = fr.filter(r => r.status === 'dsq');
     nonDsq.sort((a, b) => {
       const ac = a.doneCP?.length || 0, bc = b.doneCP?.length || 0; if (ac !== bc) return bc - ac;
       const at = a.finalTime || Infinity, bt = b.finalTime || Infinity; if (at !== bt) return at - bt;
       return (speedT[a.athleteId] || Infinity) - (speedT[b.athleteId] || Infinity);
     });
-    const ranked = [...nonDsq, ...dsq];
-    ranked.forEach(r => { const sp = speedT[r.athleteId]; r._overall = { final: true, tie: (sp && sp !== Infinity) ? fmtMs(sp) : null }; });
-    return { mode: 'lk1', stageIds: [final.id], ranked };
+    const finalists = [...nonDsq, ...dsq];
+    finalists.forEach(r => { const sp = speedT[r.athleteId]; r._overall = { final: true, tie: (sp && sp !== Infinity) ? fmtMs(sp) : null }; });
+    // Non-finalists (didn't make the final) follow below the cut-line, in their Speed-parcours order.
+    const nonFinalists = speedRanking.filter(r => !finalIds.has(r.athleteId));
+    nonFinalists.forEach(r => { r._overall = { nonFinalist: true }; });
+    return { mode: 'lk1', stageIds: [final.id], cutLine: finalists.length, ranked: [...finalists, ...nonFinalists] };
   }
   // LK2 — Skills-placement + Final-placement (sum). Finalists rank first (making the final is an
   // achievement); non-finalists follow, ordered by their skill placement.

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLang, REGELWERK_DE, REGELWERK_EN } from '../i18n.js';
 import { IGN_CATS, fbSet, fbUpdate, fbRemove, db } from '../config.js';
-import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, computeDivisionOverall, toFlag, verifyCompPassword, effectiveStageLimit } from '../utils.js';
+import { uid, fmtMs, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedMultiStagePipeline, computeRankedByPlacement, computeDivisionOverall, qualifyCount, toFlag, verifyCompPassword, effectiveStageLimit } from '../utils.js';
 import { useFbVal, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, MedalBadge, LifeDots, TopBar } from './shared.jsx';
@@ -493,8 +493,9 @@ const ResultsView=({compId,athletes})=>{
   // THAT stage's own qualiPercent — so "top 40% qualify for the final" is drawn right on its ranking.
   const selStageCfg=isPipeline&&selStage!=null&&selStage!=='overall'&&selStage!=='all'?pipelineStages.find(s=>s.id===selStage):null;
   const pipeQualPct=selStageCfg&&+selStageCfg.qualiPercent>0&&+selStageCfg.qualiPercent<100?+selStageCfg.qualiPercent:null;
-  const qualRule=pipeQualPct?{enabled:true,percent:pipeQualPct,minimum:+(selStageCfg.qualiMin||selStageCfg.minPerDivision||0)}:(comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null));
-  const qualCount=qualRule?.enabled&&ranked.length>0&&!isOverall?Math.max(qualRule.minimum||1,Math.ceil(ranked.filter(r=>r.status!=='dsq').length*(qualRule.percent||50)/100)):null;
+  // LK1-Quali: mindestens 3 pro Division (sofern 3 vorhanden), die % greift erst wenn sie mehr ergibt.
+  const qualRule=pipeQualPct?{enabled:true,percent:pipeQualPct,minimum:selStageCfg.qualiMin!=null?+selStageCfg.qualiMin:(selStageCfg.minPerDivision!=null?+selStageCfg.minPerDivision:3)}:(comp?.qualification?.[selCat]||(comp?.qualPercent>0?{enabled:true,percent:comp.qualPercent}:null));
+  const qualCount=qualRule?.enabled&&ranked.length>0&&!isOverall?qualifyCount(ranked.filter(r=>r.status!=='dsq').length,qualRule.percent||50,qualRule.minimum||1):null;
   const exportAll=(format='csv')=>{
     if(format==='csv'){
       // Excel-compatible HTML with one worksheet per division + stage info
