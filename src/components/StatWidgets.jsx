@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { IGN_CATS } from '../config.js';
 import { fmtMs, toFlag, ageOnDate, skillTotalOf, skillRankingOf, computeRankedPipeline, computeDivisionOverall } from '../utils.js';
 import { I } from '../icons.jsx';
+import { useFbVal } from '../hooks.js';
 
 // ── kleine Helfer ──────────────────────────────────────────────────────────
 const mono = { fontFamily: 'JetBrains Mono, monospace' };
@@ -484,6 +485,79 @@ const SkillTicker = ({ info, athletesMap, skillScores, cats, lang }) => {
   );
 };
 
+// ── 13. Ninja-Race — Figuren rennen über den Parcours, Reihenfolge = Live-Rang ─
+const NINJA_COUNT = 16;
+const NinjaSprite = ({ src, active, onPlat }) => {
+  const [failed, setFailed] = useState(false);
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative', transformOrigin: 'bottom center', animation: onPlat ? 'nidle 1.6s ease-in-out infinite' : 'nrun .5s ease-in-out infinite' }}>
+      {failed
+        ? <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontSize: 28 }}>🥷</span>
+        : <img src={src} alt="" onError={() => setFailed(true)} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', filter: active ? 'drop-shadow(0 0 6px rgba(255,94,58,.85))' : 'none' }} />}
+    </div>
+  );
+};
+const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, cats, lang }) => {
+  const activeRuns = useFbVal(`ogn/${compId}/activeRuns`);
+  const stage = mainStage(pipelineData, cats);
+  const obs = obsList(stage);
+  const cpSeq = obs.filter(o => o.isCP || isPlat(o));   // Checkpoints inkl. Plattformen, in Reihenfolge
+  const totalCP = Math.max(1, cpSeq.length);
+  const platPos = cpSeq.map((o, i) => isPlat(o) ? (i / totalCP) : -1).filter(p => p >= 0);
+  // Läufer sammeln: abgeschlossene + aktive (live), pro Athlet der beste/aktuellste Stand
+  const byAth = {};
+  runArr(completedRuns).filter(r => inCats(r.catId, cats)).forEach(r => {
+    const tot = r.totalCPs || totalCP;
+    const prog = r.status === 'complete' ? 1 : Math.min(0.98, (r.doneCP?.length || 0) / tot);
+    const cur = byAth[r.athleteId];
+    const cand = { athleteId: r.athleteId, progress: prog, finished: r.status === 'complete', time: r.finalTime || Infinity, active: false };
+    if (!cur || cand.progress > cur.progress || (cand.finished && cand.time < cur.time)) byAth[r.athleteId] = cand;
+  });
+  Object.values(activeRuns || {}).filter(r => r && typeof r === 'object' && inCats(r.catId, cats)).forEach(r => {
+    const cp = r.doneCPCount != null ? r.doneCPCount : (r.doneCP?.length || 0);
+    byAth[r.athleteId] = { athleteId: r.athleteId, progress: Math.min(0.98, cp / totalCP), finished: false, time: Infinity, active: true };
+  });
+  // Aktive Läufer immer zeigen (das ist die Live-Action), dann mit den besten Abgeschlossenen auffüllen
+  const all = Object.values(byAth);
+  const liveR = all.filter(r => r.active).sort((a, b) => b.progress - a.progress);
+  const doneR = all.filter(r => !r.active).sort((a, b) => b.progress - a.progress || a.time - b.time);
+  const runners = [...liveR.slice(0, 6), ...doneR].slice(0, 8).sort((a, b) => b.progress - a.progress || a.time - b.time);
+  if (runners.length === 0) return <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A"><Empty msg={lang === 'de' ? 'Noch keine Läufer' : 'No runners yet'} /></Shell>;
+  const sprite = i => `/ninjas/n${String((i % NINJA_COUNT) + 1).padStart(2, '0')}.png`;
+  const anyLive = runners.some(r => r.active);
+  return (
+    <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={anyLive ? '● LIVE' : null}>
+      <style>{`@keyframes nrun{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-22%) rotate(4deg)}}@keyframes nidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-7%)}}`}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {runners.map((r, idx) => {
+          const ath = athletesMap?.[r.athleteId];
+          const onPlat = platPos.some(p => Math.abs(p - r.progress) < 0.025);
+          const lead = idx === 0;
+          const dispLeft = Math.max(3, Math.min(96, r.progress * 100));
+          return (
+            <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 9, background: lead ? 'rgba(255,214,10,.08)' : 'transparent', borderRadius: 10, padding: '2px 6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: 148, flexShrink: 0, minWidth: 0 }}>
+                <span style={{ ...mono, fontSize: 14, fontWeight: 800, color: idx < 3 ? MEDAL[idx] : 'rgba(255,255,255,.5)', width: 16, textAlign: 'center' }}>{idx + 1}</span>
+                <NameFlag ath={ath} lang={lang} size={12.5} />
+              </div>
+              <div style={{ flex: 1, position: 'relative', height: 44, borderBottom: '2px solid rgba(255,255,255,.1)', minWidth: 60 }}>
+                {platPos.map((p, k) => <div key={k} title="Plattform" style={{ position: 'absolute', left: `${p * 100}%`, bottom: 0, width: 13, height: 6, marginLeft: -6.5, borderRadius: 2, background: 'rgba(10,132,255,.55)' }} />)}
+                <div style={{ position: 'absolute', right: -2, bottom: 1, fontSize: 13, opacity: .8 }}>🏁</div>
+                <div style={{ position: 'absolute', bottom: 1, left: `${dispLeft}%`, width: 38, height: 42, marginLeft: -19, transition: 'left .8s cubic-bezier(.4,0,.2,1)' }}>
+                  <NinjaSprite src={sprite(idx)} active={r.active} onPlat={onPlat} />
+                </div>
+              </div>
+              <span style={{ ...mono, fontSize: 11, fontWeight: 700, color: r.finished ? 'var(--green)' : r.active ? '#FF5E3A' : 'rgba(255,255,255,.5)', width: 54, textAlign: 'right', flexShrink: 0 }}>
+                {r.finished ? fmtMs(r.time) : r.active ? 'live' : `${Math.round(r.progress * 100)}%`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Shell>
+  );
+};
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 export const STAT_WIDGETS = [
   { type: 'obstaclekiller', de: 'Hindernis-Killer', en: 'Obstacle Killer', ic: I.XCircle },
@@ -498,6 +572,7 @@ export const STAT_WIDGETS = [
   { type: 'segments', de: 'Segment-Bestzeiten', en: 'Segment Records', ic: I.Clock },
   { type: 'skillmatrix', de: 'Skill-Matrix', en: 'Skill Matrix', ic: I.Grid },
   { type: 'skillticker', de: 'Skill-Ticker', en: 'Skill Ticker', ic: I.Bolt },
+  { type: 'ninjarace', de: 'Ninja-Race', en: 'Ninja Race', ic: I.Ninja },
 ];
 
 export const renderStatWidget = (type, props) => {
@@ -514,6 +589,7 @@ export const renderStatWidget = (type, props) => {
     case 'segments': return <SegmentSplits {...props} />;
     case 'skillmatrix': return <SkillMatrix {...props} />;
     case 'skillticker': return <SkillTicker {...props} />;
+    case 'ninjarace': return <RaceWidget {...props} />;
     default: return null;
   }
 };
