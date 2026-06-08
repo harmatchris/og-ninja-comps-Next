@@ -353,7 +353,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   },[remaining]);
 
   useEffect(()=>{
-    fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives,livesUsed:0});
+    fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:athlete.id,athleteName:athlete.name,startEpoch,catId:athlete.cat||null,phase:'active',doneCP:[],livesLeft:lives,livesUsed:0,maxLives:maxLives});
     return()=>fbRemove(`ogn/${compId}/activeRuns/${activeRunKey}`);
   },[]);
   useEffect(()=>{if(doneCP.length>0)fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{doneCP,doneCPCount:doneCP.length,livesLeft:lives,livesUsed:activeFalls.length});},[doneCP,lives]);
@@ -856,7 +856,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   // Broadcast countdown phase to Firebase so DisplayView shows live countdown on stage card
   useEffect(()=>{
     if(phase==='countdown'&&currentAth){
-      fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat||null,phase:'countdown',countdown:3,startEpoch:Date.now()+3000,doneCP:[],livesLeft:lives,livesUsed:0});
+      fbSet(`ogn/${compId}/activeRuns/${activeRunKey}`,{athleteId:currentAth.id,athleteName:currentAth.name,catId:currentAth.cat||null,phase:'countdown',countdown:3,startEpoch:Date.now()+3000,doneCP:[],livesLeft:lives,livesUsed:0,maxLives:isInfinityLives?999:effectiveLives});
       const t1=setTimeout(()=>fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{countdown:2}),1000);
       const t2=setTimeout(()=>fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{countdown:1}),2000);
       return()=>{clearTimeout(t1);clearTimeout(t2);};

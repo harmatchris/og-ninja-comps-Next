@@ -262,7 +262,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                             <span style={{fontSize:18,fontWeight:900,color:'#FF3B60',fontFamily:'JetBrains Mono',lineHeight:1}}>∞</span>
                             {(run.livesUsed||0)>0&&<span style={{fontSize:11,color:'rgba(255,255,255,.4)',fontFamily:'JetBrains Mono'}}>−{run.livesUsed}</span>}
                           </div>
-                          :(()=>{const totalLives=(run.livesLeft||0)+(run.livesUsed||0);return totalLives>0?Array.from({length:totalLives}).map((_,i)=><Heart key={i} alive={i<run.livesLeft} s={10}/>):Array.from({length:run.livesLeft}).map((_,i)=><Heart key={i} alive s={10}/>);})()
+                          :(()=>{const cnt=(run.maxLives&&run.maxLives<999?run.maxLives:(run.livesLeft||0)+(run.livesUsed||0))||run.livesLeft||0;const hs=cols===1?22:16;return Array.from({length:cnt}).map((_,i)=><Heart key={i} alive={i<run.livesLeft} s={hs}/>);})()
                         }
                       </div>
                     )}
