@@ -610,7 +610,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   if (runners.length === 0) return <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={demoBtn}><Empty msg={lang === 'de' ? 'Noch keine Läufer' : 'No runners yet'} /></Shell>;
   return (
     <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={rightSlot}>
-      <style>{`@keyframes nrun{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-22%) rotate(4deg)}}@keyframes nidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-7%)}}`}</style>
+      <style>{`@keyframes nrun{0%,100%{transform:translateY(0) scaleX(1)}35%{transform:translateY(-20%) scaleX(1.05)}70%{transform:translateY(-10%) scaleX(1.02)}}@keyframes nidle{0%,100%{transform:translateY(0) scaleX(1)}50%{transform:translateY(-7%) scaleX(0.97)}}`}</style>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         {runners.map((r, idx) => {
           const ath = athletesMap?.[r.athleteId];
