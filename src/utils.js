@@ -315,6 +315,17 @@ export const qualifyCount = (n, percent = 40, minPerDivision = 3) => {
   return Math.min(n, Math.max(minPerDivision, Math.ceil(n * percent / 100)));
 };
 
+// Age in whole years on a reference date (default the OG Youth Games 6.3 day, 2026-06-13).
+export const ageOnDate = (birthISO, refISO) => {
+  if (!birthISO) return null;
+  const b = String(birthISO).slice(0, 10).split('-').map(Number);
+  const r = (refISO ? String(refISO).slice(0, 10) : '2026-06-13').split('-').map(Number);
+  if (b.length < 3 || r.length < 3 || !b[0] || !r[0]) return null;
+  let age = r[0] - b[0];
+  if (r[1] < b[1] || (r[1] === b[1] && r[2] < b[2])) age--;
+  return (age >= 0 && age < 120) ? age : null;
+};
+
 // Official per-division OVERALL ranking (per the Ausschreibung / OG Youth Games format):
 //   • Bambini  → only the LAST stage counts; earlier stages don't influence the final rank.
 //   • LK1      → Speed-placement + Final-placement (sum); tiebreak = faster Speed-parcours time.

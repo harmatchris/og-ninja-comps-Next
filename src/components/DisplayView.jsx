@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
 import { useLang, LangCtx } from '../i18n.js';
 import { IGN_CATS, db, fbSet } from '../config.js';
-import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedByPlacement, computeDivisionOverall, skillRankingOf, qualifyCount, effectiveStageLimit } from '../utils.js';
+import { uid, fmtMs, toFlag, storage, computeRanked, computeRankedStage, computeRankedMultiStage, computeRankedPipeline, computeRankedByPlacement, computeDivisionOverall, skillRankingOf, qualifyCount, ageOnDate, effectiveStageLimit } from '../utils.js';
 import { useFbVal, useTimer, useWinW, SFX } from '../hooks.js';
 import { I } from '../icons.jsx';
 import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, Heart, LifeDots } from './shared.jsx';
@@ -246,6 +246,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       <div style={{fontSize:12,color:'rgba(255,255,255,.45)',marginTop:4,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
                         <span style={{fontFamily:'JetBrains Mono'}}>#{ath.num||'?'}</span>
                         {ath.country&&<span style={{background:'rgba(255,255,255,.07)',borderRadius:6,padding:'1px 6px',fontSize:11}}>{toFlag(ath.country)} {ath.country}</span>}
+                        {(()=>{const ag=ageOnDate(ath.birthdate,info?.date);return ag!=null?<span style={{background:'rgba(255,255,255,.07)',borderRadius:6,padding:'1px 6px',fontSize:11,fontWeight:700}}>{ag} Jahre</span>:null;})()}
                         {ath.team&&<span style={{color:`${catColor}CC`,fontWeight:600,fontSize:11}}>{ath.team}</span>}
                       </div>
                     </div>
@@ -836,6 +837,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
       <AutoScrollList itemCount={ranked.length} tvMode={tvMode} topPause={4000} minItems={4} maxH={noPodium?'100%':(tvMode?'40vh':'38vh')}>
         {ranked.map((r,i)=>{
           const a=athMap[r.athleteId]||{};const av=tvMode?30:22;const fl=a.country?toFlag(a.country):'';
+          const age=ageOnDate(a.birthdate,info?.date);
           const fin=fellInfo(r);const tm=r.finalTime>0?fmtMs(r.finalTime):'';
           return(
           <React.Fragment key={r.athleteId||i}>
@@ -853,6 +855,7 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
                 <div style={{display:'flex',alignItems:'center',gap:5,fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden'}}>
                   {fl&&<span style={{flexShrink:0,fontSize:tvMode?13:11,lineHeight:1}}>{fl}</span>}
                   <span style={{overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||r.athleteName||'?'}</span>
+                  {age!=null&&<span style={{flexShrink:0,fontSize:tvMode?10:8.5,fontWeight:700,color:'var(--muted)'}}>· {age}J</span>}
                 </div>
                 {isLk2&&r._overall?.cells?(
                   <div style={{display:'flex',flexWrap:'wrap',gap:3,marginTop:2}}>
@@ -929,7 +932,7 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
             <div key={a.id||i} style={{display:'flex',alignItems:'center',gap:9,padding:'6px 8px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
               <span style={{width:22,textAlign:'center',fontWeight:900,fontFamily:'JetBrains Mono',fontSize:tvMode?14:12,color:podCol[i]||'var(--muted)',flexShrink:0}}>{i+1}</span>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name||'?'}</div>
+                <div style={{fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.country?toFlag(a.country)+' ':''}{a.name||'?'}{(()=>{const ag=ageOnDate(a.birthdate,info?.date);return ag!=null?<span style={{fontWeight:700,color:'var(--muted)',fontSize:tvMode?11:9,marginLeft:4}}>· {ag}J</span>:null;})()}</div>
                 {bandSkills.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:tvMode?3:2,marginTop:2}}>
                   {bandSkills.map(sk=>{const l=lvlOf(skillScores?.[a.id]?.[sk.id]);const col=lvlCol(l);return<span key={sk.id} title={`${sk.name||''}${l?` · v${l} ✓`:''}`} style={{minWidth:tvMode?15:11,height:tvMode?15:11,padding:'0 2px',borderRadius:3,background:col?`${col}26`:'transparent',border:`1.5px solid ${col||'rgba(255,255,255,.16)'}`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?9:7,fontWeight:900,color:col||'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',flexShrink:0}}>{l||''}</span>;})}
                 </div>}
@@ -1028,7 +1031,7 @@ const LiveRunStrip=({compId,info,athletesMap,pipelineData,onlyCats,tvMode,lang})
           <div key={key} style={{display:'flex',alignItems:'center',gap:tvMode?16:11,padding:tvMode?'11px 18px':'9px 13px',borderRadius:13,background:crit?'rgba(255,59,48,.1)':'rgba(48,209,88,.08)',border:`1px solid ${crit?'rgba(255,59,48,.32)':'rgba(48,209,88,.28)'}`}}>
             <span style={{width:9,height:9,borderRadius:'50%',background:crit?'#FF3B30':'#30D158',boxShadow:`0 0 9px ${crit?'#FF3B30':'#30D158'}`,animation:'pulse 1.2s infinite',flexShrink:0}}/>
             <div style={{minWidth:0,flex:1}}>
-              <div style={{fontSize:tvMode?18:13.5,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{fl&&<span style={{marginRight:5}}>{fl}</span>}{a.name||r.athleteName||'?'}<span style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.45)',fontWeight:600,marginLeft:8}}>{stageName}</span></div>
+              <div style={{fontSize:tvMode?18:13.5,fontWeight:800,color:'#fff',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{fl&&<span style={{marginRight:5}}>{fl}</span>}{a.name||r.athleteName||'?'}{(()=>{const ag=ageOnDate(a.birthdate,info?.date);return ag!=null?<span style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.5)',fontWeight:700,marginLeft:6}}>· {ag}J</span>:null;})()}<span style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.45)',fontWeight:600,marginLeft:8}}>{stageName}</span></div>
               <div style={{fontSize:tvMode?12:10,color:'rgba(255,255,255,.6)',fontWeight:600,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>CP {cpCount}{lastCP?` · ${lastCP}`:''}{r.livesLeft!=null&&r.livesLeft<999?` · ${r.livesLeft} ${lang==='de'?'Leben':'lives'}`:''}</div>
             </div>
             <div style={{fontFamily:'JetBrains Mono',fontSize:tvMode?34:24,fontWeight:900,letterSpacing:'-1px',color:tCol,flexShrink:0,lineHeight:1}}>{isCountdown?(r.countdown||'GO'):fmt(elapsed)}</div>
