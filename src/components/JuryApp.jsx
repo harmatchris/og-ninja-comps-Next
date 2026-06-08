@@ -417,7 +417,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     if(splitTimerRef.current)clearTimeout(splitTimerRef.current);
     splitTimerRef.current=setTimeout(()=>setShowSplit(false),3500);
     if(nd.length>=cpObst.length)setTimeout(()=>onComplete({doneCP:nd,finalTime:nd[nd.length-1].time,lives,protested}),400);
-    else if(onRefillLives&&nextCp.type==='section'){onRefillLives(nextCp.lives);if(nextCp.restTime>0){clearInterval(restIntervalRef.current);setRestSecs(nextCp.restTime);setRestActive(true);let s=nextCp.restTime;restIntervalRef.current=setInterval(()=>{s--;setRestSecs(s);if(s<=0){clearInterval(restIntervalRef.current);setRestActive(false);}},1000);}} // section marker: refill lives
+    else if(onRefillLives&&nextCp.type==='section'){onRefillLives(nextCp.lives);} // section marker: nur Leben auffüllen — KEIN Restzeit-Countdown mehr (Zeit läuft durch; Countdown nur bei Sturz)
   };
   const handleFall=()=>{
     SFX.fall();
@@ -960,7 +960,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
       if(lifeMode==='perSection'&&!isInfinityLives&&lives<=1){setLives(0);fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{livesLeft:0,livesUsed:activeFalls.length+1});setFallModal(data);return;}
       const newFall={obsIdx:data.pendingFallIdx,time:data.currentTime};
       setActiveFalls(prev=>[...prev,newFall]);
-      setFallFreezeTime(data.currentTime);
+      // Zeit läuft beim Sturz im Leben-Modus WEITER (kein Einfrieren) — der 10s-Reset zählt mit.
       if(!isInfinityLives)setLives(l=>l-1);
       if(totalLivesLeft!==null&&!isInfinityLives)setTotalLivesLeft(t=>t-1);
       setResetActive(true);
@@ -980,8 +980,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const handleStopCancel=()=>setStopModal(null);
   const handleUseLive=()=>{setFallModal(null);};
   const handleResetDone=()=>{
-    setGoTime(performance.now()-fallFreezeTime);
-    setFallFreezeTime(null);
+    // Zeit lief während des Resets durch → kein Re-Basing von goTime mehr nötig.
     setResetActive(false);
     setPendingFallData(null);
     fbUpdate(`ogn/${compId}/activeRuns/${activeRunKey}`,{resetting:null,resetUntil:null});
