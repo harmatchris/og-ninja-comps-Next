@@ -619,19 +619,12 @@ const ObstacleDecal = ({ type, pct, h }) => {
   );
   return null;
 };
-// Eine Lauf-Spur: Nacht-Himmel + SVG-Berge + Boden + Decals + Figur
-const TrackRow = ({ r, idx, obs, totalCP, demoT, size = 'sm' }) => {
-  const h = size === 'lg' ? 120 : 60;
+// Spur-Hintergrund: Nacht-Himmel + SVG-Berge + Boden + Decals + Ziel
+const TrackBg = ({ obs, h, lg }) => {
   const gnd = Math.round(h * 0.22);
-  const sprH = Math.round(h * 0.72);
-  const sprW = Math.round(sprH * 0.75);
-  const dispLeft = Math.max(3, Math.min(94, r.progress * 100));
-  const isMoving = r.active || demoT != null;
-  const act = isMoving ? getRunnerAction(r.progress, obs, totalCP, r.finished) : (r.finished ? 'win' : 'idle');
-  const onTop = act === 'hang' || act === 'swing' || act === 'climb';
   const decals = obs.map((o, i) => { const t = obsTypeOf(o); return t ? { type: t, pct: (i + 0.5) / Math.max(1, obs.length) } : null; }).filter(Boolean);
   return (
-    <div style={{ position: 'relative', height: h, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
+    <>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#09091e 0%,#131840 45%,#1c2d54 75%,#0d1a0d 100%)' }} />
       {[.06, .17, .3, .44, .56, .7, .83, .93].map((x, i) => (
         <div key={i} style={{ position: 'absolute', left: `${x * 100}%`, top: `${[10, 5, 17, 8, 13, 4, 15, 9][i]}%`, width: 1.5, height: 1.5, borderRadius: '50%', background: 'rgba(255,255,255,.55)' }} />
@@ -642,15 +635,50 @@ const TrackRow = ({ r, idx, obs, totalCP, demoT, size = 'sm' }) => {
       </svg>
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: gnd, background: 'linear-gradient(180deg,#2d5418,#1e3a0e)', borderTop: '1px solid #3a6619' }} />
       {decals.map((d, k) => <ObstacleDecal key={k} type={d.type} pct={d.pct} h={h} />)}
-      <div style={{ position: 'absolute', right: 4, bottom: gnd - 1, fontSize: size === 'lg' ? 17 : 11, lineHeight: 1 }}>🏁</div>
-      <div style={{ position: 'absolute', bottom: onTop ? `${gnd + Math.round(sprH * 0.45)}px` : `${gnd - 2}px`, left: `${dispLeft}%`, width: sprW, height: sprH, marginLeft: -(sprW / 2), transition: demoT != null ? 'left .13s linear' : 'left .8s cubic-bezier(.4,0,.2,1)', zIndex: 5 }}>
-        <NinjaSprite idx={idx} active={r.active} action={act} moving={isMoving} />
-      </div>
+      <div style={{ position: 'absolute', right: 4, bottom: gnd - 1, fontSize: lg ? 17 : 11, lineHeight: 1 }}>🏁</div>
+    </>
+  );
+};
+// Eine Figur auf der Spur positioniert (ghost = halbtransparent, accent = Marker über Kopf)
+const TrackSprite = ({ r, idx, obs, totalCP, demoT, h, ghost, accent }) => {
+  const gnd = Math.round(h * 0.22);
+  const sprH = Math.round(h * 0.72);
+  const sprW = Math.round(sprH * 0.75);
+  const dispLeft = Math.max(3, Math.min(94, r.progress * 100));
+  const isMoving = r.active || demoT != null;
+  const act = isMoving ? getRunnerAction(r.progress, obs, totalCP, r.finished) : (r.finished ? 'win' : 'idle');
+  const onTop = act === 'hang' || act === 'swing' || act === 'climb';
+  return (
+    <div style={{ position: 'absolute', bottom: onTop ? `${gnd + Math.round(sprH * 0.45)}px` : `${gnd - 2}px`, left: `${dispLeft}%`, width: sprW, height: sprH, marginLeft: -(sprW / 2), transition: demoT != null ? 'left .13s linear' : 'left .8s cubic-bezier(.4,0,.2,1)', zIndex: ghost ? 4 : 6, opacity: ghost ? 0.5 : 1 }}>
+      <NinjaSprite idx={idx} active={r.active} action={act} moving={isMoving} />
+      {accent && <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', fontSize: 11, lineHeight: 1, pointerEvents: 'none' }}>{accent}</div>}
+    </div>
+  );
+};
+// Race-Mode-Spur: Hintergrund + eine Figur
+const TrackRow = ({ r, idx, obs, totalCP, demoT, size = 'sm' }) => {
+  const h = size === 'lg' ? 120 : 60;
+  return (
+    <div style={{ position: 'relative', height: h, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
+      <TrackBg obs={obs} h={h} lg={size === 'lg'} />
+      <TrackSprite r={r} idx={idx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} />
       {idx === 0 && <div style={{ position: 'absolute', top: 3, right: 6, fontSize: 10, opacity: .75 }}>👑</div>}
     </div>
   );
 };
-// Spotlight: aktueller Läufer gross, Leader-Chip, Top-4 mini darunter
+// Duell-Spur: beide Figuren auf EINER 2D-Ebene · gleich gross · Leader als Ghost
+const DuelTrack = ({ live, liveIdx, leader, leaderIdx, obs, totalCP, demoT }) => {
+  const h = 132;
+  const same = live.athleteId === leader.athleteId;
+  return (
+    <div style={{ position: 'relative', height: h, borderRadius: 11, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,.08)' }}>
+      <TrackBg obs={obs} h={h} lg />
+      {!same && <TrackSprite r={leader} idx={leaderIdx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} ghost accent="👑" />}
+      <TrackSprite r={live} idx={liveIdx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} accent={same ? '👑' : '▶'} />
+    </div>
+  );
+};
+// Spotlight: aktueller Läufer + Leader auf EINER Ebene (Duell) · übrige Top mini darunter
 const SpotlightView = ({ runners, athletesMap, obs, totalCP, demoT, lang }) => {
   const live = runners.find(r => r.active) || runners[0];
   const leader = runners[0];
@@ -658,39 +686,43 @@ const SpotlightView = ({ runners, athletesMap, obs, totalCP, demoT, lang }) => {
   const liveAth = athletesMap?.[live.athleteId];
   const leadAth = athletesMap?.[leader.athleteId];
   const liveIdx = runners.findIndex(r => r.athleteId === live.athleteId);
-  const leaderDiff = live.athleteId !== leader.athleteId;
+  const same = live.athleteId === leader.athleteId;
+  const others = runners.filter(r => r.athleteId !== live.athleteId && r.athleteId !== leader.athleteId);
+  const gap = Math.round((leader.progress - live.progress) * 100);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {leaderDiff && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: 'rgba(255,214,10,.1)', borderRadius: 8, border: '1px solid rgba(255,214,10,.25)' }}>
-          <span style={{ fontSize: 14 }}>👑</span>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#FFD60A' }}>{lang === 'de' ? 'Führend' : 'Leader'}</span>
-          <NameFlag ath={leadAth} lang={lang} size={12} />
-          <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, color: '#FFD60A' }}>{leader.finished ? fmtMs(leader.time) : `${Math.round(leader.progress * 100)}%`}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,94,58,.14)', border: '1px solid rgba(255,94,58,.4)', borderRadius: 8 }}>
+          <span style={{ fontSize: 12, color: '#FF5E3A' }}>▶</span>
+          <NameFlag ath={liveAth} lang={lang} size={13} />
+          <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: '#FF5E3A' }}>{live.active ? 'LIVE' : (live.finished ? fmtMs(live.time) : `${Math.round(live.progress * 100)}%`)}</span>
+        </span>
+        {!same && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,214,10,.1)', border: '1px solid rgba(255,214,10,.3)', borderRadius: 8, opacity: .85 }}>
+            <span style={{ fontSize: 12 }}>👑</span>
+            <NameFlag ath={leadAth} lang={lang} size={12} />
+            <span style={{ ...mono, fontSize: 11, color: '#FFD60A' }}>{leader.finished ? fmtMs(leader.time) : `${Math.round(leader.progress * 100)}%`}</span>
+          </span>
+        )}
+        {!same && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : (lang === 'de' ? '▲ führt' : '▲ leads')}</span>}
+      </div>
+      <DuelTrack live={live} liveIdx={liveIdx} leader={leader} leaderIdx={0} obs={obs} totalCP={totalCP} demoT={demoT} />
+      {others.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {others.slice(0, 4).map(r => {
+            const a = athletesMap?.[r.athleteId];
+            const rIdx = runners.findIndex(x => x.athleteId === r.athleteId);
+            return (
+              <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <span style={{ ...mono, fontSize: 12, fontWeight: 800, color: rIdx < 3 ? MEDAL[rIdx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{rIdx + 1}</span>
+                <div style={{ width: 88, minWidth: 0, flexShrink: 0 }}><NameFlag ath={a} lang={lang} size={11} /></div>
+                <div style={{ flex: 1, minWidth: 0 }}><TrackRow r={r} idx={rIdx} obs={obs} totalCP={totalCP} demoT={demoT} size="sm" /></div>
+                <span style={{ ...mono, fontSize: 10, color: r.finished ? 'var(--green)' : 'rgba(255,255,255,.4)', width: 36, textAlign: 'right', flexShrink: 0 }}>{r.finished ? fmtMs(r.time) : `${Math.round(r.progress * 100)}%`}</span>
+              </div>
+            );
+          })}
         </div>
       )}
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 5, padding: '0 4px' }}>
-          <span style={{ fontSize: 16, color: '#FF5E3A' }}>▶</span>
-          <NameFlag ath={liveAth} lang={lang} size={15} />
-          <span style={{ marginLeft: 'auto', ...mono, fontSize: 12, fontWeight: 700, color: '#FF5E3A' }}>{live.active ? 'LIVE' : (live.finished ? fmtMs(live.time) : `${Math.round(live.progress * 100)}%`)}</span>
-        </div>
-        <TrackRow r={live} idx={liveIdx} obs={obs} totalCP={totalCP} demoT={demoT} size="lg" />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {runners.filter(r => r.athleteId !== live.athleteId).slice(0, 4).map(r => {
-          const a = athletesMap?.[r.athleteId];
-          const rIdx = runners.findIndex(x => x.athleteId === r.athleteId);
-          return (
-            <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <span style={{ ...mono, fontSize: 12, fontWeight: 800, color: rIdx < 3 ? MEDAL[rIdx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{rIdx + 1}</span>
-              <div style={{ width: 88, minWidth: 0, flexShrink: 0 }}><NameFlag ath={a} lang={lang} size={11} /></div>
-              <div style={{ flex: 1, minWidth: 0 }}><TrackRow r={r} idx={rIdx} obs={obs} totalCP={totalCP} demoT={demoT} size="sm" /></div>
-              <span style={{ ...mono, fontSize: 10, color: r.finished ? 'var(--green)' : 'rgba(255,255,255,.4)', width: 36, textAlign: 'right', flexShrink: 0 }}>{r.finished ? fmtMs(r.time) : `${Math.round(r.progress * 100)}%`}</span>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 };
