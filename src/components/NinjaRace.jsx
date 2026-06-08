@@ -6,7 +6,7 @@
 //  Der Parcours ist ein kuratiertes, gut gespreiztes Layout (nicht 1:1 zu allen
 //  Hindernissen) — Krater, Höhle, Monkey-Bars, Seil über Klippe, Warped Wall, Buzzer.
 // ═══════════════════════════════════════════════════════════════════════════
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // ── Charakter-Paletten (Anzug · Akzent/Schärpe · Haut) — 16 Figuren ───────────
 export const RACE_PALETTE = [
@@ -91,20 +91,36 @@ const WarpedWall = ({ groundY, h, w = 46 }) => (
     <rect x={w - 7} y="3" width="4" height={h - 4} fill="#caa15a" opacity=".5" />
   </svg>
 );
-const Buzzer = ({ groundY, lit }) => (
-  <div style={{ position: 'absolute', right: 8, bottom: groundY, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 8 }}>
+const Buzzer = ({ lit }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
     <div className={lit ? 'buzz-dome lit' : 'buzz-dome'} />
     <div style={{ width: 32, height: 6, background: 'repeating-linear-gradient(90deg,#1a1a1a,#1a1a1a 5px,#ffd23f 5px,#ffd23f 10px)', borderRadius: 1 }} />
     <div style={{ width: 10, height: 34, background: 'linear-gradient(90deg,#333,#555)', borderRadius: 2 }} />
     <div style={{ width: 38, height: 5, background: '#222', borderRadius: 2 }} />
   </div>
 );
+// Startplattform mit START-Banner
+const StartGate = ({ groundY, H }) => {
+  const postH = Math.round((H - groundY) * 0.62);
+  return (
+    <>
+      <div style={{ position: 'absolute', bottom: groundY - 5, left: '50%', transform: 'translateX(-50%)', width: 78, height: 11, borderRadius: 3, background: 'repeating-linear-gradient(90deg,#475064,#475064 5px,#2c313c 5px,#2c313c 10px)', border: '1px solid #5a6172', boxShadow: '0 0 10px rgba(120,160,255,.18)' }} />
+      <div style={{ position: 'absolute', bottom: groundY, left: 'calc(50% - 34px)', width: 5, height: postH, background: 'linear-gradient(#c0392b,#7d2018)', borderRadius: 2 }} />
+      <div style={{ position: 'absolute', bottom: groundY, left: 'calc(50% + 29px)', width: 5, height: postH, background: 'linear-gradient(#c0392b,#7d2018)', borderRadius: 2 }} />
+      <div style={{ position: 'absolute', bottom: groundY + postH - 7, left: '50%', transform: 'translateX(-50%)', background: '#1f9d4d', color: '#fff', fontSize: 10, fontWeight: 900, letterSpacing: '.12em', padding: '3px 13px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,.5)' }}>START</div>
+    </>
+  );
+};
 
-// ── Eine Figur auf dem Parcours ───────────────────────────────────────────────
-const RunnerOnCourse = ({ r, idx, demoT, H, groundY, scale, ghost }) => {
+// Parcours-Fraktion (0..1) → Welt-Fraktion (Start-Pad … kurz vor Buzzer)
+const WX = f => 0.03 + Math.max(0, Math.min(1, f)) * 0.90;
+const WORLD_W = 3.4;   // Welt ist 3.4 Bildschirme breit → Side-Scroller
+const ANCHOR = 0.34;   // Läufer-Position auf dem Schirm (Kamera-Ankerpunkt)
+
+// ── Eine Figur auf dem Parcours (Position = Welt-Prozent) ─────────────────────
+const RunnerOnCourse = ({ r, idx, demoT, H, groundY, scale, ghost, xPct }) => {
   const action = getRunnerAction(r.progress, r.finished);
   const figH = 64 * scale;
-  const left = r.finished ? 91 : Math.max(3, Math.min(88, r.progress * 100));
   let bottom = groundY - 2, pivot = false;
   if (action === 'hang') bottom = groundY + (H - groundY) * 0.40;
   else if (action === 'climb') bottom = groundY + (H - groundY) * 0.34;
@@ -117,74 +133,96 @@ const RunnerOnCourse = ({ r, idx, demoT, H, groundY, scale, ghost }) => {
     </div>
   );
   return (
-    <div style={{ position: 'absolute', left: `${left}%`, bottom, transform: 'translateX(-50%)', transition: trans, zIndex: ghost ? 4 : 6 }}>
+    <div style={{ position: 'absolute', left: `${xPct}%`, bottom, transform: 'translateX(-50%)', transition: trans, zIndex: ghost ? 4 : 6 }}>
       {pivot ? <div className="swing-pivot">{inner}</div> : inner}
       {r.finished && !ghost && <div className="buzzburst" style={{ position: 'absolute', bottom: figH * 0.7, left: '64%' }}>★</div>}
     </div>
   );
 };
 
-// ── Die EINE Landschaft ────────────────────────────────────────────────────────
+// ── Die EINE Landschaft — Super-Mario-Side-Scroller mit folgender Kamera ───────
 export const RaceScene = ({ featured, leader, demoT, lang, tall = true }) => {
   const H = tall ? 196 : 150;
   const groundY = Math.round(H * 0.17);
   const scale = tall ? 1.5 : 1.1;
+  const sceneRef = useRef(null);
+  const [sw, setSw] = useState(900);
+  useEffect(() => {
+    const el = sceneRef.current; if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setSw(el.clientWidth || 900));
+    ro.observe(el); setSw(el.clientWidth || 900);
+    return () => ro.disconnect();
+  }, []);
   const same = !leader || (featured && leader.athleteId === featured.athleteId);
   const finishedNow = featured?.finished;
   const fObst = featured && !finishedNow ? currentObstacle(featured.progress) : null;
-  const featLbl = finishedNow ? (lang === 'de' ? '🎉 Buzzer!' : '🎉 Buzzer!') : (fObst ? ACTION_LABEL[fObst.type]?.[lang] : null);
-  const craters = COURSE.filter(c => c.type === 'jump');
-  const swings = COURSE.filter(c => c.type === 'swing');
-  const caves = COURSE.filter(c => c.type === 'cave');
+  const featLbl = finishedNow ? '🎉 Buzzer!' : (fObst ? ACTION_LABEL[fObst.type]?.[lang] : null);
+  // Kamera folgt dem Hauptläufer (in Bildschirm-Breiten gemessen, dann × sw px)
+  const featFrac = featured ? (featured.finished ? WX(1) : WX(featured.progress)) : 0;
+  const camU = Math.max(0, Math.min(WORLD_W - 1, featFrac * WORLD_W - ANCHOR));
+  const cam = camU * sw;
+  const camTrans = demoT != null ? 'transform .12s linear' : 'transform .8s cubic-bezier(.4,0,.2,1)';
+  const layer = (factor, z) => ({ position: 'absolute', top: 0, bottom: 0, left: 0, width: `${WORLD_W * 100}%`, transform: `translateX(${-cam * factor}px)`, transition: camTrans, zIndex: z });
+  const ww = `${WORLD_W * 100}%`;
+  const runFrac = r => r.finished ? WX(1) : WX(r.progress);
+  const finishX = WX(1) + 0.028;
   return (
-    <div style={{ position: 'relative', height: H, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', boxShadow: 'inset 0 0 44px rgba(0,0,0,.55)' }}>
-      {/* Himmel */}
+    <div ref={sceneRef} style={{ position: 'relative', height: H, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', boxShadow: 'inset 0 0 44px rgba(0,0,0,.55)' }}>
+      {/* Himmel (fix) */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#070718 0%,#0e1340 36%,#1a2350 58%,#243a2a 80%,#16280f 100%)' }} />
-      {/* Mond */}
-      <div style={{ position: 'absolute', left: '8%', top: '13%', width: 36, height: 36, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%,#fff,#cdd6e6 60%,#9aa6bd)', boxShadow: '0 0 28px rgba(205,214,230,.45)' }} />
-      {/* Sterne */}
-      {[[18,12],[26,7],[34,20],[44,9],[52,16],[63,6],[71,22],[80,11],[88,17],[94,8],[58,24],[40,5],[48,26]].map(([x, y], i) => (
-        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: i % 3 ? 1.5 : 2.5, height: i % 3 ? 1.5 : 2.5, borderRadius: '50%', background: '#fff', opacity: i % 3 ? .5 : .85 }} />
-      ))}
-      {/* ferne Berge */}
-      <svg style={{ position: 'absolute', bottom: groundY, width: '100%', height: Math.round(H * 0.44) }} viewBox="0 0 320 60" preserveAspectRatio="none">
-        <polygon points="0,60 24,14 50,48 84,8 120,44 156,18 196,50 232,10 270,46 300,20 320,60" fill="#141a30" />
-        <polygon points="0,60 30,30 64,54 104,24 150,56 196,30 240,56 286,28 320,60" fill="#1c2640" opacity=".75" />
-      </svg>
-      {/* Höhlen (Hügel mit dunkler Öffnung) */}
-      {caves.map((c, k) => (
-        <div key={`cv${k}`} style={{ position: 'absolute', left: `${c.at * 100}%`, bottom: groundY - 3, transform: 'translateX(-50%)', width: 78, height: Math.round((H - groundY) * 0.62) }}>
-          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 100%,#243a1c,#16240f)', borderRadius: '50% 50% 0 0' }} />
-          <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: 36, height: '74%', borderRadius: '50% 50% 0 0', background: 'radial-gradient(ellipse at 50% 95%,#000,#06080e)', boxShadow: 'inset 0 6px 12px rgba(0,0,0,.9)' }} />
-        </div>
-      ))}
-      {/* Boden */}
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: groundY, background: 'linear-gradient(180deg,#345d1c,#21400f)', borderTop: '2px solid #4a7a22' }} />
-      {/* Krater (Lücken im Boden) */}
-      {craters.map((c, k) => (
-        <div key={`cr${k}`} style={{ position: 'absolute', left: `${c.at * 100}%`, bottom: 0, transform: 'translateX(-50%)', width: 46, height: groundY, background: 'linear-gradient(180deg,#02030a,#070b14)', borderRadius: '0 0 6px 6px', boxShadow: 'inset 4px 0 6px rgba(0,0,0,.7), inset -4px 0 6px rgba(0,0,0,.7)' }}>
-          {[6, 16, 26, 36].map(x => <div key={x} style={{ position: 'absolute', left: x, top: -3, width: 2, height: 6, background: '#5a4a30', clipPath: 'polygon(50% 100%,0 0,100% 0)' }} />)}
-        </div>
-      ))}
-      {/* Klippen-Pit unter dem Seil */}
-      {swings.map((c, k) => (
-        <div key={`pit${k}`} style={{ position: 'absolute', left: `${c.at * 100}%`, bottom: 0, transform: 'translateX(-50%)', width: 70, height: groundY, background: 'linear-gradient(180deg,#02030a,#060912)' }} />
-      ))}
-      {/* Hindernis-Aufbauten */}
-      {COURSE.map((c, k) => {
-        if (c.type === 'hang') return <div key={k} style={{ position: 'absolute', left: `${c.at * 100}%`, top: 0, bottom: 0 }}><MonkeyBars topY={Math.round(H * 0.16)} /></div>;
-        if (c.type === 'swing') return <div key={k} style={{ position: 'absolute', left: `${c.at * 100}%`, top: 0, bottom: 0 }}><RopeSwing topY={6} h={Math.round(H * 0.34)} /></div>;
-        if (c.type === 'climb') return <div key={k} style={{ position: 'absolute', left: `${c.at * 100}%`, top: 0, bottom: 0 }}><WarpedWall groundY={groundY} h={Math.round((H - groundY) * 0.72)} /></div>;
-        return null;
-      })}
-      {/* Ziel-Buzzer */}
-      <Buzzer groundY={groundY} lit={finishedNow} />
-      {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '12%', fontSize: 13, fontWeight: 900, color: '#FFD60A', textShadow: '0 0 8px rgba(255,214,10,.8)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
-      {/* Aktions-Caption (fix oben-links, nie abgeschnitten) */}
-      {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 9, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: 'rgba(0,0,0,.5)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(255,255,255,.2)', pointerEvents: 'none' }}>{featLbl}</div>}
-      {/* Figuren: Ghost-Leader hinten, Hauptläufer vorne */}
-      {!same && leader && <RunnerOnCourse r={leader} idx={leader.idx} demoT={demoT} H={H} groundY={groundY} scale={scale} ghost />}
-      {featured && <RunnerOnCourse r={featured} idx={featured.idx} demoT={demoT} H={H} groundY={groundY} scale={scale} />}
+      {/* Mond (fast fix) */}
+      <div style={{ position: 'absolute', left: '8%', top: '13%', width: 36, height: 36, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%,#fff,#cdd6e6 60%,#9aa6bd)', boxShadow: '0 0 28px rgba(205,214,230,.45)', transform: `translateX(${-cam * 0.06}px)`, transition: camTrans }} />
+      {/* Sterne (sehr langsam) */}
+      <div style={layer(0.18, 1)}>
+        {Array.from({ length: 46 }).map((_, i) => <div key={i} style={{ position: 'absolute', left: `${(i * 71 + 9) % 100}%`, top: `${(i * 37 + 4) % 40}%`, width: i % 3 ? 1.5 : 2.5, height: i % 3 ? 1.5 : 2.5, borderRadius: '50%', background: '#fff', opacity: i % 3 ? .45 : .8 }} />)}
+      </div>
+      {/* Ferne Berge (mittel) */}
+      <div style={layer(0.45, 1)}>
+        <svg style={{ position: 'absolute', bottom: groundY, width: '100%', height: Math.round(H * 0.44) }} viewBox="0 0 1100 60" preserveAspectRatio="none">
+          <polygon points="0,60 60,14 130,48 210,8 300,44 390,18 490,50 580,10 680,46 760,22 860,46 940,16 1030,48 1100,24 1100,60" fill="#141a30" />
+          <polygon points="0,60 80,30 170,54 270,24 380,56 500,30 620,56 740,28 860,54 980,30 1100,52 1100,60" fill="#1c2640" opacity=".75" />
+        </svg>
+      </div>
+      {/* WELT-Vordergrund (volle Kamera-Geschwindigkeit) */}
+      <div style={layer(1, 3)}>
+        {/* Höhlen */}
+        {COURSE.filter(c => c.type === 'cave').map((c, k) => (
+          <div key={`cv${k}`} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, bottom: groundY - 3, transform: 'translateX(-50%)', width: 90, height: Math.round((H - groundY) * 0.62) }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at 50% 100%,#243a1c,#16240f)', borderRadius: '50% 50% 0 0' }} />
+            <div style={{ position: 'absolute', left: '50%', bottom: 0, transform: 'translateX(-50%)', width: 40, height: '74%', borderRadius: '50% 50% 0 0', background: 'radial-gradient(ellipse at 50% 95%,#000,#06080e)', boxShadow: 'inset 0 6px 12px rgba(0,0,0,.9)' }} />
+          </div>
+        ))}
+        {/* Boden (volle Weltbreite) */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: groundY, background: 'linear-gradient(180deg,#345d1c,#21400f)', borderTop: '2px solid #4a7a22' }} />
+        {/* Krater */}
+        {COURSE.filter(c => c.type === 'jump').map((c, k) => (
+          <div key={`cr${k}`} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, bottom: 0, transform: 'translateX(-50%)', width: 52, height: groundY, background: 'linear-gradient(180deg,#02030a,#070b14)', borderRadius: '0 0 6px 6px', boxShadow: 'inset 4px 0 6px rgba(0,0,0,.7), inset -4px 0 6px rgba(0,0,0,.7)' }}>
+            {[7, 18, 29, 40].map(x => <div key={x} style={{ position: 'absolute', left: x, top: -3, width: 2, height: 6, background: '#5a4a30', clipPath: 'polygon(50% 100%,0 0,100% 0)' }} />)}
+          </div>
+        ))}
+        {/* Klippen-Pit unter dem Seil */}
+        {COURSE.filter(c => c.type === 'swing').map((c, k) => (
+          <div key={`pit${k}`} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, bottom: 0, transform: 'translateX(-50%)', width: 78, height: groundY, background: 'linear-gradient(180deg,#02030a,#060912)' }} />
+        ))}
+        {/* Startplattform */}
+        <div style={{ position: 'absolute', left: `${WX(0) * 100}%`, top: 0, bottom: 0, width: 0, zIndex: 2 }}><StartGate groundY={groundY} H={H} /></div>
+        {/* Hindernis-Aufbauten */}
+        {COURSE.map((c, k) => {
+          if (c.type === 'hang') return <div key={k} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, top: 0, bottom: 0 }}><MonkeyBars topY={Math.round(H * 0.16)} /></div>;
+          if (c.type === 'swing') return <div key={k} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, top: 0, bottom: 0 }}><RopeSwing topY={6} h={Math.round(H * 0.34)} /></div>;
+          if (c.type === 'climb') return <div key={k} style={{ position: 'absolute', left: `${WX(c.at) * 100}%`, top: 0, bottom: 0 }}><WarpedWall groundY={groundY} h={Math.round((H - groundY) * 0.72)} /></div>;
+          return null;
+        })}
+        {/* Ziel: Buzzer + ZIEL-Banner */}
+        <div style={{ position: 'absolute', left: `${finishX * 100}%`, bottom: groundY, transform: 'translateX(-50%)', zIndex: 8 }}><Buzzer lit={finishedNow} /></div>
+        <div style={{ position: 'absolute', left: `${finishX * 100}%`, bottom: groundY + Math.round((H - groundY) * 0.6), transform: 'translateX(-50%)', background: '#d11', color: '#fff', fontSize: 10, fontWeight: 900, letterSpacing: '.12em', padding: '3px 12px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,.5)' }}>ZIEL</div>
+        {/* Figuren */}
+        {!same && leader && <RunnerOnCourse r={leader} idx={leader.idx} demoT={demoT} H={H} groundY={groundY} scale={scale} ghost xPct={runFrac(leader) * 100} />}
+        {featured && <RunnerOnCourse r={featured} idx={featured.idx} demoT={demoT} H={H} groundY={groundY} scale={scale} xPct={runFrac(featured) * 100} />}
+      </div>
+      {/* HUD (fix, scrollt nicht) */}
+      {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '12%', zIndex: 10, fontSize: 13, fontWeight: 900, color: '#FFD60A', textShadow: '0 0 8px rgba(255,214,10,.8)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
+      {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 10, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: 'rgba(0,0,0,.5)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(255,255,255,.2)', pointerEvents: 'none' }}>{featLbl}</div>}
     </div>
   );
 };
