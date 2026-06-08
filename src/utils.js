@@ -356,7 +356,13 @@ export const computeDivisionOverall = (catId, { runList, pipelineStages = [], sk
     // Non-finalists (didn't make the final) follow below the cut-line, in their Speed-parcours order.
     const nonFinalists = speedRanking.filter(r => !finalIds.has(r.athleteId));
     nonFinalists.forEach(r => { r._overall = { nonFinalist: true }; });
-    return { mode: 'lk1', stageIds: [final.id], cutLine: finalists.length, ranked: [...finalists, ...nonFinalists] };
+    // Cut-line = Quali-Regel (mind. minQ pro Division, sonst %) — identisch zum Speed-Quali/Jury-Backend.
+    // NICHT nur die bereits im Final Gelaufenen zählen, sonst zeigt die Linie zu wenige Finalisten
+    // (z.B. 2 statt der vorgeschriebenen min. 3).
+    const _pct = speed.qualiPercent || 40;
+    const _minQ = speed.qualiMin != null ? +speed.qualiMin : (speed.minPerDivision != null ? +speed.minPerDivision : 3);
+    const _cut = Math.min(finalists.length + nonFinalists.length, Math.max(finalists.length, qualifyCount(speedRanking.length, _pct, _minQ)));
+    return { mode: 'lk1', stageIds: [final.id], cutLine: _cut, ranked: [...finalists, ...nonFinalists] };
   }
   // LK2 — Skills-placement + Final-placement (sum). Finalists rank first (making the final is an
   // achievement); non-finalists follow, ordered by their skill placement.
