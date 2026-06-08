@@ -8,6 +8,7 @@ import { Spinner, EmptyState, TopBar, MedalBadge, CompEmoji, Heart, LifeDots } f
 import { ResultsView } from './ResultsView.jsx';
 import { AthleteQueueView, AutoScrollList } from './QueueView.jsx';
 import { StatsView } from './StatsView.jsx';
+import { STAT_WIDGETS, renderStatWidget } from './StatWidgets.jsx';
 
 const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
   const {lang,catName,t}=useLang();
@@ -1082,6 +1083,7 @@ const BUILDER_WIDGETS=[
   {type:'nextup',  de:'Nächste Starts',en:'Next Up',  ic:I.SkipFwd},
   {type:'ranking', de:'Rangliste',     en:'Ranking',  ic:I.Trophy},
   {type:'skills',  de:'Skill-Wertung', en:'Skills',   ic:I.Target},
+  ...STAT_WIDGETS,
 ];
 const BUILDER_CATS=[{k:'all',de:'Alle',en:'All'},{k:'LK1',de:'LK1',en:'LK1'},{k:'LK2',de:'LK2',en:'LK2'},{k:'bam',de:'Bambini',en:'Bambini'}];
 // Individual divisions for the per-window picker — selecting one pins the window to it (no auto-cycle).
@@ -1103,7 +1105,7 @@ const renderBuilderWidget=(it,dataProps,lang)=>{
     case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium info={dataProps.info} pipelineData={dataProps.pipelineData} skillScores={dataProps.skillScores}/>;
     case 'skills':  return <SkillStandings compId={dataProps.compId} info={dataProps.info} athletesMap={dataProps.athletesMap} tvMode={false} lang={lang}/>;
     case 'liverun': return <LiveRunStrip {...dataProps} onlyCats={cats} tvMode={false} lang={lang}/>;
-    default:return null;
+    default:return renderStatWidget(it.type,{...dataProps,cats,lang});
   }
 };
 // Auto-placement: scan the grid for the first free slot, trying the default size then progressively smaller.
