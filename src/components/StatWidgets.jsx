@@ -6,6 +6,7 @@ import { IGN_CATS } from '../config.js';
 import { fmtMs, toFlag, ageOnDate, skillTotalOf, skillRankingOf, computeRankedPipeline, computeDivisionOverall } from '../utils.js';
 import { I } from '../icons.jsx';
 import { useFbVal } from '../hooks.js';
+import { RaceScene, RaceStyles, RACE_PALETTE, COURSE } from './NinjaRace.jsx';
 
 // ── kleine Helfer ──────────────────────────────────────────────────────────
 const mono = { fontFamily: 'JetBrains Mono, monospace' };
@@ -513,288 +514,108 @@ const SkillTicker = ({ info, athletesMap, skillScores, cats, lang }) => {
   );
 };
 
-// ── 13. Ninja-Race — Metal Slug Welt · 2-Frame-Lauf · Obstacle-Aktionen · Spotlight ─
-const NINJA_COUNT = 16;
-// Frame 0 = n01.png (Schritt A, rechtes Bein vorne), Frame 1 = n01b.png (Schritt B)
-const spriteSrc = (i, frame) => {
-  const nn = String((i % NINJA_COUNT) + 1).padStart(2, '0');
-  return frame === 1 ? `/ninjas/n${nn}b.png` : `/ninjas/n${nn}.png`;
-};
-const replayProgress = (run, T, totalCP) => {
-  const dc = run.doneCP || [];
-  const tot = run.totalCPs || totalCP || 1;
-  if (!dc.length) { const ft = run.finalTime || 0; return ft > 0 ? Math.min(0.5, (T / ft) * 0.5) : 0; }
-  let n = 0; while (n < dc.length && (dc[n].time || 0) <= T) n++;
-  if (n === 0) { const t0 = dc[0].time || 1; return Math.max(0, Math.min(1, T / t0)) / tot; }
-  if (n >= dc.length) return Math.min(1, dc.length / tot);
-  const prev = dc[n - 1].time || 0, next = dc[n].time || prev;
-  return Math.min(1, (n + (next > prev ? Math.max(0, Math.min(1, (T - prev) / (next - prev))) : 1)) / tot);
-};
-// Aktion eines Läufers am aktuellen Parcours-Punkt
-const getRunnerAction = (progress, obs, totalCPs, finished) => {
-  if (finished) return 'win';
-  if (!obs || !obs.length) return 'run';
-  const idx = Math.round(progress * totalCPs);
-  const near = obs[Math.max(0, Math.min(obs.length - 1, idx))];
-  if (!near || Math.abs(progress - idx / totalCPs) > 0.09) return 'run';
-  const n = (near.name || near.type || '').toLowerCase();
-  if (/hang|bar|ring|reck|monkey|kletter(leiter)/i.test(n)) return 'hang';
-  if (/seil|rope|swing|liana|klippe|schlucht|cliff|canyon/i.test(n)) return 'swing';
-  if (/wall|wand|warped|kletter(?!leiter)/i.test(n)) return 'climb';
-  if (/gap|spring|absprung|jump/i.test(n)) return 'jump';
-  if (isPlat(near)) return 'idle';
-  return 'run';
-};
-const RACE_ANIMS = `
-  @keyframes nrun{0%,100%{transform:translateY(0) scaleX(1)}35%{transform:translateY(-22%) scaleX(1.06)}70%{transform:translateY(-10%) scaleX(1.03)}}
-  @keyframes nidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-8%)}}
-  @keyframes nhang{0%,100%{transform:rotate(-82deg) translateY(2%)}50%{transform:rotate(-98deg) translateY(-3%)}}
-  @keyframes nswing{0%{transform:rotate(-125deg)}100%{transform:rotate(-55deg)}}
-  @keyframes nclimb{0%,100%{transform:rotate(-80deg) translateY(0)}50%{transform:rotate(-76deg) translateY(-20%)}}
-  @keyframes njump{0%{transform:translateY(0) rotate(0)}30%{transform:translateY(-55%) rotate(-18deg)}58%{transform:translateY(-55%) rotate(-18deg)}85%{transform:translateY(-5%) rotate(-3deg)}100%{transform:translateY(0) rotate(0)}}
-  @keyframes nwin{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-28%) rotate(-14deg)}75%{transform:translateY(-28%) rotate(14deg)}}
-`;
-const ACTION_DEF = {
-  run:   { anim: 'nrun .52s ease-in-out infinite',             origin: 'bottom center' },
-  idle:  { anim: 'nidle 1.8s ease-in-out infinite',            origin: 'bottom center' },
-  hang:  { anim: 'nhang 1.9s ease-in-out infinite',            origin: 'top center' },
-  swing: { anim: 'nswing 1.1s ease-in-out infinite alternate', origin: 'top center' },
-  climb: { anim: 'nclimb .95s ease-in-out infinite',           origin: 'top center' },
-  jump:  { anim: 'njump .78s ease-out forwards',               origin: 'bottom center' },
-  win:   { anim: 'nwin 1.1s ease-in-out infinite',             origin: 'bottom center' },
-};
-// Obstacle-Typ aus Name/Typ
-const obsTypeOf = o => {
-  const n = (o?.name || o?.type || '').toLowerCase();
-  if (/hang|bar|ring|reck|monkey/i.test(n)) return 'hang';
-  if (/seil|rope|swing|liana|klippe|schlucht|cliff/i.test(n)) return 'swing';
-  if (/wall|wand|warped|kletter(?!leiter)/i.test(n)) return 'climb';
-  if (/gap|spring|absprung|jump/i.test(n)) return 'jump';
-  if (isPlat(o)) return 'plat';
-  return null;
-};
-const NinjaSprite = ({ idx, active, action = 'run', moving }) => {
-  // failedFrames: { 0: bool, 1: bool } — fehlende b-Sprites fallen auf Frame A zurück
-  const [failedFrames, setFailedFrames] = useState({});
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    if (!moving || action !== 'run') { setFrame(0); return; }
-    const iv = setInterval(() => setFrame(f => 1 - f), 130);
-    return () => clearInterval(iv);
-  }, [moving, action]);
-  const { anim, origin } = ACTION_DEF[action] || ACTION_DEF.run;
-  if (failedFrames[0]) return <span style={{ fontSize: 24, position: 'absolute', inset: 0, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>🥷</span>;
-  const actualFrame = failedFrames[frame] ? 0 : frame;
-  return <img key={actualFrame} src={spriteSrc(idx, actualFrame)} alt="" onError={() => setFailedFrames(ff => ({ ...ff, [frame]: true }))} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', animation: anim, transformOrigin: origin, filter: active ? 'drop-shadow(0 0 7px rgba(255,94,58,.9)) brightness(1.15)' : 'brightness(0.82)', imageRendering: 'pixelated' }} />;
-};
-// Metal Slug CSS-Dekorationen für Hindernisse
-const ObstacleDecal = ({ type, pct, h }) => {
-  const gnd = Math.round(h * 0.22);
-  const s = { position: 'absolute', left: `${Math.max(2, Math.min(97, pct * 100))}%`, transform: 'translateX(-50%)' };
-  if (type === 'hang') return (
-    <div style={{ ...s, bottom: gnd + 14 }}>
-      <div style={{ width: 50, height: 5, background: '#8B6914', borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,.6)' }} />
-      {[7, 19, 31, 43].map(x => <div key={x} style={{ position: 'absolute', left: x, top: 5, width: 3, height: 15, background: '#7B5210' }} />)}
-    </div>
-  );
-  if (type === 'swing') return (
-    <div style={{ ...s, bottom: gnd + 22, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#aaa' }} />
-      <div style={{ width: 2, height: 28, background: 'repeating-linear-gradient(180deg,#8B6914,#6B4A10 4px)' }} />
-      <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#A87840', border: '2px solid #7B5A20' }} />
-    </div>
-  );
-  if (type === 'climb') return (
-    <div style={{ ...s, bottom: 0, width: 26, height: Math.round(h * 0.62), background: 'linear-gradient(180deg,#5a4a38,#3a2f25)', borderRadius: '35% 35% 0 0', overflow: 'hidden' }}>
-      {[1, 2, 3, 4].map(i => <div key={i} style={{ position: 'absolute', top: `${i * 22}%`, left: 3, right: 3, height: 1, background: 'rgba(255,255,255,.12)' }} />)}
-    </div>
-  );
-  if (type === 'jump') return (
-    <div style={{ ...s, bottom: 0, width: 36 }}>
-      <div style={{ height: gnd + 3, background: 'linear-gradient(180deg,#030312,#080818)', borderRadius: '0 0 3px 3px' }} />
-    </div>
-  );
-  if (type === 'plat') return (
-    <div style={{ ...s, bottom: gnd - 1, width: 42, height: 8, background: 'linear-gradient(90deg,#1a7fd4,#2aabe0)', borderRadius: 4, boxShadow: '0 0 8px rgba(42,171,224,.5)' }} />
-  );
-  return null;
-};
-// Spur-Hintergrund: Nacht-Himmel + SVG-Berge + Boden + Decals + Ziel
-const TrackBg = ({ obs, h, lg }) => {
-  const gnd = Math.round(h * 0.22);
-  const decals = obs.map((o, i) => { const t = obsTypeOf(o); return t ? { type: t, pct: (i + 0.5) / Math.max(1, obs.length) } : null; }).filter(Boolean);
-  return (
-    <>
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#09091e 0%,#131840 45%,#1c2d54 75%,#0d1a0d 100%)' }} />
-      {[.06, .17, .3, .44, .56, .7, .83, .93].map((x, i) => (
-        <div key={i} style={{ position: 'absolute', left: `${x * 100}%`, top: `${[10, 5, 17, 8, 13, 4, 15, 9][i]}%`, width: 1.5, height: 1.5, borderRadius: '50%', background: 'rgba(255,255,255,.55)' }} />
-      ))}
-      <svg style={{ position: 'absolute', bottom: gnd, width: '100%', height: `${Math.round(h * .5)}px` }} viewBox="0 0 300 36" preserveAspectRatio="none">
-        <polygon points="0,36 25,7 55,30 85,3 115,33 148,8 175,28 208,2 240,31 272,7 300,36" fill="#181c34" />
-        <polygon points="0,36 18,16 42,34 72,12 100,36 136,17 165,36 200,13 232,36 265,15 300,36" fill="#20264a" opacity=".7" />
-      </svg>
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: gnd, background: 'linear-gradient(180deg,#2d5418,#1e3a0e)', borderTop: '1px solid #3a6619' }} />
-      {decals.map((d, k) => <ObstacleDecal key={k} type={d.type} pct={d.pct} h={h} />)}
-      <div style={{ position: 'absolute', right: 4, bottom: gnd - 1, fontSize: lg ? 17 : 11, lineHeight: 1 }}>🏁</div>
-    </>
-  );
-};
-// Eine Figur auf der Spur positioniert (ghost = halbtransparent, accent = Marker über Kopf)
-const TrackSprite = ({ r, idx, obs, totalCP, demoT, h, ghost, accent }) => {
-  const gnd = Math.round(h * 0.22);
-  const sprH = Math.round(h * 0.72);
-  const sprW = Math.round(sprH * 0.75);
-  const dispLeft = Math.max(3, Math.min(94, r.progress * 100));
-  const isMoving = r.active || demoT != null;
-  const act = isMoving ? getRunnerAction(r.progress, obs, totalCP, r.finished) : (r.finished ? 'win' : 'idle');
-  const onTop = act === 'hang' || act === 'swing' || act === 'climb';
-  return (
-    <div style={{ position: 'absolute', bottom: onTop ? `${gnd + Math.round(sprH * 0.45)}px` : `${gnd - 2}px`, left: `${dispLeft}%`, width: sprW, height: sprH, marginLeft: -(sprW / 2), transition: demoT != null ? 'left .13s linear' : 'left .8s cubic-bezier(.4,0,.2,1)', zIndex: ghost ? 4 : 6, opacity: ghost ? 0.5 : 1 }}>
-      <NinjaSprite idx={idx} active={r.active} action={act} moving={isMoving} />
-      {accent && <div style={{ position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)', fontSize: 11, lineHeight: 1, pointerEvents: 'none' }}>{accent}</div>}
-    </div>
-  );
-};
-// Race-Mode-Spur: Hintergrund + eine Figur
-const TrackRow = ({ r, idx, obs, totalCP, demoT, size = 'sm' }) => {
-  const h = size === 'lg' ? 120 : 60;
-  return (
-    <div style={{ position: 'relative', height: h, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
-      <TrackBg obs={obs} h={h} lg={size === 'lg'} />
-      <TrackSprite r={r} idx={idx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} />
-      {idx === 0 && <div style={{ position: 'absolute', top: 3, right: 6, fontSize: 10, opacity: .75 }}>👑</div>}
-    </div>
-  );
-};
-// Duell-Spur: beide Figuren auf EINER 2D-Ebene · gleich gross · Leader als Ghost
-const DuelTrack = ({ live, liveIdx, leader, leaderIdx, obs, totalCP, demoT }) => {
-  const h = 132;
-  const same = live.athleteId === leader.athleteId;
-  return (
-    <div style={{ position: 'relative', height: h, borderRadius: 11, overflow: 'hidden', flexShrink: 0, border: '1px solid rgba(255,255,255,.08)' }}>
-      <TrackBg obs={obs} h={h} lg />
-      {!same && <TrackSprite r={leader} idx={leaderIdx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} ghost accent="👑" />}
-      <TrackSprite r={live} idx={liveIdx} obs={obs} totalCP={totalCP} demoT={demoT} h={h} accent={same ? '👑' : '▶'} />
-    </div>
-  );
-};
-// Spotlight: aktueller Läufer + Leader auf EINER Ebene (Duell) · übrige Top mini darunter
-const SpotlightView = ({ runners, athletesMap, obs, totalCP, demoT, lang }) => {
-  const live = runners.find(r => r.active) || runners[0];
-  const leader = runners[0];
-  if (!live) return <Empty msg={lang === 'de' ? 'Kein aktiver Läufer' : 'No active runner'} />;
-  const liveAth = athletesMap?.[live.athleteId];
-  const leadAth = athletesMap?.[leader.athleteId];
-  const liveIdx = runners.findIndex(r => r.athleteId === live.athleteId);
-  const same = live.athleteId === leader.athleteId;
-  const others = runners.filter(r => r.athleteId !== live.athleteId && r.athleteId !== leader.athleteId);
-  const gap = Math.round((leader.progress - live.progress) * 100);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,94,58,.14)', border: '1px solid rgba(255,94,58,.4)', borderRadius: 8 }}>
-          <span style={{ fontSize: 12, color: '#FF5E3A' }}>▶</span>
-          <NameFlag ath={liveAth} lang={lang} size={13} />
-          <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: '#FF5E3A' }}>{live.active ? 'LIVE' : (live.finished ? fmtMs(live.time) : `${Math.round(live.progress * 100)}%`)}</span>
-        </span>
-        {!same && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,214,10,.1)', border: '1px solid rgba(255,214,10,.3)', borderRadius: 8, opacity: .85 }}>
-            <span style={{ fontSize: 12 }}>👑</span>
-            <NameFlag ath={leadAth} lang={lang} size={12} />
-            <span style={{ ...mono, fontSize: 11, color: '#FFD60A' }}>{leader.finished ? fmtMs(leader.time) : `${Math.round(leader.progress * 100)}%`}</span>
-          </span>
-        )}
-        {!same && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : (lang === 'de' ? '▲ führt' : '▲ leads')}</span>}
-      </div>
-      <DuelTrack live={live} liveIdx={liveIdx} leader={leader} leaderIdx={0} obs={obs} totalCP={totalCP} demoT={demoT} />
-      {others.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {others.slice(0, 4).map(r => {
-            const a = athletesMap?.[r.athleteId];
-            const rIdx = runners.findIndex(x => x.athleteId === r.athleteId);
-            return (
-              <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <span style={{ ...mono, fontSize: 12, fontWeight: 800, color: rIdx < 3 ? MEDAL[rIdx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{rIdx + 1}</span>
-                <div style={{ width: 88, minWidth: 0, flexShrink: 0 }}><NameFlag ath={a} lang={lang} size={11} /></div>
-                <div style={{ flex: 1, minWidth: 0 }}><TrackRow r={r} idx={rIdx} obs={obs} totalCP={totalCP} demoT={demoT} size="sm" /></div>
-                <span style={{ ...mono, fontSize: 10, color: r.finished ? 'var(--green)' : 'rgba(255,255,255,.4)', width: 36, textAlign: 'right', flexShrink: 0 }}>{r.finished ? fmtMs(r.time) : `${Math.round(r.progress * 100)}%`}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+// ── 13. Ninja-Race — prozedurale Spielfiguren in EINER Landschaft (Modul: NinjaRace.jsx) ─
+// Athlet → stabiler Figuren-Index (Farbe) via Hash
+const athIdx = id => { let h = 0; const s = String(id || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 16; };
+// Demo-Ablauf: EIN Läufer wandert 0→1, hält an jedem Hindernis (zeigt die Aktion), jubelt am Ziel · loopt.
+const buildDemoPlan = (course) => {
+  const runMs = 820, dwellMs = 1100, phases = []; let prev = 0;
+  course.forEach(c => { phases.push({ dur: runMs, from: prev, to: c.at }); phases.push({ dur: dwellMs, from: c.at, to: c.at }); prev = c.at; });
+  phases.push({ dur: runMs, from: prev, to: 1 });
+  const total = phases.reduce((s, ph) => s + ph.dur, 0);
+  return { total, at: (t) => { if (t >= total) return { p: 1, done: true }; let acc = 0; for (const ph of phases) { if (t < acc + ph.dur) return { p: ph.from + (ph.to - ph.from) * ((t - acc) / ph.dur), done: false }; acc += ph.dur; } return { p: 1, done: false }; } };
 };
 const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, cats, lang }) => {
   const activeRuns = useFbVal(`ogn/${compId}/activeRuns`);
   const stage = mainStage(pipelineData, cats);
   const obs = obsList(stage);
   const totalCP = Math.max(1, obs.length);
-  const [demoStart, setDemoStart] = useState(null);
-  const [spotMode, setSpotMode] = useState(false);
+  const [demo, setDemo] = useState(false);
+  const demoStart = useRef(0);
   const [, force] = useState(0);
   useEffect(() => {
-    if (demoStart == null) return;
+    if (!demo) return;
     let id; const tick = () => { force(n => (n + 1) % 1000000); id = requestAnimationFrame(tick); };
     id = requestAnimationFrame(tick); return () => cancelAnimationFrame(id);
-  }, [demoStart]);
-  const demoT = demoStart != null ? performance.now() - demoStart : null;
-  const completedList = runArr(completedRuns).filter(r => inCats(r.catId, cats) && ((r.doneCP && r.doneCP.length) || r.finalTime));
-  const hasCompleted = completedList.length > 0;
-  const endOf = r => r.finalTime || (r.doneCP?.[r.doneCP.length - 1]?.time) || 0;
-  let runners, demoDone = false;
-  if (demoT != null) {
-    const byA = {};
-    completedList.forEach(r => { const t = r.finalTime || 1e9; if (!(r.athleteId in byA) || t < (byA[r.athleteId].finalTime || 1e9)) byA[r.athleteId] = r; });
-    const list = Object.values(byA); const maxT = Math.max(1, ...list.map(endOf));
-    demoDone = demoT > maxT + 1200;
-    runners = list.map(r => ({ athleteId: r.athleteId, progress: replayProgress(r, demoT, r.totalCPs || totalCP), finished: demoT >= endOf(r), time: r.finalTime || Infinity, active: demoT < endOf(r) })).sort((a, b) => b.progress - a.progress || a.time - b.time).slice(0, 8);
-  } else {
-    const byAth = {};
-    runArr(completedRuns).filter(r => inCats(r.catId, cats)).forEach(r => {
-      const tot = r.totalCPs || totalCP; const prog = r.status === 'complete' ? 1 : Math.min(0.98, (r.doneCP?.length || 0) / tot);
-      const cand = { athleteId: r.athleteId, progress: prog, finished: r.status === 'complete', time: r.finalTime || Infinity, active: false };
-      if (!byAth[r.athleteId] || cand.progress > byAth[r.athleteId].progress || (cand.finished && cand.time < byAth[r.athleteId].time)) byAth[r.athleteId] = cand;
-    });
-    Object.values(activeRuns || {}).filter(r => r && typeof r === 'object' && inCats(r.catId, cats)).forEach(r => {
-      const cp = r.doneCPCount != null ? r.doneCPCount : (r.doneCP?.length || 0);
-      byAth[r.athleteId] = { athleteId: r.athleteId, progress: Math.min(0.98, cp / totalCP), finished: false, time: Infinity, active: true };
-    });
-    const all = Object.values(byAth);
-    runners = [...all.filter(r => r.active).sort((a, b) => b.progress - a.progress), ...all.filter(r => !r.active).sort((a, b) => b.progress - a.progress || a.time - b.time)].slice(0, 8).sort((a, b) => b.progress - a.progress || a.time - b.time);
+  }, [demo]);
+  // Rangliste aus abgeschlossenen + aktiven Läufen
+  const byAth = {};
+  runArr(completedRuns).filter(r => inCats(r.catId, cats)).forEach(r => {
+    const tot = r.totalCPs || totalCP; const prog = r.status === 'complete' ? 1 : Math.min(0.98, (r.doneCP?.length || 0) / tot);
+    const cand = { athleteId: r.athleteId, progress: prog, finished: r.status === 'complete', time: r.finalTime || Infinity, active: false };
+    if (!byAth[r.athleteId] || cand.progress > byAth[r.athleteId].progress || (cand.finished && cand.time < byAth[r.athleteId].time)) byAth[r.athleteId] = cand;
+  });
+  Object.values(activeRuns || {}).filter(r => r && typeof r === 'object' && inCats(r.catId, cats)).forEach(r => {
+    const cp = r.doneCPCount != null ? r.doneCPCount : (r.doneCP?.length || 0);
+    byAth[r.athleteId] = { athleteId: r.athleteId, progress: Math.min(0.98, cp / totalCP), finished: false, time: Infinity, active: true };
+  });
+  const all = Object.values(byAth).map(r => ({ ...r, idx: athIdx(r.athleteId) }));
+  const runners = [...all.filter(r => r.active).sort((a, b) => b.progress - a.progress), ...all.filter(r => !r.active).sort((a, b) => b.progress - a.progress || a.time - b.time)].slice(0, 12).sort((a, b) => b.progress - a.progress || a.time - b.time);
+  const completedList = runArr(completedRuns).filter(r => inCats(r.catId, cats) && r.finalTime);
+  const hasRunners = runners.length > 0;
+  // Demo-Subjekt = schnellster Lauf
+  const bestRun = completedList.slice().sort((a, b) => (a.finalTime || 9e9) - (b.finalTime || 9e9))[0];
+  const demoId = bestRun?.athleteId || runners[0]?.athleteId;
+  const plan = buildDemoPlan(COURSE);
+  let featured = null, leader = null, demoT = null, demoDone = false;
+  if (demo && demoId) {
+    demoT = performance.now() - demoStart.current;
+    if (demoT > plan.total + 3600) { demoStart.current = performance.now(); demoT = 0; }
+    const st = plan.at(demoT); demoDone = st.done;
+    featured = { athleteId: demoId, idx: athIdx(demoId), progress: st.p, finished: st.done, active: !st.done, time: bestRun?.finalTime || Infinity };
+  } else if (hasRunners) {
+    leader = runners[0];
+    featured = runners.find(r => r.active) || runners[0];
   }
-  const anyLive = demoT == null && runners.some(r => r.active);
-  const btnSt = (on, col) => ({ ...mono, fontSize: 10.5, fontWeight: 800, letterSpacing: '.03em', padding: '4px 10px', borderRadius: 13, cursor: 'pointer', border: `1px solid ${col}66`, background: on ? `${col}22` : 'transparent', color: col });
+  const btnSt = (on, col) => ({ ...mono, fontSize: 10.5, fontWeight: 800, letterSpacing: '.03em', padding: '4px 11px', borderRadius: 13, cursor: 'pointer', border: `1px solid ${col}66`, background: on ? `${col}22` : 'transparent', color: col });
+  const anyLive = !demo && runners.some(r => r.active);
   const rightSlot = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-      {demoT != null ? <span style={{ color: demoDone ? 'var(--green)' : '#FF8A5E', fontSize: 11, fontWeight: 700 }}>{demoDone ? (lang === 'de' ? '✓ fertig' : '✓ done') : fmtMs(Math.round(demoT))}</span> : (anyLive ? <span style={{ color: '#FF5E3A', fontSize: 11, fontWeight: 800 }}>● LIVE</span> : null)}
-      <button onClick={() => setSpotMode(s => !s)} style={btnSt(spotMode, spotMode ? '#5AB3FF' : 'rgba(255,255,255,.45)')}>{spotMode ? '≡ Race' : '◉ Spot'}</button>
-      {hasCompleted && <button onClick={() => setDemoStart(demoStart != null ? null : performance.now())} style={btnSt(demoStart != null, demoStart != null ? '#FF6B6B' : '#FF8A5E')}>{demoStart != null ? '■ Live' : '▶ Demo'}</button>}
+      {demo ? <span style={{ color: demoDone ? 'var(--green)' : '#FF8A5E', fontSize: 11, fontWeight: 800 }}>{demoDone ? '🎉' : '▶ DEMO'}</span> : (anyLive ? <span style={{ color: '#FF5E3A', fontSize: 11, fontWeight: 800 }}>● LIVE</span> : null)}
+      {(hasRunners || completedList.length > 0) && <button onClick={() => { if (!demo) demoStart.current = performance.now(); setDemo(d => !d); }} style={btnSt(demo, demo ? '#FF6B6B' : '#FF8A5E')}>{demo ? '■ Stop' : '▶ Demo'}</button>}
     </span>
   );
-  if (runners.length === 0) return <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={rightSlot}><Empty msg={lang === 'de' ? 'Noch keine Läufer' : 'No runners yet'} /></Shell>;
+  if (!featured) return <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={rightSlot}><Empty msg={lang === 'de' ? 'Noch keine Läufer' : 'No runners yet'} /></Shell>;
+  const fAth = athletesMap?.[featured.athleteId];
+  const lAth = leader && leader.athleteId !== featured.athleteId ? athletesMap?.[leader.athleteId] : null;
+  const gap = lAth ? Math.round((leader.progress - featured.progress) * 100) : 0;
   return (
     <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={rightSlot}>
-      <style>{RACE_ANIMS}</style>
-      {spotMode
-        ? <SpotlightView runners={runners} athletesMap={athletesMap} obs={obs} totalCP={totalCP} demoT={demoT} lang={lang} />
-        : <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {runners.map((r, idx) => {
-              const ath = athletesMap?.[r.athleteId];
-              return (
-                <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 7, background: idx === 0 ? 'rgba(255,214,10,.06)' : 'transparent', borderRadius: 9, padding: '1px 4px' }}>
-                  <span style={{ ...mono, fontSize: 13, fontWeight: 800, color: idx < 3 ? MEDAL[idx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                  <div style={{ width: 126, flexShrink: 0, minWidth: 0 }}><NameFlag ath={ath} lang={lang} size={12} /></div>
-                  <div style={{ flex: 1, minWidth: 50 }}><TrackRow r={r} idx={idx} obs={obs} totalCP={totalCP} demoT={demoT} size="sm" /></div>
-                  <span style={{ ...mono, fontSize: 11, fontWeight: 700, color: r.finished ? 'var(--green)' : r.active ? '#FF5E3A' : 'rgba(255,255,255,.45)', width: 48, textAlign: 'right', flexShrink: 0 }}>
-                    {r.finished ? (r.time !== Infinity ? fmtMs(r.time) : '✓') : (demoT != null ? `${Math.round(r.progress * 100)}%` : (r.active ? 'live' : `${Math.round(r.progress * 100)}%`))}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-      }
+      <RaceStyles />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,94,58,.14)', border: '1px solid rgba(255,94,58,.4)', borderRadius: 8 }}>
+            <span style={{ width: 9, height: 9, borderRadius: '50%', background: RACE_PALETTE[featured.idx][0] }} />
+            <NameFlag ath={fAth} lang={lang} size={13} />
+            <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: '#FF5E3A' }}>{demo ? (demoDone ? '🎉' : `${Math.round(featured.progress * 100)}%`) : (featured.active ? 'LIVE' : (featured.finished ? fmtMs(featured.time) : `${Math.round(featured.progress * 100)}%`))}</span>
+          </span>
+          {lAth && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,214,10,.1)', border: '1px solid rgba(255,214,10,.3)', borderRadius: 8, opacity: .85 }}>
+              <span style={{ fontSize: 12 }}>👑</span>
+              <NameFlag ath={lAth} lang={lang} size={12} />
+              <span style={{ ...mono, fontSize: 11, color: '#FFD60A' }}>{leader.finished ? fmtMs(leader.time) : `${Math.round(leader.progress * 100)}%`}</span>
+            </span>
+          )}
+          {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
+        </div>
+        <RaceScene featured={featured} leader={demo ? null : leader} demoT={demoT} lang={lang} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {runners.slice(0, 8).map((r, idx) => {
+            const ath = athletesMap?.[r.athleteId];
+            const hi = r.athleteId === featured.athleteId && !demo;
+            return (
+              <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 6px', borderRadius: 7, background: hi ? 'rgba(255,94,58,.1)' : idx === 0 ? 'rgba(255,214,10,.05)' : 'transparent' }}>
+                <span style={{ ...mono, fontSize: 12, fontWeight: 800, color: idx < 3 ? MEDAL[idx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: RACE_PALETTE[r.idx][0], flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}><NameFlag ath={ath} lang={lang} size={12} /></div>
+                <span style={{ ...mono, fontSize: 11, fontWeight: 700, color: r.finished ? 'var(--green)' : r.active ? '#FF5E3A' : 'rgba(255,255,255,.45)', flexShrink: 0 }}>
+                  {r.finished ? (r.time !== Infinity ? fmtMs(r.time) : '✓') : (r.active ? 'live' : `${Math.round(r.progress * 100)}%`)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </Shell>
   );
 };
