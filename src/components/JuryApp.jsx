@@ -362,6 +362,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   // onFall/onComplete — not the instance captured at mount — avoiding stale lives/falls being written.
   const onFallRef=useRef(onFall);onFallRef.current=onFall;
   const onCompleteRef=useRef(onComplete);onCompleteRef.current=onComplete;
+  const resetActiveRef=useRef(resetActiveProp);resetActiveRef.current=resetActiveProp;
   // Auto-stop when time limit expires — treated as fall at the time limit
   useEffect(()=>{
     if(!timeLimitMs)return;
@@ -395,6 +396,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   useEffect(()=>{
     if(!BLE.isConnected(stNum))return;
     const buzzerStop=()=>{
+      if(resetActiveRef.current)return;   // kein Finish-Buzzer während Sturz-Reset
       const t=Math.round(performance.now()-startPerf);
       SFX.complete();vib(200);
       onCompleteRef.current({doneCP:doneCPRef.current,finalTime:t,lives,protested:false});
@@ -403,7 +405,7 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
     return()=>BLE.onPress(stNum,null);
   },[stNum,startPerf,lives]);
   const handleCP=()=>{
-    if(allDone)return;
+    if(allDone||resetActiveProp)return;   // CP gesperrt während 10s-Sturz-Countdown
     SFX.checkpoint();if(navigator.vibrate)navigator.vibrate(50);setFlash(true);setTimeout(()=>setFlash(false),320);
     const t=Math.round(performance.now()-startPerf);
     const firstTime=cpFirstTimes.current[nextCp.id]??t;
@@ -544,9 +546,10 @@ const JuryActive=({compId,stNum,activeRunKey,athlete,obstacles,info,lives,maxLiv
   );
 };
 
-const ResetCountdown=({frozenTime,onDone,onEndRun})=>{
+const ResetCountdown=({startPerf,onDone,onEndRun})=>{
   const {lang}=useLang();
   const [count,setCount]=useState(10);
+  const live=useTimer(true,startPerf);   // Zeit läuft im Hintergrund weiter
   useEffect(()=>{
     if(count<=0){SFX.resetGo();onDone();return;}
     // Acoustic signal: gentle ticks, encouraging chirps in last 3
@@ -556,10 +559,10 @@ const ResetCountdown=({frozenTime,onDone,onEndRun})=>{
   },[count]);
   return(
     <div style={{position:'fixed',inset:0,zIndex:160,background:'rgba(0,0,0,.88)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10}}>
-      <div style={{fontSize:11,color:'rgba(255,255,255,.4)',letterSpacing:'.14em',textTransform:'uppercase'}}>{lang==='de'?'Hinderniss-Reset':'Obstacle Reset'}</div>
-      <div style={{fontSize:96,fontWeight:900,color:count<=3?'var(--red)':'var(--gold)',fontFamily:'JetBrains Mono',lineHeight:1,transition:'color .3s'}}>{count}</div>
-      <div style={{fontSize:11,color:'rgba(255,255,255,.3)',marginTop:2}}>{lang==='de'?'Timer läuft danach weiter':'Timer resumes after this'}</div>
-      <div className="timer-grad" style={{fontSize:32,marginTop:6}}>{fmtMs(frozenTime)}</div>
+      <div style={{fontSize:11,color:'rgba(255,255,255,.4)',letterSpacing:'.14em',textTransform:'uppercase'}}>{lang==='de'?'Sturz · Reset':'Fall · Reset'}</div>
+      <div style={{fontSize:96,fontWeight:900,color:count<=3?'var(--green)':'var(--gold)',fontFamily:'JetBrains Mono',lineHeight:1,transition:'color .3s'}}>{count}</div>
+      <div style={{fontSize:11,color:'rgba(255,255,255,.3)',marginTop:2}}>{lang==='de'?'Checkpoint gesperrt · Zeit läuft weiter':'Checkpoint locked · time keeps running'}</div>
+      <div className="timer-grad" style={{fontSize:32,marginTop:6}}>{fmtMs(live)}</div>
       {count<=3&&<div style={{fontSize:14,fontWeight:800,color:'var(--green)',marginTop:8,animation:'pulse 0.8s infinite'}}>{lang==='de'?'BEREIT MACHEN!':'GET READY!'}</div>}
       {onEndRun&&<button className="btn" style={{marginTop:24,padding:'14px 32px',fontSize:15,gap:8,borderRadius:14,background:'rgba(255,59,48,.2)',border:'2px solid rgba(255,59,48,.5)',color:'#FF3B6B'}} onClick={onEndRun}>
         <I.StopOct s={15}/> {lang==='de'?'Lauf beenden':'End run'}
@@ -939,13 +942,15 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
   const obstArr=obstacles?Object.values(obstacles).sort((a,b)=>a.order-b.order):[];
   const cpObst=obstArr.filter(o=>o.isCP||isPlatformObs(o));
 
-  const handleStart=ath=>{SFX.wake();setCurrentAth(ath);setLives(isInfinityLives?999:effectiveLives);setActiveFalls([]);setGoTime(null);setPhase('countdown');};
+  const handleStart=ath=>{SFX.wake();setCurrentAth(ath);setLives(isInfinityLives?999:effectiveLives);setActiveFalls([]);setGoTime(null);setFallFreezeTime(null);setResetActive(false);setPhase('countdown');};
   const handleDsqAth=async(ath)=>{
     const result=clean({athleteId:ath.id,athleteName:ath.name,catId:ath.cat||catId,stNum,...(isPipeline?{stageId}:{}),mode:info.mode||'cp',doneCP:[],totalCPs:cpObst.length,finalTime:0,lives:isInfinityLives?999:effectiveLives,falls:0,status:'dsq',timestamp:Date.now()});
     const rk=uid();await fbSet(`ogn/${compId}/completedRuns/${rk}`,result);SFX.click();
   };
   // goTime = performance.now() at the exact moment the GO horn fired — used as timer origin
-  const handleGo=(gt)=>{setGoTime(gt);setPhase('active');};
+  // Jeder neue Lauf startet GARANTIERT entfroren (fallFreezeTime/resetActive aus vorherigem Lauf leeren)
+  // → behebt „grosse Zeitanzeige eingefroren" bei Laufstart (Leak über Sturz/Timeout hinweg).
+  const handleGo=(gt)=>{setGoTime(gt);setFallFreezeTime(null);setResetActive(false);setPhase('active');};
   // Fall: Extra Life mode → immediate reset + decide during countdown
   //       Classic mode → open FallModal immediately (old behavior)
   const handleFall=data=>{
@@ -1105,7 +1110,7 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
           {buzzerName?buzzerName:(lang==='de'?'Buzzer verbinden':'Connect buzzer')}
         </button>
       </div>}
-      {resetActive&&fallFreezeTime!=null&&<ResetCountdown frozenTime={fallFreezeTime} onDone={handleResetDone} onEndRun={info.mode==='lives'?handleEndRun:null}/>}
+      {resetActive&&<ResetCountdown startPerf={goTime} onDone={handleResetDone} onEndRun={info.mode==='lives'?handleEndRun:null}/>}
       {fallModal&&phase==='active'&&(
         <FallModal athlete={currentAth} doneCP={fallModal.doneCP} cpObst={cpObst} obstArr={obstArr} currentTime={fallModal.currentTime}
           mode={info.mode} lives={lives} reason={fallModal.reason}
