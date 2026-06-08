@@ -784,11 +784,11 @@ const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=fa
       const skillRanking=/2$/.test(catId)&&skillScores?skillRankingOf(catId,athMap,skillScores,info?.skillPhase?.skills||[],(info?.skillPhase?.type||'oldschool')==='oldschool'):[];
       const ov=computeDivisionOverall(catId,{runList,pipelineStages:pipeStages,skillRanking,computeStageFn:computeRankedPipeline});
       ranked=ov.ranked; ovMode=ov.mode;
-      if(ov.cutLine>0&&ov.cutLine<ranked.length){cutLine=ov.cutLine;cutLabel='Finalqualifikation';}
+      if(ov.cutLine>0&&ov.cutLine<ranked.length){cutLine=ov.cutLine;cutLabel='Finalisten';}
       const ovStage=(ov.stageIds&&ov.stageIds.length)?pipeStages.find(s=>s.id===ov.stageIds[ov.stageIds.length-1]):null;
-      if(ov.mode==='lk1') stageTitle=(ovStage?.name||'Final');
-      else if(ov.mode==='lk2') stageTitle='Skills + '+(ovStage?.name||'Final');
-      else stageTitle=(ovStage?.name||'');
+      if(ov.mode==='lk1') stageTitle='Gesamt';
+      else if(ov.mode==='lk2') stageTitle='Gesamt · Skills + Final';
+      else stageTitle='Gesamt';
     }
   }else{ranked=catId?computeRanked(runList,catId):[];}
   const isLk2=ovMode==='lk2';
@@ -917,7 +917,7 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
   const bandSkills=band?skills.filter(sk=>band.includes(sk.difficulty||'medium')):skills;
   const ranked=athList.filter(a=>a.cat===catId).map(a=>({...a,skillTotal:computeTotal(a.id)})).sort((a,b)=>b.skillTotal-a.skillTotal);
   const podCol=['#FFD60A','#C0C0C0','#CD7F32'];
-  const lvlOf=s=>s?.a1===true?1:s?.a2===true?2:s?.a3===true?3:0;const lvlCol=l=>l===1?'#30D158':l===2?'#FFD60A':l===3?'#FF9500':null;
+  const lvlOf=s=>s?.a1===true?1:s?.a2===true?2:s?.a3===true?3:0;const DIFF_COL={easy:'#30D158',medium:'#FF9F0A',hard:'#FF3B30'};
   return(
     <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,flexShrink:0}}>
@@ -934,7 +934,7 @@ const SkillStandings=({compId,info,athletesMap,tvMode,lang})=>{
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:tvMode?14:12,fontWeight:i<3?700:500,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.country?toFlag(a.country)+' ':''}{a.name||'?'}{(()=>{const ag=ageOnDate(a.birthdate,info?.date);return ag!=null?<span style={{fontWeight:700,color:'var(--muted)',fontSize:tvMode?11:9,marginLeft:4}}>· {ag}J</span>:null;})()}</div>
                 {bandSkills.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:tvMode?3:2,marginTop:2}}>
-                  {bandSkills.map(sk=>{const l=lvlOf(skillScores?.[a.id]?.[sk.id]);const col=lvlCol(l);return<span key={sk.id} title={`${sk.name||''}${l?` · v${l} ✓`:''}`} style={{minWidth:tvMode?15:11,height:tvMode?15:11,padding:'0 2px',borderRadius:3,background:col?`${col}26`:'transparent',border:`1.5px solid ${col||'rgba(255,255,255,.16)'}`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?9:7,fontWeight:900,color:col||'rgba(255,255,255,.25)',fontFamily:'JetBrains Mono',flexShrink:0}}>{l||''}</span>;})}
+                  {bandSkills.map(sk=>{const l=lvlOf(skillScores?.[a.id]?.[sk.id]);const dc=DIFF_COL[sk.difficulty||'medium'];return<span key={sk.id} title={`${sk.name||''} · ${sk.difficulty||'medium'}${l?` · v${l} ✓`:''}`} style={{minWidth:tvMode?15:11,height:tvMode?15:11,padding:'0 2px',borderRadius:3,background:l?`${dc}40`:'transparent',border:`1.5px solid ${l?dc:dc+'55'}`,display:'inline-flex',alignItems:'center',justifyContent:'center',fontSize:tvMode?9:7,fontWeight:900,color:l?'#fff':dc+'88',fontFamily:'JetBrains Mono',flexShrink:0}}>{l||''}</span>;})}
                 </div>}
               </div>
               <span style={{fontSize:tvMode?15:12,fontFamily:'JetBrains Mono',fontWeight:800,color:i<3?podCol[i]:'rgba(255,255,255,.7)',flexShrink:0}}>{a.skillTotal}<span style={{fontSize:8,opacity:.5,marginLeft:1}}>P</span></span>
@@ -986,6 +986,38 @@ const SkillCompletionToast=({skillScores,athletesMap,skills,tvMode,lang})=>{
   );
 };
 
+// ── Two independent skill-phase timers (LK1 + LK2, each e.g. 90 min) for the Phase-1 display.
+//    Mirrors SkillPhaseView's remaining-time math (start + pauses).
+const SkillTimersStrip=({timers,skillPhase,tvMode,lang})=>{
+  const [now,setNow]=useState(Date.now());
+  useEffect(()=>{const iv=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(iv);},[]);
+  const base=skillPhase?.timerMin||(skillPhase?.timerHrs?skillPhase.timerHrs*60:90);
+  const fmt=ms=>{const s=Math.max(0,Math.floor(ms/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+  const rows=['LK1','LK2'].map(gid=>{
+    const t=timers?.[gid]||{};
+    const durMin=(t.durationMin===0||t.durationMin)?t.durationMin:base, durMs=durMin*60000;
+    const startedAt=t.timerStartedAt||null, paused=!!t.paused, pausedTotal=t.pausedTotal||0, pausedAt=t.pausedAt||0;
+    const curPause=paused&&pausedAt?(now-pausedAt):0, started=!!startedAt&&durMs>0;
+    const remaining=started?Math.max(0,durMs-(now-startedAt-pausedTotal-curPause)):durMs;
+    return {gid,started,paused,closed:!!t.closed,remaining};
+  });
+  return(
+    <div style={{display:'flex',gap:tvMode?10:7,marginBottom:8,flexShrink:0}}>
+      {rows.map(r=>{
+        const crit=r.started&&!r.paused&&!r.closed&&r.remaining<300000;
+        const col=r.closed?'#8e8e93':r.paused?'#FF9F0A':!r.started?'rgba(255,255,255,.45)':crit?'#FF3B30':'#30D158';
+        const state=r.closed?(lang==='de'?'Beendet':'Done'):r.paused?(lang==='de'?'Pause':'Paused'):!r.started?(lang==='de'?'Bereit':'Ready'):crit?(lang==='de'?'Endspurt':'Final push'):(lang==='de'?'läuft':'running');
+        return(
+          <div key={r.gid} style={{flex:1,display:'flex',alignItems:'center',gap:tvMode?10:7,padding:tvMode?'8px 14px':'6px 10px',borderRadius:10,background:`${col}14`,border:`1px solid ${col}40`}}>
+            <div style={{fontSize:tvMode?15:12,fontWeight:900,color:col,letterSpacing:'.02em'}}>{r.gid}</div>
+            <div style={{flex:1,fontFamily:'JetBrains Mono',fontSize:tvMode?26:19,fontWeight:900,color:col,letterSpacing:'-1px',lineHeight:1,...(crit?{animation:'pulse 1s infinite'}:{})}}>{r.closed?'✓':fmt(r.remaining)}</div>
+            <div style={{fontSize:tvMode?10:8.5,fontWeight:700,color:col,opacity:.85,textTransform:'uppercase',letterSpacing:'.05em'}}>{state}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 // ── Display Composer: one wrapper with a discoverable top-right picker to switch
 //    between display screens (Overview / Phase 1 / Live / Stats / Next-up / LK1 / LK2) + Home.
 const LK1_CATS=['km1','kw1','tm1','tw1'],LK2_CATS=['km2','kw2','tm2','tw2'];
@@ -1271,6 +1303,7 @@ const DisplayComposer=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
             {/* Left: live skill standings (LK1/LK2 auto-switch) — the parallel skill competition */}
             <div className="sh-card" style={{padding:'10px 12px 6px',minWidth:0,overflow:'hidden',display:'flex',flexDirection:'column',...(wide?{flex:'1.15',minHeight:0}:{})}}>
               <div style={{fontSize:12,fontWeight:800,color:'#FFD60A',marginBottom:6,letterSpacing:'.06em',flexShrink:0,display:'flex',alignItems:'center',gap:6}}><I.Target s={13} c="currentColor"/><span>{lang==='de'?'SKILL-WERTUNG':'SKILL STANDINGS'}</span></div>
+              <SkillTimersStrip timers={skillStatus?.timers} skillPhase={info?.skillPhase} tvMode={wide} lang={lang}/>
               <div style={{flex:1,minHeight:0,overflow:'hidden'}}><SkillStandings compId={compId} info={info} athletesMap={athletes} tvMode={wide} lang={lang}/></div>
             </div>
             {/* Right: Bambini run live + next-up (the parallel Bambini stages) */}
