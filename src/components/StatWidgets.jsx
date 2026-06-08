@@ -6,7 +6,7 @@ import { IGN_CATS } from '../config.js';
 import { fmtMs, toFlag, ageOnDate, skillTotalOf, skillRankingOf, computeRankedPipeline, computeDivisionOverall } from '../utils.js';
 import { I } from '../icons.jsx';
 import { useFbVal } from '../hooks.js';
-import { RaceScene, RaceStyles, RACE_PALETTE, COURSE } from './NinjaRace.jsx';
+import { RaceScene, RaceStyles, RACE_PALETTE } from './NinjaRace.jsx';
 
 // ── kleine Helfer ──────────────────────────────────────────────────────────
 const mono = { fontFamily: 'JetBrains Mono, monospace' };
@@ -517,14 +517,8 @@ const SkillTicker = ({ info, athletesMap, skillScores, cats, lang }) => {
 // ── 13. Ninja-Race — prozedurale Spielfiguren in EINER Landschaft (Modul: NinjaRace.jsx) ─
 // Athlet → stabiler Figuren-Index (Farbe) via Hash
 const athIdx = id => { let h = 0; const s = String(id || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 16; };
-// Demo-Ablauf: EIN Läufer wandert 0→1, hält an jedem Hindernis (zeigt die Aktion), jubelt am Ziel · loopt.
-const buildDemoPlan = (course) => {
-  const runMs = 820, dwellMs = 1100, phases = []; let prev = 0;
-  course.forEach(c => { phases.push({ dur: runMs, from: prev, to: c.at }); phases.push({ dur: dwellMs, from: c.at, to: c.at }); prev = c.at; });
-  phases.push({ dur: runMs, from: prev, to: 1 });
-  const total = phases.reduce((s, ph) => s + ph.dur, 0);
-  return { total, at: (t) => { if (t >= total) return { p: 1, done: true }; let acc = 0; for (const ph of phases) { if (t < acc + ph.dur) return { p: ph.from + (ph.to - ph.from) * ((t - acc) / ph.dur), done: false }; acc += ph.dur; } return { p: 1, done: false }; } };
-};
+// Demo: EIN Läufer durchquert den ganzen Parcours glatt (Dauer skaliert mit Hindernis-Anzahl), jubelt am Ziel · loopt.
+const easeInOut = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, cats, lang }) => {
   const activeRuns = useFbVal(`ogn/${compId}/activeRuns`);
   const stage = mainStage(pipelineData, cats);
@@ -556,13 +550,13 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   // Demo-Subjekt = schnellster Lauf
   const bestRun = completedList.slice().sort((a, b) => (a.finalTime || 9e9) - (b.finalTime || 9e9))[0];
   const demoId = bestRun?.athleteId || runners[0]?.athleteId;
-  const plan = buildDemoPlan(COURSE);
+  const demoMs = Math.min(28000, 11000 + obs.length * 600);   // Durchquerung skaliert mit Hindernis-Anzahl
   let featured = null, leader = null, demoT = null, demoDone = false;
   if (demo && demoId) {
     demoT = performance.now() - demoStart.current;
-    if (demoT > plan.total + 3600) { demoStart.current = performance.now(); demoT = 0; }
-    const st = plan.at(demoT); demoDone = st.done;
-    featured = { athleteId: demoId, idx: athIdx(demoId), progress: st.p, finished: st.done, active: !st.done, time: bestRun?.finalTime || Infinity };
+    if (demoT > demoMs + 3200) { demoStart.current = performance.now(); demoT = 0; }
+    const raw = Math.min(1, demoT / demoMs); const done = demoT >= demoMs; demoDone = done;
+    featured = { athleteId: demoId, idx: athIdx(demoId), progress: done ? 1 : easeInOut(raw), finished: done, active: !done, time: bestRun?.finalTime || Infinity };
   } else if (hasRunners) {
     leader = runners[0];
     featured = runners.find(r => r.active) || runners[0];
@@ -598,7 +592,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           )}
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
-        <RaceScene featured={featured} leader={demo ? null : leader} demoT={demoT} lang={lang} />
+        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoT={demoT} lang={lang} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {runners.slice(0, 8).map((r, idx) => {
             const ath = athletesMap?.[r.athleteId];
