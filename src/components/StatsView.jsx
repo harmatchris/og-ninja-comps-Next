@@ -592,9 +592,12 @@ const SkillStatsPanel=({compId,info,athletesMap,tvMode=false})=>{
   );
 };
 
-const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false,onlyCats=null,activeOnly=false,noSkillPanel=false})=>{
+const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=false,onlyCats=null,activeOnly=false,noSkillPanel=false,chart=null})=>{
   const {lang,catName}=useLang();
   const [chartTab,setChartTab]=useState('survival');
+  // `chart` prop erzwingt eine Einzel-Ansicht ohne Pillen (für Builder-Kacheln:
+  // 'survival' = Überlebensrate, 'ausfallrate' = Ausfallrate, 'buzzer' = Buzzer-Stats).
+  const effTab=chart||chartTab;
   // Load global obstacles AND per-stage obstacles (via the stages subtree)
   const globalObstacles=useFbVal(`ogn/${compId}/obstacles`);
   const allStations=useFbVal(`ogn/${compId}/stations`);
@@ -799,12 +802,12 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
     <div style={{padding:tvMode?'12px 0':'4px 0'}}>
       {/* Skill stats — TOP when skills are active */}
       {skillsActive&&!hideSkillPanel&&<div style={{marginBottom:tvMode?16:12}}><SkillStatsPanel compId={compId} info={info} athletesMap={athletesMap} tvMode={tvMode}/></div>}
-      {/* Chart type selector (applies to all stage sections) */}
-      <div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
+      {/* Chart-Auswahl-Pillen — bei erzwungenem chart (Builder-Kachel) ausgeblendet, spart Platz */}
+      {!chart&&<div style={{display:'flex',gap:5,marginBottom:tvMode?16:12,flexWrap:'wrap'}}>
         {tabs.map(({k,ic,lb})=>(
           <button key={k} style={{display:'flex',alignItems:'center',gap:5,padding:tvMode?'9px 14px':'7px 11px',borderRadius:20,border:`1px solid ${chartTab===k?'rgba(255,94,58,.4)':'var(--border)'}`,background:chartTab===k?'rgba(255,94,58,.14)':'transparent',color:chartTab===k?'var(--coral)':'var(--muted)',fontWeight:700,fontSize:tvMode?13:11,cursor:'pointer',transition:'all .15s'}} onClick={()=>setChartTab(k)}>{ic}{lb}</button>
         ))}
-      </div>
+      </div>}
 
       {/* One section per active stage — side by side on TV; stacked single-column on phone */}
       <div style={tvMode&&stageDataArr.length>=2?{
@@ -829,11 +832,9 @@ const StatsView=({compId,info,completedRuns,athletesMap,pipelineData,tvMode=fals
                   </div>
                 </div>
               )}
-              {chartTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr} allObs={allObs||obsArr} livesUsedPerObs={livesUsedPerObs||[]}/>}
-              {chartTab==='difficulty'&&<>
-                <DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>
-                <div style={{marginTop:tvMode?16:10}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>
-              </>}
+              {effTab==='survival'&&<SurvivalChart data={survivalData} tvMode={tvMode} liveRunners={liveRunners} obsArr={obsArr} allObs={allObs||obsArr} livesUsedPerObs={livesUsedPerObs||[]}/>}
+              {(effTab==='difficulty'||effTab==='ausfallrate')&&<DifficultyChart data={difficultyData} lang={lang} tvMode={tvMode}/>}
+              {(effTab==='difficulty'||effTab==='buzzer')&&<div style={{marginTop:effTab==='difficulty'?(tvMode?16:10):0}}><ProgressChart data={progressData} catName={catName} lang={lang} tvMode={tvMode}/></div>}
             </div>
           );
         })}

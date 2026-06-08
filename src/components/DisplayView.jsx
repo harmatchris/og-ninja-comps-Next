@@ -396,7 +396,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                     {(()=>{const msRanked=computeRankedMultiStage(runList,cat.id,catStageNums);return(
                       <div style={{borderRight:'1px solid rgba(255,255,255,.06)'}}>
                         <div style={{padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.04)',fontSize:10,fontWeight:700,color:'rgba(255,144,64,.7)',letterSpacing:'.06em',display:'flex',alignItems:'center',gap:5}}><I.Trophy s={9} c="rgba(255,144,64,.7)"/> Gesamt</div>
-                        <AutoScrollList itemCount={msRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 250px)">
+                        <AutoScrollList itemCount={msRanked.length} tvMode={true} topPause={5000} minItems={3} maxH={builderFill?"100%":"calc(100vh - 250px)"}>
                           {msRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
                             <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:5,padding:'6px 10px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.5:1}}>
                               <div style={{fontSize:10,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.22)',width:14,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
@@ -442,7 +442,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                               </div>
                             );
                           })()}
-                          <AutoScrollList itemCount={stRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 250px)">
+                          <AutoScrollList itemCount={stRanked.length} tvMode={true} topPause={5000} minItems={3} maxH={builderFill?"100%":"calc(100vh - 250px)"}>
                             {stRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
                               <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 10px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.5:1}}>
                                 <div style={{fontSize:10,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.25)',width:16,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
@@ -468,7 +468,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                       <div style={{fontFamily:'JetBrains Mono',fontSize:16,fontWeight:800,color:'#30D158',flexShrink:0}}>{liveRun.phase==='countdown'?'…':fmtMs(elapsed)}</div>
                     </div>
                   );})()}
-                  <AutoScrollList itemCount={catRanked.length} tvMode={true} topPause={5000} minItems={3} maxH="calc(100vh - 200px)">
+                  <AutoScrollList itemCount={catRanked.length} tvMode={true} topPause={5000} minItems={3} maxH={builderFill?"100%":"calc(100vh - 200px)"}>
                     {catRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';return(
                       <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:10,padding:i<3?'10px 16px':'7px 14px',borderBottom:'1px solid rgba(255,255,255,.03)',background:i===0?`${cat.color}09`:i<3?`${cat.color}04`:'transparent',opacity:isDsqR?.6:1}}>
                         {isDsqR?<div style={{fontSize:9,fontWeight:900,color:'#FF3B6B',width:22,textAlign:'center',flexShrink:0}}>DSQ</div>:i<3?<MedalBadge pos={i} s={i===0?28:22}/>:<div style={{width:22,height:22,borderRadius:'50%',background:'rgba(255,255,255,.04)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'rgba(255,255,255,.28)',flexShrink:0}}>{i+1}</div>}
@@ -515,7 +515,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                           <div style={{width:24,height:24,borderRadius:7,background:'linear-gradient(135deg,var(--cor),var(--cor2))',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,fontSize:12,color:'#fff',flexShrink:0}}>{stN}</div>
                           <div style={{fontSize:11,fontWeight:700,color:'rgba(255,255,255,.6)'}}>{info.stageNames?.[stN]||`Stage ${stN}`}</div>
                         </div>
-                        <AutoScrollList itemCount={stRanked.length} tvMode={false} topPause={5000} minItems={4} maxH="55vh">
+                        <AutoScrollList itemCount={stRanked.length} tvMode={false} topPause={5000} minItems={4} maxH={builderFill?"100%":"55vh"}>
                           {stRanked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};return(
                             <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:6,padding:'5px 12px',borderBottom:'1px solid rgba(255,255,255,.03)',opacity:r.status==='dsq'?.55:1}}>
                               <div style={{fontSize:11,fontWeight:800,color:i===0?medalColors[0]:i===1?medalColors[1]:i===2?medalColors[2]:'rgba(255,255,255,.3)',width:18,textAlign:'center',flexShrink:0}}>{r.status==='dsq'?'—':i+1}</div>
@@ -530,7 +530,7 @@ const DisplayView=({compId,onBack,onOpenJury,onBackToCoordinator})=>{
                   })}
                 </div>
               ):(
-                <AutoScrollList itemCount={ranked.length} tvMode={false} topPause={5000} minItems={4} maxH="72vh">
+                <AutoScrollList itemCount={ranked.length} tvMode={false} topPause={5000} minItems={4} maxH={builderFill?"100%":"72vh"}>
                   {ranked.map((r,i)=>{const a=athMap[r.athleteId]||{name:r.athleteName||'?',num:'?'};const isDsqR=r.status==='dsq';const isTop2=i<2;return(
                     <div key={r.athleteId} style={{display:'flex',alignItems:'center',gap:isTop2?12:8,padding:isTop2?'10px 14px':'6px 12px',borderRadius:isTop2?14:8,background:isDsqR?'rgba(255,59,80,.06)':i===0?`linear-gradient(135deg,${curCat.color}18,${curCat.color}06)`:i<3?`${curCat.color}08`:'rgba(255,255,255,.02)',border:i<3?`1px solid ${isDsqR?'rgba(255,59,80,.2)':curCat.color+(i===0?'30':'18')}`:'1px solid transparent',marginBottom:isTop2?6:2,opacity:isDsqR?.6:1}}>
                       {isDsqR?<div style={{width:28,height:28,borderRadius:'50%',background:'rgba(255,59,80,.12)',border:'1px solid rgba(255,59,80,.3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9,fontWeight:900,color:'#FF3B6B',flexShrink:0}}>DSQ</div>:i<3?<MedalBadge pos={i} s={isTop2?36:26}/>:<div style={{width:24,height:24,borderRadius:'50%',background:'rgba(255,255,255,.05)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,color:'rgba(255,255,255,.3)',flexShrink:0}}>{i+1}</div>}
@@ -751,7 +751,7 @@ const StageRecoveryBanner=({compId,onJoin,lang})=>{
 
 // ── Ranking towers: podium (2·1·3) per division, auto-switching divisions every 9s,
 //    with the full ranked list auto-scrolling below. onlyCats restricts to a league.
-const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=false,info=null,pipelineData=null,skillScores=null})=>{
+const RankingTowers=({completedRuns,athletesMap,onlyCats,tvMode,lang,noPodium=false,info=null,pipelineData=null,skillScores=null,builderFill=false})=>{
   const runList=completedRuns?Object.values(completedRuns):[];
   const athMap=athletesMap||{};
   let cats=[...new Set(runList.map(r=>r.catId).filter(Boolean))].filter(c=>IGN_CATS.find(x=>x.id===c));
@@ -1079,7 +1079,9 @@ const LiveRunStrip=({compId,info,athletesMap,pipelineData,onlyCats,tvMode,lang})
 const GRID_COLS=12,GRID_ROWS=12;
 const BUILDER_WIDGETS=[
   {type:'liverun', de:'Live-Lauf',     en:'Live Run', ic:I.Bolt},
-  {type:'survival',de:'Survival-Kurve',en:'Survival', ic:I.TrendUp},
+  {type:'survival',de:'Überlebensrate',en:'Survival', ic:I.TrendUp},
+  {type:'ausfallrate',de:'Ausfallrate',en:'Fall Rate', ic:I.BarChart},
+  {type:'buzzerstats',de:'Buzzer-Stats',en:'Buzzer Stats', ic:I.FlagCheck},
   {type:'nextup',  de:'Nächste Starts',en:'Next Up',  ic:I.SkipFwd},
   {type:'ranking', de:'Rangliste',     en:'Ranking',  ic:I.Trophy},
   {type:'skills',  de:'Skill-Wertung', en:'Skills',   ic:I.Target},
@@ -1100,9 +1102,11 @@ const DEFAULT_DISPLAY_LAYOUT=[
 const renderBuilderWidget=(it,dataProps,lang)=>{
   const cats=builderCatsFor(it.cats);
   switch(it.type){
-    case 'survival':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false}/>;
-    case 'nextup':  return <AthleteQueueView {...dataProps} onlyCats={cats} tvMode={false}/>;
-    case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium info={dataProps.info} pipelineData={dataProps.pipelineData} skillScores={dataProps.skillScores}/>;
+    case 'survival':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false} chart="survival"/>;
+    case 'ausfallrate':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false} chart="ausfallrate"/>;
+    case 'buzzerstats':return <StatsView {...dataProps} onlyCats={cats} activeOnly noSkillPanel tvMode={false} chart="buzzer"/>;
+    case 'nextup':  return <AthleteQueueView {...dataProps} onlyCats={cats} tvMode={false} builderFill/>;
+    case 'ranking': return <RankingTowers completedRuns={dataProps.completedRuns} athletesMap={dataProps.athletesMap} onlyCats={cats} tvMode={false} lang={lang} noPodium info={dataProps.info} pipelineData={dataProps.pipelineData} skillScores={dataProps.skillScores} builderFill/>;
     case 'skills':  return <SkillStandings compId={dataProps.compId} info={dataProps.info} athletesMap={dataProps.athletesMap} tvMode={false} lang={lang}/>;
     case 'liverun': return <LiveRunStrip {...dataProps} onlyCats={cats} tvMode={false} lang={lang}/>;
     default:return renderStatWidget(it.type,{...dataProps,cats,lang});

@@ -23,6 +23,34 @@ const activeDivs = (athletesMap, cats) => {
 };
 const skillCfg = info => ({ skills: info?.skillPhase?.skills || [], isOld: (info?.skillPhase?.type || 'oldschool') === 'oldschool' });
 
+// Füllt den Eltern-Container und scrollt langsam durch — bei kleineren Fenstern automatisch
+// mehr (fixe Pixel/Frame ⇒ mehr Overflow = längerer Lauf). Hin & zurück, mit Pause oben/unten.
+// Scrollt nur, wenn der Inhalt wirklich überläuft; passt sich live an Höhen-/Datenänderungen an.
+const AutoScroll = ({ children, speed = 0.4 }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    let pos = 0, dir = 1, pauseUntil = Date.now() + 2200, animId;
+    const tick = () => {
+      const el = ref.current;
+      if (el) {
+        const maxS = el.scrollHeight - el.clientHeight;
+        const now = Date.now();
+        if (maxS > 6) {
+          if (now >= pauseUntil) {
+            pos += speed * dir;
+            if (pos >= maxS) { pos = maxS; dir = -1; pauseUntil = now + 2600; }
+            else if (pos <= 0) { pos = 0; dir = 1; pauseUntil = now + 2600; }
+            el.scrollTop = pos;
+          }
+        } else { pos = 0; el.scrollTop = 0; }
+      }
+      animId = requestAnimationFrame(tick);
+    };
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [speed]);
+  return <div ref={ref} style={{ height: '100%', overflowY: 'hidden' }}>{children}</div>;
+};
 const Shell = ({ title, Icon, accent = '#FF5E3A', right, children }) => (
   <div style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, gap: 11 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
@@ -30,7 +58,7 @@ const Shell = ({ title, Icon, accent = '#FF5E3A', right, children }) => (
       <div style={{ fontSize: 13.5, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase', color: 'rgba(255,255,255,.92)' }}>{title}</div>
       {right != null && <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', fontWeight: 700, ...mono }}>{right}</div>}
     </div>
-    <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>{children}</div>
+    <div style={{ flex: 1, minHeight: 0 }}><AutoScroll>{children}</AutoScroll></div>
   </div>
 );
 const Empty = ({ msg }) => <div style={{ padding: '24px 12px', textAlign: 'center', color: 'rgba(255,255,255,.32)', fontSize: 13, fontWeight: 600 }}>{msg}</div>;

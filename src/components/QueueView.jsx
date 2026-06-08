@@ -32,7 +32,7 @@ const AutoScrollList=({children,itemCount,tvMode,topPause=3500,minItems=5,maxH=n
 };
 
 
-const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipelineData=null,onlyCats=null})=>{
+const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipelineData=null,onlyCats=null,builderFill=false})=>{
   const {lang,catName}=useLang();
   const allStations=useFbVal(`ogn/${compId}/stations`);
   const allActiveRuns=useFbVal(`ogn/${compId}/activeRuns`);
@@ -151,7 +151,7 @@ const AthleteQueueView=({compId,info,completedRuns,athletesMap,tvMode=false,pipe
                 <div style={{fontSize:tvMode?10:8,color:'var(--dim)',marginTop:1}}>{basisLabel}</div>
               </div>
             </div>
-            <AutoScrollList itemCount={queue.length} tvMode={tvMode}>
+            <AutoScrollList itemCount={queue.length} tvMode={tvMode} maxH={builderFill?'100%':null}>
               {queue.map((ath,i)=>{
                 const isNowRunning=ath.id===runningId;
                 const slotsAhead=i;
