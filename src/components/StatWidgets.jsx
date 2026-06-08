@@ -1,7 +1,7 @@
 // StatWidgets.jsx — zusätzliche Statistik-Kacheln für den Display-Builder.
 // Jede Kachel bekommt die dataProps {compId,info,completedRuns,athletesMap,pipelineData,skillScores}
 // plus cats (Divisions-Filter oder null = alle) und lang.
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { IGN_CATS } from '../config.js';
 import { fmtMs, toFlag, ageOnDate, skillTotalOf, skillRankingOf, computeRankedPipeline, computeDivisionOverall } from '../utils.js';
 import { I } from '../icons.jsx';
@@ -317,6 +317,173 @@ const SkillProgress = ({ info, athletesMap, skillScores, cats, lang }) => {
   );
 };
 
+// Parcours-Helfer (Hindernisliste der relevanten Stage)
+const obsList = stage => {
+  const o = stage?.obstacles; const arr = o ? (Array.isArray(o) ? o : Object.values(o)) : [];
+  return arr.filter(x => x && typeof x === 'object').sort((a, b) => (a.order || 0) - (b.order || 0));
+};
+const isPlat = o => o?.type === 'section' || /plattform|platform/i.test(o?.name || '');
+const mainStage = (pipelineData, cats) => {
+  const stages = Object.entries(pipelineData || {}).map(([id, s]) => ({ id, ...(s || {}) })).filter(s => s.obstacles);
+  const match = stages.filter(s => !Array.isArray(cats) || !cats.length || (Array.isArray(s.categories) && s.categories.some(c => cats.includes(c))));
+  return (match.length ? match : stages).sort((a, b) => obsList(b).length - obsList(a).length)[0] || null;
+};
+const rateColor = rate => `hsl(${Math.round(130 * (1 - Math.min(1, Math.max(0, rate))))}, 78%, 48%)`;
+
+// ── 9. Parcours-Heatmap — Sturzrate pro Hindernis entlang des Parcours ───────
+const ParcoursHeatmap = ({ completedRuns, pipelineData, cats, lang }) => {
+  const stage = mainStage(pipelineData, cats);
+  const obs = obsList(stage);
+  // Über ALLE passenden Läufe nach Hindernis-NAME aggregieren (Stages teilen denselben Parcours)
+  const runs = stage ? runArr(completedRuns).filter(r => inCats(r.catId, cats)) : [];
+  const stat = {}; obs.forEach(o => stat[o.name] = { fell: 0, done: 0 });
+  runs.forEach(r => {
+    new Set((r.doneCP || []).map(d => d.name).filter(Boolean)).forEach(n => { if (stat[n]) stat[n].done++; });
+    if (r.fellAt?.name && stat[r.fellAt.name] != null) stat[r.fellAt.name].fell++;
+  });
+  // Farbe relativ zum schwersten Hindernis skalieren (Raten sind absolut oft niedrig) → klarer Grün→Rot-Verlauf
+  const maxRate = Math.max(0.001, ...obs.filter(o => !isPlat(o)).map(o => { const s = stat[o.name] || { fell: 0, done: 0 }; const a = s.fell + s.done; return a ? s.fell / a : 0; }));
+  return (
+    <Shell title={lang === 'de' ? 'Parcours-Heatmap' : 'Course Heatmap'} Icon={I.BarChart} accent="#FF9F0A" right={runs.length ? `${runs.length} ${lang === 'de' ? 'Läufe' : 'runs'}` : null}>
+      {obs.length === 0 || runs.length === 0 ? <Empty msg={lang === 'de' ? 'Noch keine Läufe' : 'No runs yet'} /> : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, alignItems: 'stretch' }}>
+          {obs.map(o => {
+            if (isPlat(o)) return <div key={o.id} style={{ display: 'flex', alignItems: 'center', padding: '0 8px', borderRadius: 7, background: 'rgba(10,132,255,.14)', border: '1px solid rgba(10,132,255,.3)', fontSize: 10, fontWeight: 800, color: '#4DA3FF', letterSpacing: '.02em', whiteSpace: 'nowrap' }}>▮ {o.name.replace(/plattform\s*/i, 'P')}</div>;
+            const s = stat[o.name] || { fell: 0, done: 0 }; const att = s.fell + s.done; const rate = att ? s.fell / att : 0; const col = att ? rateColor(rate / maxRate) : '#3a3a44';
+            return (
+              <div key={o.id} title={`${o.name}: ${Math.round(rate * 100)}% (${s.fell}/${att})`} style={{ flex: '1 1 78px', minWidth: 70, background: col + '24', border: `1px solid ${col}66`, borderRadius: 9, padding: '7px 8px' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 5 }}>{o.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ ...mono, fontSize: 16, fontWeight: 800, color: col }}>{att ? Math.round(rate * 100) : '–'}{att ? '%' : ''}</span>
+                  {att > 0 && <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,.4)', ...mono }}>{s.fell}×</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Shell>
+  );
+};
+
+// ── 10. Segment-Bestzeiten — schnellster Abschnitt Plattform → Plattform ─────
+const SegmentSplits = ({ completedRuns, athletesMap, pipelineData, cats, lang }) => {
+  const stage = mainStage(pipelineData, cats);
+  const obs = obsList(stage);
+  const plats = obs.filter(isPlat);
+  // Plattformen über NAMEN matchen (obsIds können nach Duplizieren des Wettkampfs abweichen).
+  // Segmente zwischen aufeinanderfolgenden Plattformen, über alle passenden Läufe.
+  const runs = stage ? runArr(completedRuns).filter(r => inCats(r.catId, cats)) : [];
+  const platTime = (r, name) => { const d = (r.doneCP || []).find(x => x.name === name); return d ? d.time : null; };
+  const segs = [];
+  for (let i = 1; i < plats.length; i++) {
+    const a = plats[i - 1].name, b = plats[i].name;
+    let best = Infinity, who = null;
+    runs.forEach(r => { const t1 = platTime(r, a), t2 = platTime(r, b); if (t1 != null && t2 != null && t2 > t1) { const d = t2 - t1; if (d < best) { best = d; who = r.athleteId; } } });
+    if (best < Infinity) segs.push({ label: `P${i} → P${i + 1}`, best, who });
+  }
+  return (
+    <Shell title={lang === 'de' ? 'Segment-Bestzeiten' : 'Segment Records'} Icon={I.Clock} accent="#32ADE6">
+      {segs.length === 0 ? <Empty msg={lang === 'de' ? 'Noch keine Plattform-Zeiten' : 'No platform splits yet'} /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {segs.map((s, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 2px' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#32ADE6', ...mono, minWidth: 66, whiteSpace: 'nowrap' }}>{s.label}</span>
+              <span style={{ flex: 1, minWidth: 0 }}><NameFlag ath={athletesMap?.[s.who]} lang={lang} size={12.5} /></span>
+              <span style={{ ...mono, fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,.85)' }}>{fmtMs(s.best)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </Shell>
+  );
+};
+
+// ── 11. Skill-Trophäen-Matrix — Athleten × Skills, eingefärbt nach Level ─────
+const SkillMatrix = ({ info, athletesMap, skillScores, cats, lang }) => {
+  const { skills, isOld } = skillCfg(info);
+  const ranked = Object.keys(athletesMap || {}).filter(id => inCats(athletesMap[id]?.cat, cats))
+    .map(id => ({ id, ath: athletesMap[id], pts: skillTotalOf(skillScores?.[id], skills, isOld) }))
+    .filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts).slice(0, 14);
+  const lvlOpacity = s => !s ? 0 : (s.a1 || (s.poolScore > 0 && s.flashed)) ? 1 : s.a2 ? 0.62 : (s.a3 || s.poolScore > 0) ? 0.34 : 0;
+  return (
+    <Shell title={lang === 'de' ? 'Skill-Matrix' : 'Skill Matrix'} Icon={I.Grid} accent="#BF5AF2" right={`${skills.length} Skills`}>
+      {ranked.length === 0 || skills.length === 0 ? <Empty msg={lang === 'de' ? 'Noch keine Skills' : 'No skills yet'} /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {ranked.map(r => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 96, flexShrink: 0, minWidth: 0 }}><NameFlag ath={r.ath} lang={lang} size={11.5} /></span>
+              <div style={{ flex: 1, display: 'flex', gap: 3 }}>
+                {skills.map(sk => {
+                  const op = lvlOpacity(skillScores?.[r.id]?.[sk.id]); const col = DIFF_COL[sk.difficulty || 'medium'];
+                  return <span key={sk.id} title={sk.name} style={{ flex: 1, height: 15, borderRadius: 3, background: op ? col : 'rgba(255,255,255,.05)', opacity: op || 1 }} />;
+                })}
+              </div>
+              <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,.7)', width: 34, textAlign: 'right' }}>{r.pts}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 10, color: 'rgba(255,255,255,.45)' }}>
+            {['easy', 'medium', 'hard'].filter(d => skills.some(s => (s.difficulty || 'medium') === d)).map(d => (
+              <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: DIFF_COL[d] }} />{DIFF_LB[d][lang]}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </Shell>
+  );
+};
+
+// ── 12. Skill-Live-Ticker — Laufband gemeisterter Skills ─────────────────────
+const SkillTicker = ({ info, athletesMap, skillScores, cats, lang }) => {
+  const { skills } = skillCfg(info);
+  const skById = {}; skills.forEach(s => skById[s.id] = s);
+  const [feed, setFeed] = useState([]);
+  const seenRef = useRef(null);
+  useEffect(() => {
+    if (!skillScores || Object.keys(skillScores).length === 0) return; // erst seeden, wenn echte Daten da sind
+    const snap = {};
+    Object.keys(skillScores || {}).forEach(aid => {
+      if (!inCats(athletesMap?.[aid]?.cat, cats)) return;
+      Object.keys(skillScores[aid] || {}).forEach(sid => {
+        const s = skillScores[aid][sid]; const lvl = s?.a1 ? 'a1' : s?.a2 ? 'a2' : (s?.a3 || s?.poolScore > 0) ? 'a3' : null;
+        if (lvl) snap[`${aid}|${sid}`] = lvl;
+      });
+    });
+    if (seenRef.current === null) { // erstes Laden: Showcase = ein Highlight pro Athlet (bestes Level)
+      seenRef.current = snap;
+      const perAth = {};
+      Object.entries(snap).forEach(([k, lvl]) => { const aid = k.split('|')[0]; const rank = lvl === 'a1' ? 0 : lvl === 'a2' ? 1 : 2; if (!perAth[aid] || rank < perAth[aid].rank) perAth[aid] = { k, lvl, rank }; });
+      const seed = Object.values(perAth).sort((a, b) => a.rank - b.rank).slice(0, 12).map(({ k, lvl }) => { const [aid, sid] = k.split('|'); return { aid, sid, lvl, id: k }; });
+      setFeed(seed);
+      return;
+    }
+    const fresh = [];
+    Object.entries(snap).forEach(([k, lvl]) => { if (seenRef.current[k] !== lvl) { const [aid, sid] = k.split('|'); fresh.push({ aid, sid, lvl, id: k + ':' + lvl }); } });
+    seenRef.current = snap;
+    if (fresh.length) setFeed(f => [...fresh.reverse(), ...f].slice(0, 24));
+  }, [skillScores, cats]);
+  const LVL = { a1: { de: 'gemeistert', en: 'mastered', c: '#FFD60A' }, a2: { de: 'geschafft', en: 'cleared', c: '#30D158' }, a3: { de: 'versucht', en: 'tried', c: '#8E8E93' } };
+  return (
+    <Shell title={lang === 'de' ? 'Skill-Ticker' : 'Skill Ticker'} Icon={I.Bolt} accent="#FFD60A">
+      {feed.length === 0 ? <Empty msg={lang === 'de' ? 'Warte auf Skills…' : 'Waiting for skills…'} /> : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {feed.map((f, i) => {
+            const sk = skById[f.sid]; const lv = LVL[f.lvl] || LVL.a3; const dc = DIFF_COL[sk?.difficulty || 'medium'];
+            return (
+              <div key={f.id + i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 10px', borderRadius: 10, background: i === 0 ? lv.c + '14' : 'rgba(255,255,255,.03)', border: `1px solid ${i === 0 ? lv.c + '40' : 'transparent'}` }}>
+                <span style={{ width: 8, height: 8, borderRadius: 3, background: dc, flexShrink: 0 }} />
+                <span style={{ flex: 1, minWidth: 0 }}><NameFlag ath={athletesMap?.[f.aid]} lang={lang} size={12.5} /></span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '38%', color: 'rgba(255,255,255,.6)' }}>{sk?.name || '—'}</span>
+                <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: lv.c, flexShrink: 0 }}>{lv[lang]}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Shell>
+  );
+};
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 export const STAT_WIDGETS = [
   { type: 'obstaclekiller', de: 'Hindernis-Killer', en: 'Obstacle Killer', ic: I.XCircle },
@@ -327,6 +494,10 @@ export const STAT_WIDGETS = [
   { type: 'buzzerrate', de: 'Buzzer-Quote', en: 'Buzzer Rate', ic: I.FlagCheck },
   { type: 'agestats', de: 'Jüngste/Älteste', en: 'Youngest/Oldest', ic: I.User },
   { type: 'skillprogress', de: 'Skill-Fortschritt', en: 'Skill Progress', ic: I.TrendUp },
+  { type: 'heatmap', de: 'Parcours-Heatmap', en: 'Course Heatmap', ic: I.BarChart },
+  { type: 'segments', de: 'Segment-Bestzeiten', en: 'Segment Records', ic: I.Clock },
+  { type: 'skillmatrix', de: 'Skill-Matrix', en: 'Skill Matrix', ic: I.Grid },
+  { type: 'skillticker', de: 'Skill-Ticker', en: 'Skill Ticker', ic: I.Bolt },
 ];
 
 export const renderStatWidget = (type, props) => {
@@ -339,6 +510,10 @@ export const renderStatWidget = (type, props) => {
     case 'buzzerrate': return <BuzzerRate {...props} />;
     case 'agestats': return <AgeExtremes {...props} />;
     case 'skillprogress': return <SkillProgress {...props} />;
+    case 'heatmap': return <ParcoursHeatmap {...props} />;
+    case 'segments': return <SegmentSplits {...props} />;
+    case 'skillmatrix': return <SkillMatrix {...props} />;
+    case 'skillticker': return <SkillTicker {...props} />;
     default: return null;
   }
 };
