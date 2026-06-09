@@ -590,7 +590,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           )}
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
-        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} lang={lang} />
+        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} stageName={stage?.name || ''} lang={lang} />
       </div>
     </Shell>
   );

@@ -41,31 +41,43 @@ const ACTION_COLOR = { hang: '#ffc24b', swing: '#4fd1c5', climb: '#a78bfa', jump
 
 // ── Modulares Terrain-Level aus echten Hindernissen ───────────────────────────
 //    surface-Punkte {x px, y Frac 0..1 (0=oben,1=unten)}. base = Standard-Bodenlinie.
-export const buildLevel = (obs, VW) => {
-  const list = (obs || []).filter(Boolean).slice(0, 50);
-  const N = Math.max(list.length, 5);
-  const SP = VW * 0.66;
-  const startX = VW * 0.4, firstX = VW * 1.0, base = 0.80;
-  const items = [], pts = [];
+// Ist das Item eine Plattform/Section (aus den Stage-Daten)?
+const isPlatO = o => o?.type === 'section' || /plattform|platform|section/i.test(o?.name || '');
+// Stage-Struktur: Plattform-Pads (10%) + gestreckte Hindernis-Abschnitte (90%), die
+// den ganzen Bereich zwischen den Plattformen füllen. Speed=kurz/einfach, Final=wachsend/langsamer.
+export const buildLevel = (obs, VW, stageName = '') => {
+  const isSpeed = /speed/i.test(stageName), isFinal = /final/i.test(stageName);
+  const obstacles = (obs || []).filter(o => o && !isPlatO(o)).slice(0, 40);
+  const N = Math.max(obstacles.length, 4);
+  const base = 0.76, startX = VW * 0.32;
+  const pts = [], items = [], pads = [];
   const push = (x, y) => pts.push({ x, y });
-  push(0, base); push(startX + VW * 0.12, base);
-  let x = firstX;
+  push(0, base);
+  let x = startX;
+  const sPadW = VW * 0.08;                                  // Start-Plattform
+  pads.push({ x0: x - VW * 0.05, x1: x + sPadW, start: true });
+  push(x + sPadW, base); x += sPadW;
   for (let i = 0; i < N; i++) {
-    const o = list[i] || {}, vis = obsVisual(o), action = VIS_ACTION[vis], name = o.name || '';
-    push(x - SP * 0.34, base);
-    if (vis === 'gap') { const haz = ['lava', 'spike', 'pit'][i % 3]; const dep = haz === 'spike' ? 0.93 : 0.99; push(x - 28, base); push(x - 16, dep); push(x + 16, dep); push(x + 28, base); items.push({ x, vis, action, name, kind: 'gap', haz, dep }); }
-    else if (vis === 'beam') { const top = base - 0.19; push(x - 30, base); push(x - 24, top); push(x + 24, top); push(x + 30, base); items.push({ x, vis, action, name, kind: 'beam', topY: top }); }
-    else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 1.05; push(x - 34, base); push(x - 17, top); push(x + 17, top); push(x + 40, base); items.push({ x, vis, action, name, kind: 'climb', topY: top, tall: true, zone: 56 }); }
-    else if (vis === 'monkeybars' || vis === 'rings') { push(x - 32, base); push(x - 24, 0.99); push(x + 24, 0.99); push(x + 32, base); items.push({ x, vis, action, name, kind: 'hang', barY: base - 0.40 }); }
-    else if (vis === 'rope') { push(x - 50, base); push(x - 38, 0.99); push(x + 38, 0.99); push(x + 50, base); items.push({ x, vis, action, name, kind: 'swing', pivotY: 0.05 }); }
-    else { push(x - 20, base); push(x + 20, base); items.push({ x, vis, action, name, kind: 'run' }); }
-    x += SP;
+    const o = obstacles[i] || {}, vis = obsVisual(o), action = VIS_ACTION[vis], name = o.name || '';
+    const unitBase = isSpeed ? VW * 0.46 : VW * 0.62;
+    const grow = isFinal ? 1 + (i / N) * 0.85 : (isSpeed ? 1 : 1 + (i / N) * 0.22);   // Final: später länger
+    const unit = unitBase * grow, obsW = unit * 0.90, padW = unit * 0.10;             // 90/10
+    const x0 = x, x1 = x + obsW, xc = (x0 + x1) / 2, e = Math.min(22, obsW * 0.2);
+    if (vis === 'gap') { const haz = ['lava', 'spike', 'pit'][i % 3], dep = haz === 'spike' ? 0.92 : 0.99; push(x0, base); push(x0 + e, dep); push(x1 - e, dep); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'gap', haz, dep }); }
+    else if (vis === 'beam') { const top = base - 0.16; push(x0, base); push(x0 + 8, 0.95); push(x1 - 8, 0.95); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'beam', topY: top }); }
+    else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 0.52; push(x0, base); push(x0 + obsW * 0.30, top); push(x1 - obsW * 0.30, top); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'climb', topY: top }); }
+    else if (vis === 'monkeybars' || vis === 'rings') { push(x0, base); push(x0 + 10, 0.99); push(x1 - 10, 0.99); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'hang', barY: base - 0.42 }); }
+    else if (vis === 'rope') { push(x0, base); push(x0 + 12, 1.0); push(x1 - 12, 1.0); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'swing', pivotY: 0.03 }); }
+    else { push(x0, base); push(x1, base); items.push({ x0, x1, xc, vis, action, name, kind: 'run' }); }
+    x = x1;
+    pads.push({ x0: x, x1: x + padW });                     // Landeplattform
+    push(x, base); push(x + padW, base); x += padW;
   }
-  const lastX = x - SP, finishX = lastX + VW * 0.72;
-  push(finishX + VW * 0.1, base); const worldW = finishX + VW * 0.6; push(worldW, base);
+  const finishX = x + VW * 0.05;
+  push(finishX, base); const worldW = finishX + VW * 0.36; push(worldW, base);
   const ys = pts.map(p => p.y);
-  const yMin = Math.min(...ys) - 0.16, yMax = Math.max(...ys) + 0.06;   // Welt-Vertikal-Grenzen (Fraktionen)
-  return { N, SP, startX, firstX, finishX, worldW, items, pts, base, VW, yMin, yMax };
+  const yMin = Math.min(...ys) - 0.13, yMax = Math.max(...ys) + 0.06;
+  return { N, isSpeed, isFinal, startX, finishX, worldW, items, pads, pts, base, VW, yMin, yMax };
 };
 const surfYF = (x, lvl) => {
   const p = lvl.pts;
@@ -74,21 +86,23 @@ const surfYF = (x, lvl) => {
   return p[p.length - 1].y;
 };
 const progressToX = (p, lvl) => lvl.startX + Math.max(0, Math.min(1, p)) * (lvl.finishX - lvl.startX);
-const nearestItem = (x, lvl) => { let best = null, bd = Infinity; for (const it of lvl.items) { const z = it.zone || lvl.SP * 0.4; const d = Math.abs(x - it.x); if (d <= z && d < bd) { bd = d; best = it; } } return best; };
-export const getRunnerAction = (worldX, lvl, finished) => { if (finished) return 'celebrate'; const it = nearestItem(worldX, lvl); return it ? it.action : 'run'; };
+// Aktueller Hindernis-Abschnitt (Aktion füllt den ganzen Bereich zwischen den Plattformen)
+const currentSeg = (x, lvl) => { for (const it of lvl.items) if (x >= it.x0 && x <= it.x1) return it; return null; };
+const nearestItem = currentSeg;
+export const getRunnerAction = (worldX, lvl, finished) => { if (finished) return 'celebrate'; const it = currentSeg(worldX, lvl); return it ? it.action : 'run'; };
 
-// ── Demo-Timeline: rennt, HÄLT an Aktions-Hindernissen (länger am Seil) ────────
+// ── Demo-Timeline: läuft über Plattformen, überquert jedes Hindernis (Aktion), Stop vor dem Seil ─
 const buildDemoTimeline = (lvl) => {
   const phases = []; let prev = 0;
-  const pAt = it => (it.x - lvl.startX) / (lvl.finishX - lvl.startX);
+  const pOf = xx => (xx - lvl.startX) / (lvl.finishX - lvl.startX);
   lvl.items.forEach(it => {
-    const p = Math.max(0, Math.min(1, pAt(it)));
-    phases.push({ dur: 620, from: prev, to: p });
-    const dwell = it.action === 'swing' ? 1700 : it.action === 'run' ? 120 : 950;  // Stop-dann-Seil = lange Pause
-    phases.push({ dur: dwell, from: p, to: p });
-    prev = p;
+    const p0 = Math.max(0, Math.min(1, pOf(it.x0))), p1 = Math.max(0, Math.min(1, pOf(it.x1)));
+    phases.push({ dur: 300, from: prev, to: p0 });                              // Anlauf auf Plattform
+    if (it.action === 'swing') phases.push({ dur: 520, from: p0, to: p0 });     // Stop vor dem Seil
+    phases.push({ dur: it.action === 'run' ? 240 : 1150, from: p0, to: p1 });   // Hindernis überqueren
+    prev = p1;
   });
-  phases.push({ dur: 700, from: prev, to: 1 });
+  phases.push({ dur: 520, from: prev, to: 1 });
   const total = phases.reduce((s, ph) => s + ph.dur, 0);
   return { total, at: t => { if (t >= total) return { p: 1, done: true }; let a = 0; for (const ph of phases) { if (t < a + ph.dur) return { p: ph.from + (ph.to - ph.from) * ((t - a) / ph.dur), done: false }; a += ph.dur; } return { p: 1, done: false }; } };
 };
@@ -150,7 +164,8 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
   else if (action === 'swing') { bottom = H - (lvl.base - 0.30) * H; pivot = true; }
   else if (action === 'jump') { bottom = H - lvl.base * H; }                 // über die Lücke, Hop-Arc
   else if (action === 'climb') { bottom = H - surfacePx; climbing = true; }   // folgt der Wand-Rampe
-  else { bottom = H - surfacePx; }                                            // run / balance: Füsse auf Linie
+  else if (action === 'balance') { const beamY = (it?.topY ?? lvl.base - 0.16) * H; bottom = H - beamY; }  // auf dem Balken
+  else { bottom = H - surfacePx; }                                            // run: Füsse auf Linie
   const trans = demoT != null ? 'bottom .18s linear' : 'left .55s cubic-bezier(.4,0,.2,1), bottom .25s ease';
   const inner = (
     <div className={action === 'jump' ? 'hop' : ''} style={{ position: 'relative' }}>
@@ -174,7 +189,7 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
 };
 
 // ═══ DIE WELT — heller Side-Scroller mit Terrain ════════════════════════════
-export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, tall = true }) => {
+export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, stageName = '', tall = true }) => {
   const sceneRef = useRef(null);
   const [sz, setSz] = useState({ w: 900, h: tall ? 320 : 168 });
   const camRef = useRef({ x: 0, y: 0 });
@@ -186,7 +201,7 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
   }, []);
   const sw = sz.w, H = sz.h;
   const scale = tall ? Math.min(2.5, Math.max(1.4, H / 150)) : 1.1;
-  const VW = sw, lvl = buildLevel(obs, VW);
+  const VW = sw, lvl = buildLevel(obs, VW, stageName);
   const demo = demoElapsed != null;
   // Demo: Fortschritt + Stop-Sequenzen aus der Timeline
   let feat = featured, demoDone = false;
@@ -240,43 +255,44 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
           <path d={topLine} fill="none" stroke="#8a96bd" strokeWidth="2.5" strokeLinejoin="round" />
           <path d={topLine} fill="none" stroke="#aeb9dd" strokeWidth="1" strokeLinejoin="round" opacity=".6" />
         </svg>
-        {/* Gap-Hazards: Lava (glühend) / Stacheln */}
+        {/* Plattform-Pads (Landeplattformen zwischen den Hindernissen) */}
+        {lvl.pads.map((p, k) => p.start ? null : <div key={`pad${k}`} style={{ position: 'absolute', left: p.x0, top: lvl.base * H - 6, width: p.x1 - p.x0, height: 10, background: 'linear-gradient(180deg,#717c92,#3c4456)', borderTop: '2px solid #93a0b8', borderRadius: 2, boxShadow: '0 4px 7px rgba(0,0,0,.45)' }} />)}
+        {/* Gap-Hazards: Lava (glühend) / Stacheln — füllen den ganzen Abschnitt */}
         {lvl.items.filter(it => it.kind === 'gap').map((it, k) => {
-          const py = it.dep * H, bx = it.x;
+          const py = it.dep * H, w = it.x1 - it.x0;
           if (it.haz === 'lava') return (
-            <div key={`lv${k}`} style={{ position: 'absolute', left: bx - 32, top: py - 6, width: 64 }}>
-              <div className="lava-glow" style={{ position: 'absolute', left: -12, top: -26, right: -12, height: 40, borderRadius: '50%', background: 'radial-gradient(60% 100% at 50% 100%,#ff7a10aa,#ff5e0000 72%)', mixBlendMode: 'screen', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(14, (1 - it.dep) * H + 6), background: 'linear-gradient(180deg,#ffae00,#ff5e00 40%,#c01200)', borderRadius: '45% 45% 4px 4px' }} />
-              <div className="lava-surf" style={{ position: 'absolute', left: 5, right: 5, top: -2, height: 7, borderRadius: 4, background: 'linear-gradient(90deg,#ffe066,#ff7a10,#ffd24a)', boxShadow: '0 0 10px #ff7a10' }} />
+            <div key={`lv${k}`} style={{ position: 'absolute', left: it.x0, top: py - 6, width: w }}>
+              <div className="lava-glow" style={{ position: 'absolute', left: -10, top: -30, right: -10, height: 46, borderRadius: '50%', background: 'radial-gradient(70% 100% at 50% 100%,#ff7a10aa,#ff5e0000 72%)', mixBlendMode: 'screen', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(14, (1 - it.dep) * H + 6), background: 'linear-gradient(180deg,#ffae00,#ff5e00 40%,#c01200)', borderRadius: '14px 14px 4px 4px' }} />
+              <div className="lava-surf" style={{ position: 'absolute', left: 4, right: 4, top: -2, height: 7, borderRadius: 4, background: 'linear-gradient(90deg,#ffe066,#ff7a10,#ffd24a,#ff7a10)', boxShadow: '0 0 10px #ff7a10' }} />
             </div>
           );
-          if (it.haz === 'spike') return (
-            <svg key={`sp${k}`} style={{ position: 'absolute', left: bx - 30, top: py - 17, width: 60, height: 19 }} viewBox="0 0 60 19">
-              {[0, 1, 2, 3, 4, 5].map(j => <polygon key={j} points={`${4 + j * 9},19 ${8.5 + j * 9},2 ${13 + j * 9},19`} fill="#c2cadb" stroke="#5a6072" strokeWidth=".6" />)}
-              <polygon points="6,7 9,2 11,7" fill="#fff" opacity=".5" />
+          if (it.haz === 'spike') { const n = Math.max(4, Math.round(w / 12)); return (
+            <svg key={`sp${k}`} style={{ position: 'absolute', left: it.x0, top: py - 17, width: w, height: 19 }} viewBox={`0 0 ${w.toFixed(0)} 19`} preserveAspectRatio="none">
+              {Array.from({ length: n }).map((_, j) => { const sw = w / n; return <polygon key={j} points={`${(j * sw).toFixed(1)},19 ${(j * sw + sw / 2).toFixed(1)},2 ${((j + 1) * sw).toFixed(1)},19`} fill="#c2cadb" stroke="#5a6072" strokeWidth=".5" />; })}
             </svg>
-          );
+          ); }
           return null;
         })}
-        {/* Hindernis-Aufbauten + Aktions-Akzent */}
+        {/* Hindernis-Aufbauten — füllen den ganzen Abschnitt zwischen den Plattformen */}
         {lvl.items.map((it, k) => {
-          const ax = it.x, col = ACTION_COLOR[it.action];
-          if (it.kind === 'hang') return <div key={k} style={{ position: 'absolute', left: ax, top: it.barY * H, width: 0 }}>
+          const w = it.x1 - it.x0, col = ACTION_COLOR[it.action];
+          if (it.kind === 'hang') return <div key={k} style={{ position: 'absolute', left: it.x0, top: it.barY * H, width: w }}>
             {it.vis === 'rings'
-              ? <div style={{ position: 'absolute', left: -45, top: -4, width: 90 }}>{[-30, 0, 30].map((dx, j) => <div key={j} style={{ position: 'absolute', left: 45 + dx - 1, top: 0 }}><div style={{ width: 2, height: 14, background: '#6e5a34', margin: '0 auto' }} /><div style={{ width: 14, height: 14, borderRadius: '50%', border: `3px solid ${col}`, boxShadow: `0 0 6px ${col}66` }} /></div>)}<div style={{ position: 'absolute', left: 0, top: -5, width: 90, height: 4, background: '#52400f', borderRadius: 2 }} /></div>
-              : <Bars w={70} col={col} />}
+              ? (() => { const m = Math.max(2, Math.round(w / 38)); return <><div style={{ position: 'absolute', left: 0, top: -5, width: w, height: 4, background: '#52400f', borderRadius: 2 }} />{Array.from({ length: m }).map((_, j) => { const cx = (j + 0.5) * (w / m); return <div key={j} style={{ position: 'absolute', left: cx - 7, top: 0 }}><div style={{ width: 2, height: 14, background: '#6e5a34', margin: '0 auto' }} /><div style={{ width: 14, height: 14, borderRadius: '50%', border: `3px solid ${col}`, boxShadow: `0 0 6px ${col}66` }} /></div>; })}</>; })()
+              : <div style={{ position: 'absolute', left: 0, top: 0, width: w, height: 6 }}><div style={{ position: 'absolute', inset: 0, height: 5, background: '#6e5a34', borderRadius: 3, boxShadow: `0 0 6px ${col}55,0 2px 4px rgba(0,0,0,.4)` }} />{Array.from({ length: Math.max(3, Math.round(w / 13)) }).map((_, j) => <div key={j} style={{ position: 'absolute', left: 9 + j * 13, top: 5, width: 3, height: 11, background: '#52400f', borderRadius: 2 }} />)}</div>}
           </div>;
-          if (it.kind === 'swing') return <div key={k} style={{ position: 'absolute', left: ax, top: it.pivotY * H, bottom: 0, width: 0 }}>
-            <div style={{ position: 'absolute', left: -1, top: 0, width: 10, height: 5, borderRadius: 2, background: '#9aa6c0', transform: 'translateX(-50%)' }} />
-            <div style={{ position: 'absolute', left: 0, top: 4, width: 2.5, height: (lvl.base - 0.30 - it.pivotY) * H, transform: 'translateX(-50%)', background: 'repeating-linear-gradient(180deg,#b89a55,#8a6d30 5px)' }} />
-            <div style={{ position: 'absolute', left: 0, top: (lvl.base - 0.30 - it.pivotY) * H, width: 15, height: 15, borderRadius: '50%', transform: 'translateX(-50%)', background: `radial-gradient(circle at 35% 30%,${col},#5a4015)`, boxShadow: `0 0 8px ${col}66`, border: '2px solid #5a4015' }} />
-          </div>;
-          if (it.kind === 'climb') return <div key={k} style={{ position: 'absolute', left: ax - 26, top: it.topY * H, width: 52, height: (lvl.base - it.topY) * H, background: it.vis === 'cargonet' ? 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 11px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 11px)' : 'repeating-linear-gradient(0deg,#403a55 0 10px,#322e44 10px 12px),linear-gradient(90deg,#4a4458,#2e2b3c)', borderTop: `3px solid ${col}`, boxShadow: `0 0 10px ${col}55`, opacity: .9, clipPath: 'polygon(33% 0,67% 0,100% 100%,0 100%)' }} />;
-          if (it.kind === 'beam') return <div key={k} style={{ position: 'absolute', left: ax - 30, top: it.topY * H - 3, width: 60, height: 5, background: col, borderRadius: 2, opacity: .85, boxShadow: `0 0 6px ${col}55` }} />;
-          return null; // gap → Lücke im Terrain
+          if (it.kind === 'swing') { const ropeH = (lvl.base - 0.30 - it.pivotY) * H; return <div key={k} style={{ position: 'absolute', left: it.xc, top: it.pivotY * H, width: 0, zIndex: 2 }}>
+            <div style={{ position: 'absolute', left: 0, top: 0, width: 10, height: 5, borderRadius: 2, background: '#9aa6c0', transform: 'translateX(-50%)' }} />
+            <div style={{ position: 'absolute', left: 0, top: 4, width: 2.5, height: ropeH, transform: 'translateX(-50%)', background: 'repeating-linear-gradient(180deg,#b89a55,#8a6d30 5px)' }} />
+            <div style={{ position: 'absolute', left: 0, top: ropeH + 4, width: 15, height: 15, borderRadius: '50%', transform: 'translateX(-50%)', background: `radial-gradient(circle at 35% 30%,${col},#5a4015)`, boxShadow: `0 0 8px ${col}66`, border: '2px solid #5a4015' }} />
+          </div>; }
+          if (it.kind === 'climb') return <div key={k} style={{ position: 'absolute', left: it.x0, top: it.topY * H, width: w, height: (lvl.base - it.topY) * H, background: it.vis === 'cargonet' ? 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 13px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 13px)' : 'repeating-linear-gradient(0deg,#403a55 0 10px,#322e44 10px 12px),linear-gradient(90deg,#4a4458,#2e2b3c)', borderTop: `3px solid ${col}`, boxShadow: `0 0 10px ${col}55`, opacity: .9, clipPath: 'polygon(34% 0,66% 0,100% 100%,0 100%)' }} />;
+          if (it.kind === 'beam') return <div key={k} style={{ position: 'absolute', left: it.x0, top: it.topY * H - 3, width: w, height: 5, background: col, borderRadius: 2, opacity: .85, boxShadow: `0 0 6px ${col}55` }} />;
+          return null;
         })}
-        {/* Hindernis-Namen dezent */}
-        {lvl.items.map((it, k) => it.name ? <div key={`n${k}`} style={{ position: 'absolute', left: it.x, top: (it.kind === 'gap' ? lvl.base : surfYF(it.x, lvl)) * H + 4, transform: 'translateX(-50%)', fontSize: 7.5, fontWeight: 700, color: 'rgba(20,24,40,.5)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{it.name.length > 15 ? it.name.slice(0, 14) + '…' : it.name}</div> : null)}
+        {/* Hindernis-Namen dezent (über der Mitte) */}
+        {lvl.items.map((it, k) => it.name ? <div key={`n${k}`} style={{ position: 'absolute', left: it.xc, top: (it.kind === 'gap' || it.kind === 'hang' || it.kind === 'swing' ? lvl.base + 0.04 : surfYF(it.xc, lvl)) * H + 4, transform: 'translateX(-50%)', fontSize: 7.5, fontWeight: 700, color: 'rgba(255,255,255,.4)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{it.name.length > 15 ? it.name.slice(0, 14) + '…' : it.name}</div> : null)}
         {/* Startplattform */}
         <div style={{ position: 'absolute', left: lvl.startX, top: lvl.base * H - 11, width: 0 }}>
           <div style={{ position: 'absolute', left: -43, width: 86, height: 11, borderRadius: 3, background: 'repeating-linear-gradient(90deg,#5a6584,#5a6584 5px,#3a4258 5px,#3a4258 10px)', border: '1px solid #76829f' }} />
