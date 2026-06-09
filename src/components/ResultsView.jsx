@@ -431,7 +431,7 @@ const AutoScrollRanking=({items,athMap,fmtMs,lang,t,isOverall=false,overallMode=
   );
 };
 
-const ResultsView=({compId,athletes})=>{
+const ResultsView=({compId,athletes,autoRotate:autoRotateProp})=>{
   const {t,lang,catName}=useLang();
   const runs=useFbVal(`ogn/${compId}/completedRuns`);
   const [selCat,setSelCat]=useState(null);
@@ -447,6 +447,13 @@ const ResultsView=({compId,athletes})=>{
   const pipelineData=useFbVal(comp?.pipelineEnabled?`ogn/${compId}/pipeline`:null);
   const isPipeline=!!(comp?.pipelineEnabled&&pipelineData);
   const pipelineStages=isPipeline?Object.entries(pipelineData).filter(([,v])=>v&&typeof v==='object'&&v.name!=null).map(([id,v])=>({id,...v})).sort((a,b)=>(a.order||0)-(b.order||0)):[];
+  // ── Fetch actual obstacles for CP count ──
+  const globalObstRaw=useFbVal(`ogn/${compId}/obstacles`);
+  const selStageKey=selStage!=null&&selStage!=="all"&&selStage!=="overall"?selStage:null;
+  const stageObstRaw=useFbVal(!isPipeline&&selStageKey!=null?`ogn/${compId}/stages/${selStageKey}/obstacles`:null);
+  const pipeObstRaw=useFbVal(isPipeline&&selStageKey!=null?`ogn/${compId}/pipeline/${selStageKey}/obstacles`:null);
+  const _curObstSrc=pipeObstRaw||stageObstRaw||globalObstRaw;
+  const liveCPCount=_curObstSrc?Object.values(_curObstSrc).filter(o=>o.isCP||isPlatformObs(o)).length:0;
   const catsWithRuns=IGN_CATS.filter(c=>runList.some(r=>r.catId===c.id));
   useEffect(()=>{if(!selCat&&catsWithRuns.length>0)setSelCat(catsWithRuns[0].id);},[catsWithRuns.length]);
   // ── Skill ranking as its own selectable pill (selStage==='skills') ──
@@ -562,7 +569,7 @@ const ResultsView=({compId,athletes})=>{
     }
   };
   // Auto-rotate divisions every 6 seconds
-  const [autoRotateCat,setAutoRotateCat]=useState(true);
+  const [autoRotateCat,setAutoRotateCat]=useState(autoRotateProp!==false);
   const [catRotateIdx,setCatRotateIdx]=useState(0);
   useEffect(()=>{
     if(!autoRotateCat||stageCats.length<=1)return;
@@ -745,7 +752,7 @@ return(<React.Fragment key={r.athleteId}>
                         <span style={{color:'var(--gold)',fontWeight:700}}>Σ {r.placementSum}</span>
                       </span>
                     ):(
-                      <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)'}}>{rCPs(r)!=null?`${rCPs(r)}/${r.totalCPs||'?'} CP`:''}</span>
+                      <span style={{fontFamily:'JetBrains Mono',color:'var(--muted)'}}>{rCPs(r)!=null?`${r.status==='complete'&&(liveCPCount||r.totalCPs)?(liveCPCount||r.totalCPs):rCPs(r)}/${liveCPCount||r.totalCPs||'?'} CP`:''}</span>
                     )}
                     {a.team&&<span style={{color:'var(--cor2)',fontWeight:600}}>{a.team}</span>}
                   </div>

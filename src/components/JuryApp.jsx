@@ -1090,9 +1090,9 @@ const JuryApp=({compId,stNum,stageId,onBack})=>{
         {/* Jury content: always visible during run; else controlled by topView+tab */}
         {inRun&&juryContent}
         {!inRun&&topView==='jury'&&tab==='jury'&&juryContent}
-        {!inRun&&topView==='jury'&&tab==='results'&&<ResultsView compId={compId} athletes={athletesMap}/>}
+        {!inRun&&topView==='jury'&&tab==='results'&&<ResultsView compId={compId} athletes={athletesMap} autoRotate={false}/>}
         {!inRun&&topView==='jury'&&tab==='rules'&&<Regelwerk/>}
-        {!inRun&&topView==='results'&&<ResultsView compId={compId} athletes={athletesMap}/>}
+        {!inRun&&topView==='results'&&<ResultsView compId={compId} athletes={athletesMap} autoRotate={false}/>}
         {!inRun&&topView==='queue'&&<AthleteQueueView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap}/>}
         {!inRun&&topView==='stats'&&<div style={{padding:'8px 12px'}}><StatsView compId={compId} info={info} completedRuns={completedRuns} athletesMap={athletesMap} pipelineData={pipelineData}/></div>}
       </div>
