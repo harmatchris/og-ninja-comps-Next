@@ -1,113 +1,112 @@
 // ═══════════════════════════════════════════════════════════════════════════
-//  Ninja-Race — 2D-Platformer-Engine (Side-Scroller) für die Live-Ninja-Comp.
+//  Ninja-Race — 2D-Platformer-Engine (Side-Scroller mit Vertikalität)
 //
-//  Gebaut nach Recherche eines Experten-Panels (run-cycle, brachiation,
-//  character-art, camera/parallax). Kernprinzipien:
-//   · Charakter = artikuliertes Skelett aus getaperten Kapsel-Gliedmassen,
-//     Kapuze + leuchtende Augen, fliegender Schal (secondary motion), 3-Schicht-
-//     Shading mit kühlem Rim-Light. Kein „Pixel-Zeug".
-//   · Animationen: echte 4-Posen-Laufzyklen, Arm-über-Arm-Hangeln mit Körper-
-//     Pendel, Seil-Pendel, Wand-Mantle — alles mit Easing, nie linear.
-//   · Welt: ECHTE 30–50 Hindernisse + Plattformen, Kamera folgt dem Läufer
-//     (Lerp + Look-ahead), 6 Parallax-Ebenen + gekachelter Boden + Vordergrund
-//     → Scrollen wird spürbar.
+//  Gebaut nach Recherche (Mark of the Ninja + Level-/Animations-Prinzipien):
+//   · Charakter = DUNKLE Silhouette + EIN Akzent (Schal). Kein Rim-Glow ("Floatie"),
+//     Schal als verzögertes Stoff-Layer (kein "gelber Stock"), weicher Cast-Shadow.
+//   · EINE surfaceY-Datenquelle → Boden-Linie und Füsse teilen sie → nie "Füsse im Boden".
+//   · Modulares Terrain mit Vertikalität (Humps, Pits, Plattformen, Decken-Bars).
+//   · Lauf: Kontakt→Passing→Push, Arme 180° gegenphasig, Spiegeln via scaleX.
+//   · Hellere Dämmerungs-Palette; Hindernisse per Aktionsfarbe codiert.
+//   · Stop-dann-Seil-Schwung-Sequenz an langen Schluchten.
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useState, useEffect, useRef } from 'react';
 
-// ── 16 Charakter-Paletten: gedämpfter tiefer Anzug + EINE gesättigte Akzentfarbe ─
-//    [suit, suitDark, accent] — Akzent = Schal · Gürtel · leuchtende Augen
-export const RACE_PALETTE = [
-  ['#2a3550', '#171f33', '#ffd23f'], ['#26402f', '#15271c', '#ff5fa2'],
-  ['#3a2740', '#241829', '#4fd6c4'], ['#2e3138', '#1b1e23', '#ff8a3d'],
-  ['#45222a', '#2a1318', '#ffd23f'], ['#2f2a55', '#1c1936', '#6ee27a'],
-  ['#24403f', '#142726', '#ff5e3a'], ['#401f28', '#271218', '#5ab3ff'],
-  ['#1f3a2a', '#112318', '#ffb03a'], ['#3d2030', '#26131e', '#9fe0ff'],
-  ['#2a323c', '#181e25', '#ffd23f'], ['#3a3a22', '#232314', '#ff6fae'],
-  ['#243050', '#141d33', '#ff9f3a'], ['#332550', '#1e1633', '#7af0c0'],
-  ['#3a2c20', '#231a13', '#ffd23f'], ['#2a2a33', '#17171f', '#ff5e3a'],
-];
+// ── 16 Paletten: dunkle Silhouette + EINE Akzentfarbe (Schal/Augen) ───────────
+const BODIES = ['#191d2e', '#1d1827', '#15211d', '#1a1b2a'];
+const ACCENTS = ['#ffc24b', '#ff5a4d', '#4fd1c5', '#a78bfa', '#ff5fa2', '#6ee27a', '#ff9f3a', '#5ab3ff', '#c0f04a', '#5be0ff', '#ff6fae', '#ffb03a', '#7af0c0', '#ff7a5a', '#9fd0ff', '#ff85a1'];
+export const RACE_PALETTE = ACCENTS.map((a, i) => [BODIES[i % BODIES.length], '#0e1019', a]);
 export const celebOf = idx => idx % 8;
 
-// ── Hindernis → Visual + Aktion ───────────────────────────────────────────────
+// ── Hindernis → Visual + Aktion + Farbcode ────────────────────────────────────
 export const obsVisual = o => {
   const n = (o?.name || o?.type || '').toLowerCase();
   if (/ring|reck/.test(n)) return 'rings';
   if (/cargo|net|netz/.test(n)) return 'cargonet';
-  if (/monkey|bar|salmon|peg|leiter|ladder/.test(n)) return 'monkeybars';
+  if (/monkey|bar|salmon|peg|leiter|ladder|flying/.test(n)) return 'monkeybars';
   if (/spider/.test(n)) return 'spiderwall';
-  if (/warp|wall|wand|cliff|klippe/.test(n)) return 'warpedwall';
-  if (/rope|seil|swing|cannon|pendel|schaukel/.test(n)) return 'rope';
-  if (/balance|beam|log|balken|bridge|brücke|unstable|slider|pipe|rolling/.test(n)) return 'beam';
-  if (/gap|step|quintuple|float|jump|sprung|absprung|hüpf/.test(n)) return 'gap';
+  if (/warp|wall|wand|cliff|klippe|curved/.test(n)) return 'warpedwall';
+  if (/rope|seil|cannon|pendel|schaukel|final.?swing/.test(n)) return 'rope';
+  if (/balance|beam|log|balken|bridge|brücke|unstable|slider|pipe|rolling|spinning/.test(n)) return 'beam';
+  if (/gap|step|quintuple|float|jump|sprung|absprung|hüpf|devil|doppel/.test(n)) return 'gap';
   return 'gap';
 };
-const VISUAL_ACTION = { monkeybars: 'hang', rings: 'hang', cargonet: 'climb', warpedwall: 'climb', spiderwall: 'climb', rope: 'swing', beam: 'balance', gap: 'jump' };
+const VIS_ACTION = { monkeybars: 'hang', rings: 'hang', cargonet: 'climb', warpedwall: 'climb', spiderwall: 'climb', rope: 'swing', beam: 'balance', gap: 'jump' };
 export const ACTION_LABEL = {
   jump: { de: 'Sprung', en: 'Jump' }, hang: { de: 'Hangeln', en: 'Bars' },
   swing: { de: 'Seil-Schwung', en: 'Rope' }, climb: { de: 'Kletterwand', en: 'Climb' },
   balance: { de: 'Balance', en: 'Balance' }, run: { de: '', en: '' },
 };
+const ACTION_COLOR = { hang: '#ffc24b', swing: '#4fd1c5', climb: '#a78bfa', jump: '#f87171', balance: '#9fd0ff', run: '#9fb4dd' };
 
-// ── Level-Layout aus echten Hindernissen ──────────────────────────────────────
-//    VW = Viewport-Breite px. Hindernisse ~ alle 0.5·VW → 2 pro Screen sichtbar.
+// ── Modulares Terrain-Level aus echten Hindernissen ───────────────────────────
+//    surface-Punkte {x px, y Frac 0..1 (0=oben,1=unten)}. base = Standard-Bodenlinie.
 export const buildLevel = (obs, VW) => {
   const list = (obs || []).filter(Boolean).slice(0, 50);
   const N = Math.max(list.length, 5);
-  const SP = VW * 0.52;           // Abstand pro Hindernis
-  const startX = VW * 0.34;       // Startplattform
-  const firstX = VW * 0.9;        // erstes Hindernis
-  const items = list.map((o, i) => {
-    const vis = obsVisual(o);
-    return { x: firstX + i * SP, vis, action: VISUAL_ACTION[vis], name: o.name || '', i };
-  });
-  const lastX = items.length ? items[items.length - 1].x : firstX;
-  const finishX = lastX + VW * 0.7;
-  const worldW = finishX + VW * 0.55;
-  // Plattformen: zwischen je ~3. Hindernis ein erhöhtes Podest (gestaffelte Höhe)
-  const platforms = [];
-  for (let i = 0; i < items.length - 1; i++) {
-    if (i % 3 === 1) {
-      const a = items[i].x, b = items[i + 1].x;
-      const lift = 34 + ((i / 3 | 0) % 3) * 22;     // 34 · 56 · 78 px gestaffelt
-      platforms.push({ x0: a + SP * 0.28, x1: b - SP * 0.28, lift });
-    }
+  const SP = VW * 0.66;
+  const startX = VW * 0.4, firstX = VW * 1.0, base = 0.80;
+  const items = [], pts = [];
+  const push = (x, y) => pts.push({ x, y });
+  push(0, base); push(startX + VW * 0.12, base);
+  let x = firstX;
+  for (let i = 0; i < N; i++) {
+    const o = list[i] || {}, vis = obsVisual(o), action = VIS_ACTION[vis], name = o.name || '';
+    push(x - SP * 0.34, base);
+    if (vis === 'gap') { push(x - 26, base); push(x - 15, 0.97); push(x + 15, 0.97); push(x + 26, base); items.push({ x, vis, action, name, kind: 'gap' }); }
+    else if (vis === 'beam') { const top = base - 0.19; push(x - 30, base); push(x - 24, top); push(x + 24, top); push(x + 30, base); items.push({ x, vis, action, name, kind: 'beam', topY: top }); }
+    else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 0.40; push(x - 26, base); push(x - 6, top); push(x + 8, top); push(x + 28, base); items.push({ x, vis, action, name, kind: 'climb', topY: top }); }
+    else if (vis === 'monkeybars' || vis === 'rings') { push(x - 32, base); push(x - 24, 0.99); push(x + 24, 0.99); push(x + 32, base); items.push({ x, vis, action, name, kind: 'hang', barY: base - 0.40 }); }
+    else if (vis === 'rope') { push(x - 50, base); push(x - 38, 0.99); push(x + 38, 0.99); push(x + 50, base); items.push({ x, vis, action, name, kind: 'swing', pivotY: 0.05 }); }
+    else { push(x - 20, base); push(x + 20, base); items.push({ x, vis, action, name, kind: 'run' }); }
+    x += SP;
   }
-  return { N, SP, startX, finishX, worldW, items, platforms, VW };
+  const lastX = x - SP, finishX = lastX + VW * 0.72;
+  push(finishX + VW * 0.1, base); const worldW = finishX + VW * 0.6; push(worldW, base);
+  return { N, SP, startX, firstX, finishX, worldW, items, pts, base, VW };
+};
+const surfYF = (x, lvl) => {
+  const p = lvl.pts;
+  if (x <= p[0].x) return p[0].y;
+  for (let i = 1; i < p.length; i++) if (x <= p[i].x) { const a = p[i - 1], b = p[i]; return a.y + (b.y - a.y) * ((x - a.x) / Math.max(1, b.x - a.x)); }
+  return p[p.length - 1].y;
 };
 const progressToX = (p, lvl) => lvl.startX + Math.max(0, Math.min(1, p)) * (lvl.finishX - lvl.startX);
-const nearestItem = (x, lvl) => {
-  let best = null, bd = lvl.SP * 0.42;
-  for (const it of lvl.items) { const d = Math.abs(x - it.x); if (d < bd) { bd = d; best = it; } }
-  return best;
-};
-export const getRunnerAction = (worldX, lvl, finished) => {
-  if (finished) return 'celebrate';
-  const it = nearestItem(worldX, lvl);
-  return it ? it.action : 'run';
-};
-const platformLiftAt = (x, lvl) => { for (const p of lvl.platforms) if (x >= p.x0 && x <= p.x1) return p.lift; return 0; };
+const nearestItem = (x, lvl) => { let best = null, bd = lvl.SP * 0.4; for (const it of lvl.items) { const d = Math.abs(x - it.x); if (d < bd) { bd = d; best = it; } } return best; };
+export const getRunnerAction = (worldX, lvl, finished) => { if (finished) return 'celebrate'; const it = nearestItem(worldX, lvl); return it ? it.action : 'run'; };
 
-// ═══ DETAILLIERTE NINJA-FIGUR ═══════════════════════════════════════════════
+// ── Demo-Timeline: rennt, HÄLT an Aktions-Hindernissen (länger am Seil) ────────
+const buildDemoTimeline = (lvl) => {
+  const phases = []; let prev = 0;
+  const pAt = it => (it.x - lvl.startX) / (lvl.finishX - lvl.startX);
+  lvl.items.forEach(it => {
+    const p = Math.max(0, Math.min(1, pAt(it)));
+    phases.push({ dur: 620, from: prev, to: p });
+    const dwell = it.action === 'swing' ? 1700 : it.action === 'run' ? 120 : 950;  // Stop-dann-Seil = lange Pause
+    phases.push({ dur: dwell, from: p, to: p });
+    prev = p;
+  });
+  phases.push({ dur: 700, from: prev, to: 1 });
+  const total = phases.reduce((s, ph) => s + ph.dur, 0);
+  return { total, at: t => { if (t >= total) return { p: 1, done: true }; let a = 0; for (const ph of phases) { if (t < a + ph.dur) return { p: ph.from + (ph.to - ph.from) * ((t - a) / ph.dur), done: false }; a += ph.dur; } return { p: 1, done: false }; } };
+};
+
+// ═══ NINJA-FIGUR — dunkle Silhouette + Akzent-Schal ═════════════════════════
 export const NinjaFigure = ({ idx = 0, action = 'run', scale = 1, ghost = false }) => {
-  const [suit, suitD, accent] = RACE_PALETTE[idx % RACE_PALETTE.length];
+  const [body, bodyD, accent] = RACE_PALETTE[idx % RACE_PALETTE.length];
   const cls = `nf nf-${action}` + (action === 'celebrate' ? ` cel cel-${celebOf(idx)}` : '');
   return (
-    <div className={cls} style={{ '--suit': suit, '--suitD': suitD, '--accent': accent, transform: `scale(${scale})`, transformOrigin: 'bottom center', opacity: ghost ? 0.4 : 1, filter: ghost ? 'grayscale(.4) brightness(.85)' : 'none' }}>
+    <div className={cls} style={{ '--body': body, '--bodyD': bodyD, '--accent': accent, transform: `scale(${scale})`, transformOrigin: 'bottom center', opacity: ghost ? 0.5 : 1, filter: ghost ? 'grayscale(.5) brightness(.7)' : 'none' }}>
       <div className="nf-in">
-        {/* Katana auf dem Rücken (ganz hinten) */}
         <div className="katana" />
-        {/* hinteres Bein + Arm */}
         <div className="j hipB"><div className="seg thigh thighB"><div className="seg shin shinB"><div className="boot" /></div></div></div>
         <div className="j shoB"><div className="seg uarm uarmB"><div className="seg farm farmB"><div className="hand" /></div></div></div>
-        {/* Rumpf */}
         <div className="j spine">
-          <div className="torso"><i className="fold" /><i className="obi" /><i className="obiknot" /></div>
-          {/* Schal — gekettete Segmente, strömt nach hinten mit Nachlauf (secondary motion) */}
+          <div className="torso"><i className="obi" /></div>
           <div className="scarf sc1"><div className="scarf sc2"><div className="scarf sc3" /></div></div>
           <div className="neck" />
-          <div className="head"><i className="hood" /><i className="band" /><i className="eye" /></div>
+          <div className="head"><i className="eye" /><i className="band" /></div>
         </div>
-        {/* vorderes Bein + Arm (vorne) */}
         <div className="j hipF"><div className="seg thigh thighF"><div className="seg shin shinF"><div className="boot" /></div></div></div>
         <div className="j shoF"><div className="seg uarm uarmF"><div className="seg farm farmF"><div className="hand" /></div></div></div>
       </div>
@@ -115,212 +114,156 @@ export const NinjaFigure = ({ idx = 0, action = 'run', scale = 1, ghost = false 
   );
 };
 
-// ── Hindernis-Grafiken ────────────────────────────────────────────────────────
-const Posts = ({ h, w }) => (<>
-  <div style={{ position: 'absolute', left: -w / 2, bottom: 0, width: 6, height: h, background: 'linear-gradient(90deg,#7a5a2a,#4a3415)', borderRadius: 2 }} />
-  <div style={{ position: 'absolute', left: w / 2 - 6, bottom: 0, width: 6, height: h, background: 'linear-gradient(90deg,#7a5a2a,#4a3415)', borderRadius: 2 }} />
-</>);
-const Obstacle = ({ vis, H, groundY }) => {
-  const reach = H - groundY;
-  if (vis === 'monkeybars') {
-    const w = 120, barY = Math.round(reach * 0.74);
-    return <div style={{ position: 'absolute', left: 0, bottom: groundY, width: w, height: barY, transform: 'translateX(-50%)' }}>
-      <Posts h={barY} w={w} />
-      <div style={{ position: 'absolute', left: -w / 2, top: 0, width: w, height: 6, background: 'linear-gradient(#8B6914,#5e470d)', borderRadius: 3, boxShadow: '0 2px 4px rgba(0,0,0,.5)' }} />
-      {Array.from({ length: Math.floor(w / 13) }).map((_, i) => <div key={i} style={{ position: 'absolute', left: -w / 2 + 10 + i * 13, top: 6, width: 3, height: 12, background: '#6B4A10', borderRadius: 2 }} />)}
-    </div>;
-  }
-  if (vis === 'rings') {
-    const w = 110, barY = Math.round(reach * 0.74);
-    return <div style={{ position: 'absolute', left: 0, bottom: groundY, width: w, height: barY, transform: 'translateX(-50%)' }}>
-      <Posts h={barY} w={w} />
-      <div style={{ position: 'absolute', left: -w / 2, top: 0, width: w, height: 5, background: '#5e470d', borderRadius: 3 }} />
-      {[-30, 0, 30].map((dx, i) => <div key={i} style={{ position: 'absolute', left: w / 2 - 30 + dx + 8, top: 5 }}>
-        <div style={{ width: 2, height: 16, background: '#9a7530', margin: '0 auto' }} />
-        <div style={{ width: 15, height: 15, borderRadius: '50%', border: '3px solid #b8862f', background: 'transparent' }} />
-      </div>)}
-    </div>;
-  }
-  if (vis === 'cargonet') {
-    const w = 70, hh = Math.round(reach * 0.8);
-    return <div style={{ position: 'absolute', left: 0, bottom: groundY, width: w, height: hh, transform: 'translateX(-50%)', backgroundImage: 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 11px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 11px)', borderTop: '4px solid #5a4a38', opacity: .92 }} />;
-  }
-  if (vis === 'warpedwall') {
-    const w = 50, hh = Math.round(reach * 0.78);
-    return <svg style={{ position: 'absolute', left: 0, bottom: groundY, transform: 'translateX(-50%)' }} width={w} height={hh} viewBox={`0 0 ${w} ${hh}`}>
-      <defs><linearGradient id="ww" x1="0" x2="1"><stop offset="0" stopColor="#3a2f22" /><stop offset="1" stopColor="#6a5640" /></linearGradient></defs>
-      <path d={`M0,${hh} L0,${hh * 0.46} Q0,4 ${w},0 L${w},${hh} Z`} fill="url(#ww)" stroke="#241c12" strokeWidth="1.5" />
-      <path d={`M5,${hh} L5,${hh * 0.5} Q5,9 ${w - 4},6`} fill="none" stroke="rgba(255,255,255,.13)" strokeWidth="2" />
-    </svg>;
-  }
-  if (vis === 'spiderwall') {
-    const w = 56, hh = Math.round(reach * 0.8);
-    return <div style={{ position: 'absolute', left: 0, bottom: groundY, width: w, height: hh, transform: 'translateX(-50%)', display: 'flex', justifyContent: 'space-between' }}>
-      <div style={{ width: 9, height: '100%', background: 'linear-gradient(90deg,#444,#2a2a30)', borderRadius: 2 }} />
-      <div style={{ width: 9, height: '100%', background: 'linear-gradient(90deg,#2a2a30,#444)', borderRadius: 2 }} />
-    </div>;
-  }
-  if (vis === 'beam') {
-    const w = Math.round(reach * 1.6), bh = 7;
-    return <div style={{ position: 'absolute', left: 0, bottom: groundY + Math.round(reach * 0.16), width: w, height: bh, transform: 'translateX(-50%)', background: 'linear-gradient(#8a6a3a,#5e4422)', borderRadius: 3, boxShadow: '0 3px 5px rgba(0,0,0,.5)' }}>
-      <div style={{ position: 'absolute', left: 8, top: bh, width: 5, height: Math.round(reach * 0.16), background: '#4a3415' }} />
-      <div style={{ position: 'absolute', right: 8, top: bh, width: 5, height: Math.round(reach * 0.16), background: '#4a3415' }} />
-    </div>;
-  }
-  return null; // gap → kein Aufbau (Krater im Boden)
-};
-const Rope = ({ H, groundY }) => (
-  <div style={{ position: 'absolute', left: 0, top: Math.round(H * 0.06), bottom: groundY, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2 }}>
-    <div style={{ width: 12, height: 5, borderRadius: 2, background: '#888' }} />
-    <div style={{ width: 2.5, flex: 1, background: 'repeating-linear-gradient(180deg,#9a7530,#6B4A10 5px)' }} />
-    <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%,#c89a55,#7B5A20)', border: '2px solid #5a4015' }} />
+// ── Hindernis-Aufbauten (terrain-bezogen) ─────────────────────────────────────
+const Bars = ({ w, col }) => (
+  <div style={{ position: 'absolute', left: -w / 2, top: 0, width: w, height: 6 }}>
+    <div style={{ position: 'absolute', inset: 0, height: 5, background: '#6e5a34', borderRadius: 3, boxShadow: `0 0 6px ${col}55, 0 2px 4px rgba(0,0,0,.4)` }} />
+    {Array.from({ length: Math.floor(w / 13) }).map((_, i) => <div key={i} style={{ position: 'absolute', left: 9 + i * 13, top: 5, width: 3, height: 11, background: '#52400f', borderRadius: 2 }} />)}
   </div>
 );
-const Buzzer = ({ lit }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-    <div className={lit ? 'buzz-dome lit' : 'buzz-dome'} />
-    <div style={{ width: 34, height: 6, background: 'repeating-linear-gradient(90deg,#1a1a1a,#1a1a1a 5px,#ffd23f 5px,#ffd23f 10px)', borderRadius: 1 }} />
-    <div style={{ width: 11, height: 40, background: 'linear-gradient(90deg,#333,#555)', borderRadius: 2 }} />
-    <div style={{ width: 40, height: 6, background: '#222', borderRadius: 2 }} />
-  </div>
-);
-const StartGate = ({ groundY, H }) => {
-  const postH = Math.round((H - groundY) * 0.66);
-  return (<>
-    <div style={{ position: 'absolute', bottom: groundY - 6, left: '50%', transform: 'translateX(-50%)', width: 86, height: 12, borderRadius: 3, background: 'repeating-linear-gradient(90deg,#475064,#475064 5px,#2c313c 5px,#2c313c 10px)', border: '1px solid #5a6172', boxShadow: '0 0 12px rgba(120,160,255,.2)' }} />
-    <div style={{ position: 'absolute', bottom: groundY, left: 'calc(50% - 38px)', width: 5, height: postH, background: 'linear-gradient(#c0392b,#7d2018)', borderRadius: 2 }} />
-    <div style={{ position: 'absolute', bottom: groundY, left: 'calc(50% + 33px)', width: 5, height: postH, background: 'linear-gradient(#c0392b,#7d2018)', borderRadius: 2 }} />
-    <div style={{ position: 'absolute', bottom: groundY + postH - 8, left: '50%', transform: 'translateX(-50%)', background: '#1f9d4d', color: '#fff', fontSize: 11, fontWeight: 900, letterSpacing: '.14em', padding: '3px 14px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,.5)' }}>START</div>
-  </>);
-};
 
-// ── Eine Figur auf dem Parcours ───────────────────────────────────────────────
-const RunnerOnCourse = ({ r, lvl, demoT, H, groundY, scale, ghost }) => {
+// ── Eine Figur auf dem Terrain ────────────────────────────────────────────────
+const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost }) => {
   const worldX = progressToX(r.progress, lvl);
   const action = getRunnerAction(worldX, lvl, r.finished);
-  const figH = 64 * scale;
-  const plat = action === 'run' || action === 'balance' || action === 'jump' ? platformLiftAt(worldX, lvl) : 0;
-  let bottom = groundY - 2 + plat, pivot = false;
-  if (action === 'hang') bottom = groundY + (H - groundY) * 0.40;
-  else if (action === 'climb') bottom = groundY + (H - groundY) * 0.34;
-  else if (action === 'swing') { bottom = groundY + (H - groundY) * 0.30; pivot = true; }
-  const trans = demoT != null ? 'bottom .2s ease' : 'left .6s cubic-bezier(.4,0,.2,1), bottom .25s ease';
+  const figH = 64 * scale, figW = 40 * scale;
+  const it = nearestItem(worldX, lvl);
+  let surfacePx = surfYF(worldX, lvl) * H;
+  let bottom, pivot = false, climbing = false;
+  if (action === 'hang') { const barY = (it?.barY ?? lvl.base - 0.32) * H; bottom = H - barY - figH; }
+  else if (action === 'swing') { bottom = H - (lvl.base - 0.30) * H; pivot = true; }
+  else if (action === 'jump') { bottom = H - lvl.base * H; }                 // über die Lücke, Hop-Arc
+  else if (action === 'climb') { bottom = H - surfacePx; climbing = true; }   // folgt der Wand-Rampe
+  else { bottom = H - surfacePx; }                                            // run / balance: Füsse auf Linie
+  const trans = demoT != null ? 'bottom .18s linear' : 'left .55s cubic-bezier(.4,0,.2,1), bottom .25s ease';
   const inner = (
     <div className={action === 'jump' ? 'hop' : ''} style={{ position: 'relative' }}>
       <NinjaFigure idx={r.idx} action={action} scale={scale} ghost={ghost} />
-      {ghost && <div style={{ position: 'absolute', bottom: figH + 4, left: '50%', transform: 'translateX(-50%)', fontSize: 13 }}>👑</div>}
+      {ghost && <div style={{ position: 'absolute', bottom: figH + 5, left: '50%', transform: 'translateX(-50%)', fontSize: 13 }}>👑</div>}
     </div>
   );
   return (
     <div style={{ position: 'absolute', left: worldX, bottom, transform: 'translateX(-50%)', transition: trans, zIndex: ghost ? 4 : 6 }}>
-      {/* Bodenschatten */}
-      <div style={{ position: 'absolute', bottom: -3, left: '50%', width: 30 * scale, height: 7, transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(ellipse,rgba(0,0,0,.45),transparent 70%)' }} />
+      {/* weicher Cast-Shadow (erdet die Füsse) */}
+      {!pivot && !climbing && action !== 'hang' && <div style={{ position: 'absolute', bottom: -4, left: '50%', width: figW * 0.62, height: 7, transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(ellipse,rgba(8,12,24,.5),transparent 70%)' }} />}
       {pivot ? <div className="swing-pivot">{inner}</div> : inner}
-      {r.finished && !ghost && <div className="buzzburst" style={{ position: 'absolute', bottom: figH * 0.7, left: '64%' }}>★</div>}
+      {r.finished && !ghost && <div className="buzzburst" style={{ position: 'absolute', bottom: figH * 0.7, left: '62%' }}>★</div>}
     </div>
   );
 };
 
-// ═══ DIE WELT — Side-Scroller mit folgender Kamera ═══════════════════════════
-export const RaceScene = ({ featured, leader, obs, demoT, lang, tall = true }) => {
-  const H = tall ? 200 : 150;
-  const groundY = Math.round(H * 0.17);
-  const scale = tall ? 1.45 : 1.05;
+// ═══ DIE WELT — heller Side-Scroller mit Terrain ════════════════════════════
+export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, tall = true }) => {
+  const H = tall ? 210 : 158;
+  const scale = tall ? 1.5 : 1.08;
   const sceneRef = useRef(null);
   const [sw, setSw] = useState(900);
   const camRef = useRef(0);
   useEffect(() => {
     const el = sceneRef.current; if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setSw(el.clientWidth || 900));
-    ro.observe(el); setSw(el.clientWidth || 900);
+    const ro = new ResizeObserver(() => setSw(el.clientWidth || 900)); ro.observe(el); setSw(el.clientWidth || 900);
     return () => ro.disconnect();
   }, []);
-  const VW = sw;
-  const lvl = buildLevel(obs, VW);
-  const same = !leader || (featured && leader.athleteId === featured.athleteId);
-  const finishedNow = featured?.finished;
-  const featX = featured ? progressToX(featured.progress, lvl) : 0;
-  const fAct = featured && !finishedNow ? getRunnerAction(featX, lvl, false) : null;
+  const VW = sw, lvl = buildLevel(obs, VW);
+  const demo = demoElapsed != null;
+  // Demo: Fortschritt + Stop-Sequenzen aus der Timeline
+  let feat = featured, demoDone = false;
+  if (demo && featured) { const tl = buildDemoTimeline(lvl); const loop = demoElapsed % (tl.total + 2600); const st = tl.at(loop); demoDone = st.done; feat = { ...featured, progress: st.p, finished: st.done, active: !st.done }; }
+  const same = !leader || (feat && leader.athleteId === feat.athleteId);
+  const finishedNow = feat?.finished;
+  const featX = feat ? progressToX(feat.progress, lvl) : 0;
+  const fAct = feat && !finishedNow ? getRunnerAction(featX, lvl, false) : null;
+  const fItem = feat && !finishedNow ? nearestItem(featX, lvl) : null;
   const featLbl = finishedNow ? '🎉 Buzzer!' : (fAct && fAct !== 'run' ? ACTION_LABEL[fAct]?.[lang] : null);
-  // Kamera: Läufer auf 34% + Look-ahead 14%, geklemmt, weich nachgezogen
-  const target = Math.max(0, Math.min(lvl.worldW - VW, featX - VW * 0.34 + VW * 0.14));
-  if (demoT != null) camRef.current += (target - camRef.current) * 0.16;   // Lerp pro Frame
-  else camRef.current = target;
+  // Kamera: Läufer auf 34% + Look-ahead, geklemmt, weich
+  const target = Math.max(0, Math.min(lvl.worldW - VW, featX - VW * 0.34 + VW * 0.12));
+  if (demo) camRef.current += (target - camRef.current) * 0.16; else camRef.current = target;
   const cam = camRef.current;
-  const camTrans = demoT != null ? 'none' : 'transform .3s cubic-bezier(.4,0,.2,1)';
-  const lay = (factor, z) => ({ position: 'absolute', top: 0, bottom: 0, left: 0, width: Math.max(lvl.worldW, VW), transform: `translateX(${-cam * factor}px)`, transition: camTrans, zIndex: z });
-  const finishX = lvl.finishX;
+  const camTrans = demo ? 'none' : 'transform .3s cubic-bezier(.4,0,.2,1)';
+  const lay = (factor, z, extra) => ({ position: 'absolute', top: 0, bottom: 0, left: 0, width: Math.max(lvl.worldW, VW), transform: `translateX(${-cam * factor}px)`, transition: camTrans, zIndex: z, ...extra });
+  // Terrain-Pfad
+  const terr = `M0,${H} ` + lvl.pts.map(p => `L${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' ') + ` L${lvl.worldW},${H} Z`;
+  const topLine = 'M' + lvl.pts.map(p => `${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' L');
   return (
-    <div ref={sceneRef} style={{ position: 'relative', height: H, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.08)', boxShadow: 'inset 0 0 44px rgba(0,0,0,.55)' }}>
-      {/* Himmel (fix) */}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#070718 0%,#0e1340 34%,#1a2350 56%,#223238 78%,#16240f 100%)' }} />
-      <div style={{ position: 'absolute', left: '7%', top: '12%', width: 38, height: 38, borderRadius: '50%', background: 'radial-gradient(circle at 38% 35%,#fff,#cdd6e6 60%,#9aa6bd)', boxShadow: '0 0 30px rgba(205,214,230,.45)', transform: `translateX(${-cam * 0.05}px)`, transition: camTrans }} />
-      {/* Sterne (0.12×) */}
-      <div style={lay(0.12, 1)}>
-        {Array.from({ length: Math.ceil(lvl.worldW / 90) + 8 }).map((_, i) => <div key={i} style={{ position: 'absolute', left: (i * 83 + 11) % Math.max(lvl.worldW, VW), top: `${(i * 37 + 4) % 38}%`, width: i % 3 ? 1.5 : 2.5, height: i % 3 ? 1.5 : 2.5, borderRadius: '50%', background: '#fff', opacity: i % 3 ? .4 : .8 }} />)}
+    <div ref={sceneRef} style={{ position: 'relative', height: H, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)' }}>
+      {/* Himmel — Dämmerung, hell */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#2b3a66 0%,#4a5b8c 45%,#8fa3c4 100%)' }} />
+      <div style={{ position: 'absolute', left: '10%', top: '14%', width: 40, height: 40, borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#fff,#dfe8fb 65%,#cdd8f0)', boxShadow: '0 0 34px rgba(205,216,240,.6)', transform: `translateX(${-cam * 0.05}px)`, transition: camTrans }} />
+      {/* Sterne dezent oben */}
+      <div style={lay(0.1, 1)}>
+        {Array.from({ length: Math.ceil(lvl.worldW / 120) + 6 }).map((_, i) => <div key={i} style={{ position: 'absolute', left: (i * 113 + 17) % Math.max(lvl.worldW, VW), top: `${(i * 31 + 3) % 26}%`, width: 1.5, height: 1.5, borderRadius: '50%', background: '#fff', opacity: .4 }} />)}
       </div>
-      {/* Ferne Berge (0.3×) */}
-      <div style={lay(0.3, 1)}>
-        <svg style={{ position: 'absolute', bottom: groundY, width: '100%', height: Math.round(H * 0.4) }} viewBox="0 0 1600 60" preserveAspectRatio="none">
-          <polygon points="0,60 70,16 150,50 240,10 340,46 440,20 540,52 640,12 760,48 860,22 980,48 1080,16 1200,50 1320,22 1440,48 1560,20 1600,40 1600,60" fill="#141a2e" />
+      {/* Ferne Berge — hell/entsättigt (Aerial Haze) */}
+      <div style={lay(0.28, 1, { filter: 'blur(.6px)', opacity: .9 })}>
+        <svg style={{ position: 'absolute', bottom: `${(1 - lvl.base) * 100 - 4}%`, width: '100%', height: Math.round(H * 0.4) }} viewBox="0 0 1600 60" preserveAspectRatio="none">
+          <polygon points="0,60 80,18 180,52 300,12 440,50 600,22 780,52 940,16 1120,50 1300,22 1480,50 1600,24 1600,60" fill="#7e93b8" />
         </svg>
       </div>
-      {/* Mittlere Hügel/Bäume (0.55×) */}
-      <div style={lay(0.55, 2)}>
-        <svg style={{ position: 'absolute', bottom: groundY - 2, width: '100%', height: Math.round(H * 0.34) }} viewBox="0 0 1600 50" preserveAspectRatio="none">
-          <polygon points="0,50 90,24 200,46 320,18 460,48 600,22 760,48 900,20 1060,46 1220,22 1380,48 1540,24 1600,46 1600,50" fill="#1a2a1c" opacity=".85" />
+      {/* Mittlere Hügel */}
+      <div style={lay(0.5, 2, { opacity: .92 })}>
+        <svg style={{ position: 'absolute', bottom: `${(1 - lvl.base) * 100 - 8}%`, width: '100%', height: Math.round(H * 0.34) }} viewBox="0 0 1600 50" preserveAspectRatio="none">
+          <polygon points="0,50 100,26 220,48 360,20 520,48 700,24 880,48 1060,22 1240,48 1420,26 1600,46 1600,50" fill="#566a96" />
         </svg>
       </div>
-      {/* WELT-Vordergrund (1×) — Hindernisse, Plattformen, Figuren */}
+      {/* WELT-Vordergrund — Terrain, Hindernisse, Figuren */}
       <div style={lay(1, 4)}>
-        {/* gekachelter Boden (Bewegung sichtbar) */}
-        <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: groundY, background: 'repeating-linear-gradient(90deg,#2f5418 0 46px,#356019 46px 92px)', borderTop: '2px solid #4a7a22' }}>
-          <div style={{ position: 'absolute', top: 2, left: 0, width: '100%', height: 3, background: 'repeating-linear-gradient(90deg,#5a8a2a 0 4px,transparent 4px 92px)' }} />
-        </div>
-        {/* Krater (gap) */}
-        {lvl.items.filter(it => it.vis === 'gap').map((it, k) => (
-          <div key={`g${k}`} style={{ position: 'absolute', left: it.x, bottom: 0, transform: 'translateX(-50%)', width: 52, height: groundY, background: 'linear-gradient(180deg,#02030a,#070b14)', borderRadius: '0 0 6px 6px', boxShadow: 'inset 5px 0 7px rgba(0,0,0,.7),inset -5px 0 7px rgba(0,0,0,.7)' }} />
-        ))}
-        {/* Klippen-Pit unter Seil */}
-        {lvl.items.filter(it => it.vis === 'rope').map((it, k) => (
-          <div key={`p${k}`} style={{ position: 'absolute', left: it.x, bottom: 0, transform: 'translateX(-50%)', width: 84, height: groundY, background: 'linear-gradient(180deg,#02030a,#060912)' }} />
-        ))}
-        {/* Plattformen */}
-        {lvl.platforms.map((p, k) => (
-          <div key={`pl${k}`} style={{ position: 'absolute', left: p.x0, width: p.x1 - p.x0, bottom: groundY - 4 + p.lift, height: 9, background: 'linear-gradient(180deg,#6a7585,#3a4350)', borderRadius: 3, borderTop: '2px solid #8a95a8', boxShadow: '0 4px 8px rgba(0,0,0,.4)' }}>
-            <div style={{ position: 'absolute', left: 0, bottom: -groundY - p.lift + 4, width: 6, height: p.lift, background: 'rgba(40,48,60,.5)' }} />
-            <div style={{ position: 'absolute', right: 0, bottom: -groundY - p.lift + 4, width: 6, height: p.lift, background: 'rgba(40,48,60,.5)' }} />
-          </div>
-        ))}
+        {/* Terrain-Füllung + Oberkante */}
+        <svg style={{ position: 'absolute', inset: 0 }} width={lvl.worldW} height={H} viewBox={`0 0 ${lvl.worldW} ${H}`} preserveAspectRatio="none">
+          <defs><linearGradient id="grnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#46506e" /><stop offset="1" stopColor="#262c44" /></linearGradient></defs>
+          <path d={terr} fill="url(#grnd)" />
+          <path d={topLine} fill="none" stroke="#8a96bd" strokeWidth="2.5" strokeLinejoin="round" />
+          <path d={topLine} fill="none" stroke="#aeb9dd" strokeWidth="1" strokeLinejoin="round" opacity=".6" />
+        </svg>
+        {/* Hindernis-Aufbauten + Aktions-Akzent */}
+        {lvl.items.map((it, k) => {
+          const ax = it.x, col = ACTION_COLOR[it.action];
+          if (it.kind === 'hang') return <div key={k} style={{ position: 'absolute', left: ax, top: it.barY * H, width: 0 }}>
+            {it.vis === 'rings'
+              ? <div style={{ position: 'absolute', left: -45, top: -4, width: 90 }}>{[-30, 0, 30].map((dx, j) => <div key={j} style={{ position: 'absolute', left: 45 + dx - 1, top: 0 }}><div style={{ width: 2, height: 14, background: '#6e5a34', margin: '0 auto' }} /><div style={{ width: 14, height: 14, borderRadius: '50%', border: `3px solid ${col}`, boxShadow: `0 0 6px ${col}66` }} /></div>)}<div style={{ position: 'absolute', left: 0, top: -5, width: 90, height: 4, background: '#52400f', borderRadius: 2 }} /></div>
+              : <Bars w={70} col={col} />}
+          </div>;
+          if (it.kind === 'swing') return <div key={k} style={{ position: 'absolute', left: ax, top: it.pivotY * H, bottom: 0, width: 0 }}>
+            <div style={{ position: 'absolute', left: -1, top: 0, width: 10, height: 5, borderRadius: 2, background: '#9aa6c0', transform: 'translateX(-50%)' }} />
+            <div style={{ position: 'absolute', left: 0, top: 4, width: 2.5, height: (lvl.base - 0.30 - it.pivotY) * H, transform: 'translateX(-50%)', background: 'repeating-linear-gradient(180deg,#b89a55,#8a6d30 5px)' }} />
+            <div style={{ position: 'absolute', left: 0, top: (lvl.base - 0.30 - it.pivotY) * H, width: 15, height: 15, borderRadius: '50%', transform: 'translateX(-50%)', background: `radial-gradient(circle at 35% 30%,${col},#5a4015)`, boxShadow: `0 0 8px ${col}66`, border: '2px solid #5a4015' }} />
+          </div>;
+          if (it.kind === 'climb') return <div key={k} style={{ position: 'absolute', left: ax - 16, top: it.topY * H, width: 32, height: (lvl.base - it.topY) * H, background: it.vis === 'cargonet' ? 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 11px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 11px)' : 'linear-gradient(180deg,#4a4458,#2e2b3c)', borderRadius: '6px 6px 0 0', borderTop: `2px solid ${col}`, boxShadow: `0 0 8px ${col}44` }} />;
+          if (it.kind === 'beam') return <div key={k} style={{ position: 'absolute', left: ax - 30, top: it.topY * H - 3, width: 60, height: 5, background: col, borderRadius: 2, opacity: .85, boxShadow: `0 0 6px ${col}55` }} />;
+          return null; // gap → Lücke im Terrain
+        })}
+        {/* Hindernis-Namen dezent */}
+        {lvl.items.map((it, k) => it.name ? <div key={`n${k}`} style={{ position: 'absolute', left: it.x, top: (it.kind === 'gap' ? lvl.base : surfYF(it.x, lvl)) * H + 4, transform: 'translateX(-50%)', fontSize: 7.5, fontWeight: 700, color: 'rgba(20,24,40,.5)', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{it.name.length > 15 ? it.name.slice(0, 14) + '…' : it.name}</div> : null)}
         {/* Startplattform */}
-        <div style={{ position: 'absolute', left: lvl.startX, top: 0, bottom: 0, width: 0 }}><StartGate groundY={groundY} H={H} /></div>
-        {/* Hindernis-Aufbauten */}
-        {lvl.items.map((it, k) => (
-          <div key={`o${k}`} style={{ position: 'absolute', left: it.x, top: 0, bottom: 0, width: 0 }}>
-            {it.vis === 'rope' ? <Rope H={H} groundY={groundY} /> : <Obstacle vis={it.vis} H={H} groundY={groundY} />}
+        <div style={{ position: 'absolute', left: lvl.startX, top: lvl.base * H - 11, width: 0 }}>
+          <div style={{ position: 'absolute', left: -43, width: 86, height: 11, borderRadius: 3, background: 'repeating-linear-gradient(90deg,#5a6584,#5a6584 5px,#3a4258 5px,#3a4258 10px)', border: '1px solid #76829f' }} />
+          <div style={{ position: 'absolute', left: -36, top: -Math.round((1 - lvl.base) * H * 0.6), background: '#2aa35a', color: '#fff', fontSize: 10, fontWeight: 900, letterSpacing: '.12em', padding: '2px 11px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap' }}>START</div>
+        </div>
+        {/* Ziel-Buzzer + ZIEL */}
+        <div style={{ position: 'absolute', left: lvl.finishX, top: lvl.base * H, width: 0, zIndex: 8 }}>
+          <div style={{ position: 'absolute', left: 0, top: -52, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className={finishedNow ? 'buzz-dome lit' : 'buzz-dome'} />
+            <div style={{ width: 11, height: 46, background: 'linear-gradient(90deg,#3a3a44,#5a5a66)', borderRadius: 2 }} />
           </div>
-        ))}
-        {/* Ziel: Buzzer + ZIEL */}
-        <div style={{ position: 'absolute', left: finishX, bottom: groundY, transform: 'translateX(-50%)', zIndex: 8 }}><Buzzer lit={finishedNow} /></div>
-        <div style={{ position: 'absolute', left: finishX, bottom: groundY + Math.round((H - groundY) * 0.62), transform: 'translateX(-50%)', background: '#d11', color: '#fff', fontSize: 11, fontWeight: 900, letterSpacing: '.14em', padding: '3px 13px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap', boxShadow: '0 2px 6px rgba(0,0,0,.5)' }}>ZIEL</div>
+          <div style={{ position: 'absolute', left: 0, top: -Math.round((1 - lvl.base) * H * 0.62) - 52, transform: 'translateX(-50%)', background: '#e23', color: '#fff', fontSize: 10, fontWeight: 900, letterSpacing: '.12em', padding: '2px 11px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap' }}>ZIEL</div>
+        </div>
         {/* Figuren */}
-        {!same && leader && <RunnerOnCourse r={leader} lvl={lvl} demoT={demoT} H={H} groundY={groundY} scale={scale} ghost />}
-        {featured && <RunnerOnCourse r={featured} lvl={lvl} demoT={demoT} H={H} groundY={groundY} scale={scale} />}
+        {!same && leader && <RunnerOnCourse r={leader} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} ghost />}
+        {feat && <RunnerOnCourse r={feat} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} />}
       </div>
-      {/* Vordergrund-Büsche (1.3× — whoosh) */}
-      <div style={lay(1.3, 7)}>
-        {Array.from({ length: Math.ceil(lvl.worldW / (VW * 0.55)) }).map((_, i) => (
-          <div key={i} style={{ position: 'absolute', left: VW * 0.2 + i * VW * 0.55, bottom: groundY - 8, width: 30, height: 16, transform: 'translateX(-50%)', borderRadius: '50% 50% 40% 40%', background: 'radial-gradient(ellipse at 50% 30%,#1f3a16,#0d1c08)', opacity: .9 }} />
+      {/* Vordergrund-Gras (1.25× — whoosh) */}
+      <div style={lay(1.25, 7)}>
+        {Array.from({ length: Math.ceil(lvl.worldW / (VW * 0.5)) }).map((_, i) => (
+          <div key={i} style={{ position: 'absolute', left: VW * 0.15 + i * VW * 0.5, bottom: 0, width: 26, height: 13, transform: 'translateX(-50%)', borderRadius: '50% 50% 0 0', background: 'linear-gradient(#2e5a22,#16320f)' }} />
         ))}
       </div>
-      {/* HUD (fix) */}
-      {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '11%', zIndex: 11, fontSize: 13, fontWeight: 900, color: '#FFD60A', textShadow: '0 0 8px rgba(255,214,10,.8)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
-      {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 11, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: 'rgba(0,0,0,.5)', padding: '3px 9px', borderRadius: 8, border: '1px solid rgba(255,255,255,.2)', pointerEvents: 'none' }}>{featLbl}</div>}
+      {/* HUD */}
+      {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '11%', zIndex: 11, fontSize: 13, fontWeight: 900, color: '#ffe08a', textShadow: '0 1px 3px rgba(0,0,0,.5)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
+      {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 11, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: `${fItem ? ACTION_COLOR[fAct] : '#000'}cc`, padding: '3px 9px', borderRadius: 8, boxShadow: '0 1px 4px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{featLbl}</div>}
     </div>
   );
 };
 
-// ═══ STYLES — Charakter-Aufbau + alle Animationen ═══════════════════════════
+// ═══ STYLES — dunkle Silhouette + sauberer Lauf ═════════════════════════════
 export const RaceStyles = () => (
   <style>{`
 .nf{position:relative;width:40px;height:64px;transform-origin:bottom center}
@@ -328,115 +271,103 @@ export const RaceStyles = () => (
 .nf .j{position:absolute;width:0;height:0}
 .nf .hipF,.nf .hipB{left:20px;top:37px}
 .nf .shoF,.nf .shoB{left:20px;top:20px}
-/* getaperte Kapsel-Gliedmassen mit Gradient + kühlem Rim-Light */
-.nf .seg{position:absolute;background:linear-gradient(102deg,var(--suit) 55%,var(--suitD));box-shadow:inset 1px 0 0 rgba(170,205,255,.35),inset -1px -1px 2px rgba(0,0,0,.35)}
+/* getaperte Kapsel-Gliedmassen — dunkel, dezente Form-Schattierung, KEIN Rim-Glow */
+.nf .seg{position:absolute;background:linear-gradient(100deg,var(--body),var(--bodyD));box-shadow:inset -1px -1px 2px rgba(0,0,0,.4)}
 .nf .thigh{left:-3.5px;top:0;width:7px;height:15px;border-radius:4px 4px 3px 3px;transform-origin:top center}
 .nf .shin{left:-3px;top:13px;width:6px;height:14px;border-radius:3px 3px 4px 4px;transform-origin:top center}
-.nf .boot{position:absolute;left:-3px;top:25px;width:11px;height:6px;border-radius:3px 5px 3px 2px;background:#15151c;box-shadow:inset 0 1px 0 rgba(255,255,255,.12);transform-origin:left center}
+.nf .boot{position:absolute;left:-3.5px;top:11px;width:11px;height:5px;border-radius:3px 5px 3px 2px;background:#0c0c12;transform-origin:left center}
 .nf .uarm{left:-2.7px;top:0;width:5.4px;height:13px;border-radius:3px;transform-origin:top center}
 .nf .farm{left:-2.4px;top:11px;width:5px;height:12px;border-radius:3px 3px 4px 4px;transform-origin:top center}
-.nf .farm::after{content:"";position:absolute;left:-0.5px;top:5px;width:6px;height:2px;background:var(--accent);opacity:.7;border-radius:1px}
-.nf .hand{position:absolute;left:-2.7px;top:10px;width:5.4px;height:5.4px;border-radius:50% 50% 50% 40%;background:#1a1a22}
+.nf .hand{position:absolute;left:-2.7px;top:10px;width:5.4px;height:5.4px;border-radius:50% 50% 50% 40%;background:#0d0d14}
 .nf .spine{left:20px;top:37px;transform-origin:bottom center}
-/* Rumpf: Keil mit Falte + Obi-Gürtel */
-.nf .torso{position:absolute;left:-8px;top:-24px;width:16px;height:25px;border-radius:7px 8px 5px 5px;background:linear-gradient(104deg,var(--suit) 52%,var(--suitD));box-shadow:inset 2px 0 0 rgba(170,205,255,.3),inset -2px -1px 3px rgba(0,0,0,.4)}
-.nf .fold{position:absolute;left:3px;top:2px;width:11px;height:20px;border-left:2px solid rgba(0,0,0,.22);border-radius:0 0 0 8px;transform:rotate(8deg)}
-.nf .obi{position:absolute;left:-1px;top:14px;width:18px;height:5px;background:var(--accent);opacity:.92;border-radius:1px;box-shadow:inset 0 -1px 1px rgba(0,0,0,.3)}
-.nf .obiknot{position:absolute;left:-3px;top:15px;width:5px;height:5px;background:var(--accent);transform:rotate(45deg);border-radius:1px}
-.nf .obiknot::after{content:"";position:absolute;left:-1px;top:4px;width:3px;height:9px;background:var(--accent);opacity:.85;border-radius:1px;transform-origin:top center;animation:tailSway 1.6s ease-in-out infinite}
-.nf .neck{position:absolute;left:-2.5px;top:-28px;width:5px;height:6px;background:#caa37e}
-/* Kopf: Kapuze + Maske + leuchtendes Auge */
-.nf .head{position:absolute;left:-8px;top:-41px;width:16px;height:16px;transform-origin:bottom center}
-.nf .hood{position:absolute;inset:0;border-radius:54% 54% 46% 46%/60% 60% 42% 42%;background:linear-gradient(110deg,var(--suit),var(--suitD));box-shadow:inset 1.5px 1px 0 rgba(170,205,255,.3),inset -1px -1px 2px rgba(0,0,0,.4)}
-.nf .head::after{content:"";position:absolute;left:2px;top:7px;width:12px;height:5px;background:#1a1a22;border-radius:2px}
-.nf .band{position:absolute;left:-1px;top:5px;width:18px;height:3.5px;background:var(--accent);border-radius:2px;box-shadow:0 0 4px var(--accent)}
-.nf .band::after{content:"";position:absolute;left:-10px;top:-.5px;width:11px;height:3px;background:var(--accent);opacity:.8;border-radius:2px;transform-origin:right center;animation:tailFlap .5s ease-in-out infinite}
-.nf .eye{position:absolute;left:11px;top:7.5px;width:3px;height:2.4px;border-radius:50%;background:#fff;box-shadow:0 0 5px 1px var(--accent),0 0 2px #fff}
-/* Katana auf dem Rücken */
-.nf .katana{position:absolute;left:8px;top:8px;width:26px;height:3px;border-radius:2px;background:linear-gradient(90deg,#2a2a33,#4a4a55);transform:rotate(-32deg);transform-origin:left center;box-shadow:0 0 0 0.5px rgba(0,0,0,.4)}
-.nf .katana::after{content:"";position:absolute;right:-1px;top:-1px;width:4px;height:5px;background:var(--accent);opacity:.8;border-radius:1px}
-/* Schal — gekettete Segmente, jeweils mit Nachlauf */
-.nf .scarf{position:absolute;height:5px;border-radius:2px 6px 6px 2px;background:var(--accent);transform-origin:right center;box-shadow:inset 0 -1px 1px rgba(0,0,0,.22)}
-.nf .sc1{left:-16px;top:-23px;width:13px;animation:scarfW 1.25s ease-in-out infinite}
-.nf .sc2{left:-12px;top:.3px;width:12px;height:4.4px;animation:scarfW 1.25s ease-in-out infinite -.08s}
-.nf .sc3{left:-10px;top:.3px;width:10px;height:3.8px;opacity:.92;animation:scarfW 1.25s ease-in-out infinite -.16s}
-/* Grundpose (Stand) */
+.nf .torso{position:absolute;left:-8px;top:-24px;width:16px;height:25px;border-radius:7px 8px 5px 5px;background:linear-gradient(102deg,var(--body),var(--bodyD));box-shadow:inset -2px -1px 3px rgba(0,0,0,.45)}
+.nf .obi{position:absolute;left:-1px;top:15px;width:18px;height:4px;background:var(--accent);opacity:.85;border-radius:1px}
+.nf .neck{position:absolute;left:-2.5px;top:-27px;width:5px;height:6px;background:var(--bodyD)}
+/* Kopf: Kapuze (dunkel) + leuchtendes Auge + Stirnband */
+.nf .head{position:absolute;left:-7.5px;top:-40px;width:15px;height:15px;border-radius:54% 54% 46% 46%/60% 60% 42% 42%;background:linear-gradient(106deg,var(--body),var(--bodyD));box-shadow:inset -1px -1px 2px rgba(0,0,0,.45);transform-origin:bottom center}
+.nf .head::after{content:"";position:absolute;left:2px;top:7px;width:11px;height:4px;background:#08080d;border-radius:2px}
+.nf .eye{position:absolute;left:10px;top:7px;width:3px;height:2.4px;border-radius:50%;background:var(--accent);box-shadow:0 0 5px 1px var(--accent)}
+.nf .band{position:absolute;left:-1px;top:4.5px;width:17px;height:3px;background:var(--accent);opacity:.9;border-radius:2px}
+.nf .band::after{content:"";position:absolute;left:-9px;top:0;width:10px;height:2.6px;background:var(--accent);opacity:.7;border-radius:2px;transform-origin:right center;animation:tailFlap .55s ease-in-out infinite}
+.nf .katana{position:absolute;left:9px;top:9px;width:24px;height:3px;border-radius:2px;background:linear-gradient(90deg,#23232c,#44444f);transform:rotate(-32deg);transform-origin:left center}
+/* Schal — Stoff-Layer, strömt nach hinten, verzögerter Nachlauf */
+.nf .scarf{position:absolute;height:5px;border-radius:1px 5px 5px 1px;background:linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 75%,#000));transform-origin:right center}
+.nf .sc1{left:-15px;top:-22px;width:13px;animation:scarfW 1.3s ease-in-out infinite}
+.nf .sc2{left:-11px;top:.3px;width:11px;height:4.2px;animation:scarfW 1.3s ease-in-out infinite -.09s}
+.nf .sc3{left:-9px;top:.3px;width:9px;height:3.4px;opacity:.9;animation:scarfW 1.3s ease-in-out infinite -.18s}
+/* Grundpose */
 .nf .thighF{transform:rotate(8deg)}.nf .thighB{transform:rotate(-9deg)}
 .nf .shinF{transform:rotate(-8deg)}.nf .shinB{transform:rotate(-12deg)}
 .nf .uarmF{transform:rotate(15deg)}.nf .uarmB{transform:rotate(-14deg)}
 .nf .farmF,.nf .farmB{transform:rotate(-26deg)}
-@keyframes tailSway{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(10deg)}}
-@keyframes tailFlap{0%,100%{transform:rotate(10deg)}50%{transform:rotate(-16deg)}}
-@keyframes scarf1{0%,100%{transform:rotate(6deg)}50%{transform:rotate(-12deg)}}
-@keyframes scarf2{0%,100%{transform:rotate(10deg)}50%{transform:rotate(-18deg)}}
+@keyframes tailFlap{0%,100%{transform:rotate(8deg)}50%{transform:rotate(-15deg)}}
+@keyframes scarfW{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(13deg)}}
 /* IDLE */
 .nf-idle .nf-in{animation:breathe 3s ease-in-out infinite}
 @keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.4px)}}
-/* ── RUN: 4 Posen · 2 Dips · gegenphasige Arme · echte Easing ── */
+/* ── RUN: Kontakt(0%)→Recoil(25%)→Passing(50%)→Push(75%) · Arme gegenphasig ── */
 .nf-run .nf-in{animation:bob .5s cubic-bezier(.4,0,.6,1) infinite}
-.nf-run .spine{transform:rotate(12deg)}
+.nf-run .spine{transform:rotate(11deg)}
 .nf-run .thighF{animation:thF .5s cubic-bezier(.5,0,.5,1) infinite}
 .nf-run .shinF{animation:shF .5s cubic-bezier(.5,0,.5,1) infinite}
 .nf-run .thighB{animation:thF .5s cubic-bezier(.5,0,.5,1) infinite -.25s}
 .nf-run .shinB{animation:shF .5s cubic-bezier(.5,0,.5,1) infinite -.25s}
-.nf-run .uarmF{animation:uaF .5s cubic-bezier(.45,0,.55,1) infinite}
-.nf-run .uarmB{animation:uaF .5s cubic-bezier(.45,0,.55,1) infinite -.25s}
-.nf-run .farmF{transform:rotate(-78deg)}.nf-run .farmB{transform:rotate(-78deg)}
+.nf-run .uarmF{animation:uaF .5s cubic-bezier(.45,0,.55,1) infinite -.25s}
+.nf-run .uarmB{animation:uaF .5s cubic-bezier(.45,0,.55,1) infinite}
+.nf-run .farmF{transform:rotate(-70deg)}.nf-run .farmB{transform:rotate(-82deg)}
 .nf-run .head{animation:headBob .5s ease-in-out infinite}
-@keyframes bob{0%{transform:translateY(-2px)}25%{transform:translateY(-6px)}50%{transform:translateY(-1px)}75%{transform:translateY(-6px)}100%{transform:translateY(-2px)}}
-@keyframes thF{0%{transform:rotate(30deg)}25%{transform:rotate(8deg)}50%{transform:rotate(-24deg)}75%{transform:rotate(-34deg)}100%{transform:rotate(30deg)}}
-@keyframes shF{0%{transform:rotate(-12deg)}25%{transform:rotate(-44deg)}50%{transform:rotate(-10deg)}75%{transform:rotate(-86deg)}100%{transform:rotate(-12deg)}}
-@keyframes uaF{0%{transform:rotate(-34deg)}50%{transform:rotate(34deg)}100%{transform:rotate(-34deg)}}
-@keyframes headBob{0%,100%{transform:rotate(3deg)}50%{transform:rotate(6deg)}}
-/* ── JUMP: Anticipation → Stretch → Tuck → Squash ── */
+@keyframes bob{0%{transform:translateY(-1px)}25%{transform:translateY(-5px)}50%{transform:translateY(0)}75%{transform:translateY(-5px)}100%{transform:translateY(-1px)}}
+@keyframes thF{0%{transform:rotate(26deg)}25%{transform:rotate(6deg)}50%{transform:rotate(-26deg)}75%{transform:rotate(-6deg)}100%{transform:rotate(26deg)}}
+@keyframes shF{0%{transform:rotate(-8deg)}25%{transform:rotate(-30deg)}50%{transform:rotate(-18deg)}75%{transform:rotate(-78deg)}100%{transform:rotate(-8deg)}}
+@keyframes uaF{0%{transform:rotate(-32deg)}50%{transform:rotate(32deg)}100%{transform:rotate(-32deg)}}
+@keyframes headBob{0%,100%{transform:rotate(2deg)}50%{transform:rotate(5deg)}}
+/* ── JUMP: Antizipation → Stretch → Tuck → Squash ── */
 .hop{animation:hopArc 1s cubic-bezier(.3,0,.4,1) infinite}
-@keyframes hopArc{0%{transform:translateY(0) scaleY(.9) scaleX(1.08)}12%{transform:translateY(0) scaleY(1.12) scaleX(.9)}45%{transform:translateY(-36px) scaleY(1) scaleX(1)}60%{transform:translateY(-36px)}88%{transform:translateY(0) scaleY(.82) scaleX(1.14)}100%{transform:translateY(0) scaleY(1) scaleX(1)}}
+@keyframes hopArc{0%{transform:translateY(0) scaleY(.92) scaleX(1.06)}12%{transform:translateY(0) scaleY(1.12) scaleX(.9)}45%{transform:translateY(-40px) scaleY(1) scaleX(1)}60%{transform:translateY(-40px)}88%{transform:translateY(0) scaleY(.82) scaleX(1.14)}100%{transform:translateY(0) scaleY(1) scaleX(1)}}
 .nf-jump .spine{transform:rotate(-12deg)}
 .nf-jump .thighF{transform:rotate(52deg)}.nf-jump .shinF{transform:rotate(-92deg)}
-.nf-jump .thighB{transform:rotate(22deg)}.nf-jump .shinB{transform:rotate(-66deg)}
-.nf-jump .uarmF{transform:rotate(-58deg)}.nf-jump .uarmB{transform:rotate(-72deg)}
+.nf-jump .thighB{transform:rotate(20deg)}.nf-jump .shinB{transform:rotate(-66deg)}
+.nf-jump .uarmF{transform:rotate(-54deg)}.nf-jump .uarmB{transform:rotate(-70deg)}
 .nf-jump .farmF,.nf-jump .farmB{transform:rotate(-34deg)}
-/* ── HANG: Arm-über-Arm-Travel mit Körper-Pendel + Knie-Schwung ── */
+/* ── HANG: Arm-über-Arm + Körper-Pendel + Knie ── */
 .nf-hang .nf-in{animation:hangBody 1.1s ease-in-out infinite}
 .nf-hang .uarmF{animation:hangArmA 1.1s ease-in-out infinite}
-.nf-hang .farmF{animation:hangForeA 1.1s ease-in-out infinite}
 .nf-hang .uarmB{animation:hangArmA 1.1s ease-in-out infinite -.55s}
-.nf-hang .farmB{animation:hangForeA 1.1s ease-in-out infinite -.55s}
+.nf-hang .farmF,.nf-hang .farmB{transform:rotate(8deg)}
 .nf-hang .thighF{animation:hangLegA 1.1s ease-in-out infinite}
 .nf-hang .thighB{animation:hangLegB 1.1s ease-in-out infinite}
 .nf-hang .shinF,.nf-hang .shinB{transform:rotate(-26deg)}
 @keyframes hangBody{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
 @keyframes hangArmA{0%{transform:rotate(168deg)}25%{transform:rotate(150deg)}50%{transform:rotate(170deg)}75%{transform:rotate(196deg)}100%{transform:rotate(168deg)}}
-@keyframes hangForeA{0%,100%{transform:rotate(6deg)}50%{transform:rotate(20deg)}}
 @keyframes hangLegA{0%,100%{transform:rotate(16deg)}50%{transform:rotate(-12deg)}}
 @keyframes hangLegB{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(24deg)}}
-/* ── SWING: Pendel · Streckung unten · Tuck oben ── */
+/* ── SWING ── */
 .swing-pivot{transform-origin:top center;animation:swingPend 1.5s cubic-bezier(.37,0,.63,1) infinite alternate}
 @keyframes swingPend{0%{transform:rotate(-34deg)}100%{transform:rotate(38deg)}}
 .nf-swing .uarmF,.nf-swing .uarmB{transform:rotate(174deg)}
 .nf-swing .farmF,.nf-swing .farmB{transform:rotate(3deg)}
 .nf-swing .thighF{animation:swingLeg 1.5s cubic-bezier(.37,0,.63,1) infinite alternate}
 .nf-swing .thighB{animation:swingLeg 1.5s cubic-bezier(.37,0,.63,1) infinite alternate}
-.nf-swing .shinF,.nf-swing .shinB{transform:rotate(-20deg)}
-@keyframes swingLeg{0%{transform:rotate(-38deg)}100%{transform:rotate(28deg)}}
-/* ── CLIMB: alternierend, Hüfte zur Wand ── */
+.nf-swing .shinF,.nf-swing .shinB{transform:rotate(-22deg)}
+@keyframes swingLeg{0%{transform:rotate(-40deg)}100%{transform:rotate(30deg)}}
+/* ── CLIMB ── */
 .nf-climb .nf-in{animation:climbUp 1s ease-in-out infinite}
-.nf-climb .spine{transform:rotate(6deg)}
+.nf-climb .spine{transform:rotate(4deg)}
 .nf-climb .uarmF{animation:climbArmA 1s ease-in-out infinite}
 .nf-climb .uarmB{animation:climbArmB 1s ease-in-out infinite}
 .nf-climb .farmF,.nf-climb .farmB{transform:rotate(-34deg)}
 .nf-climb .thighF{animation:climbLegA 1s ease-in-out infinite}
 .nf-climb .thighB{animation:climbLegB 1s ease-in-out infinite}
 .nf-climb .shinF,.nf-climb .shinB{transform:rotate(-46deg)}
-@keyframes climbUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes climbArmA{0%,100%{transform:rotate(152deg)}50%{transform:rotate(116deg)}}
-@keyframes climbArmB{0%,100%{transform:rotate(116deg)}50%{transform:rotate(152deg)}}
+@keyframes climbUp{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.5px)}}
+@keyframes climbArmA{0%,100%{transform:rotate(150deg)}50%{transform:rotate(116deg)}}
+@keyframes climbArmB{0%,100%{transform:rotate(116deg)}50%{transform:rotate(150deg)}}
 @keyframes climbLegA{0%,100%{transform:rotate(40deg)}50%{transform:rotate(10deg)}}
 @keyframes climbLegB{0%,100%{transform:rotate(10deg)}50%{transform:rotate(40deg)}}
-/* ── BALANCE: vorsichtiger Gang, Arme zur Seite ── */
+/* ── BALANCE ── */
 .nf-balance .nf-in{animation:balWob 1.6s ease-in-out infinite}
 .nf-balance .spine{transform:rotate(2deg)}
-.nf-balance .uarmF{transform:rotate(88deg)}.nf-balance .uarmB{transform:rotate(-92deg)}
+.nf-balance .uarmF{transform:rotate(86deg)}.nf-balance .uarmB{transform:rotate(-90deg)}
 .nf-balance .farmF{transform:rotate(8deg)}.nf-balance .farmB{transform:rotate(-8deg)}
 .nf-balance .thighF{animation:balLeg 1.6s ease-in-out infinite}
 .nf-balance .thighB{animation:balLeg 1.6s ease-in-out infinite -.8s}
@@ -480,12 +411,12 @@ export const RaceStyles = () => (
 .cel-7 .thighF{transform:rotate(24deg)}.cel-7 .shinF{transform:rotate(-50deg)}
 .cel-7 .thighB{transform:rotate(-18deg)}.cel-7 .shinB{transform:rotate(-44deg)}
 @keyframes bigHop{0%,100%{transform:translateY(0)}45%{transform:translateY(-13px)}}
-/* Buzzer + Funken */
-.buzz-dome{width:28px;height:16px;border-radius:14px 14px 3px 3px;background:radial-gradient(circle at 40% 25%,#ff8a8a,#d11 65%,#900);box-shadow:0 0 0 2px #700,0 2px 4px rgba(0,0,0,.5)}
-.buzz-dome.lit{background:radial-gradient(circle at 40% 25%,#fff,#ff5a5a 55%,#e00);box-shadow:0 0 18px 5px rgba(255,60,60,.85),0 0 0 2px #f33;animation:buzzPulse .5s ease-in-out infinite}
-@keyframes buzzPulse{0%,100%{box-shadow:0 0 18px 5px rgba(255,60,60,.85),0 0 0 2px #f33}50%{box-shadow:0 0 28px 9px rgba(255,90,90,1),0 0 0 2px #f55}}
+/* Buzzer */
+.buzz-dome{width:28px;height:16px;border-radius:14px 14px 3px 3px;background:radial-gradient(circle at 40% 25%,#ff8a8a,#d11 65%,#900);box-shadow:0 0 0 2px #700,0 2px 4px rgba(0,0,0,.4)}
+.buzz-dome.lit{background:radial-gradient(circle at 40% 25%,#fff,#ff5a5a 55%,#e00);box-shadow:0 0 18px 5px rgba(255,80,80,.9),0 0 0 2px #f33;animation:buzzPulse .5s ease-in-out infinite}
+@keyframes buzzPulse{0%,100%{box-shadow:0 0 18px 5px rgba(255,80,80,.9),0 0 0 2px #f33}50%{box-shadow:0 0 28px 9px rgba(255,110,110,1),0 0 0 2px #f55}}
 @keyframes buzzPop{0%{transform:scale(.3);opacity:0}50%{transform:scale(1.25);opacity:1}100%{transform:scale(1);opacity:1}}
-.buzzburst{color:#FFD60A;font-size:14px;animation:sparkle .8s ease-out infinite;text-shadow:0 0 6px rgba(255,214,10,.9)}
+.buzzburst{color:#ffe08a;font-size:14px;animation:sparkle .8s ease-out infinite;text-shadow:0 0 6px rgba(255,214,10,.9)}
 @keyframes sparkle{0%{transform:scale(.4) rotate(0);opacity:0}40%{opacity:1}100%{transform:scale(1.3) rotate(40deg);opacity:0}}
 `}</style>
 );

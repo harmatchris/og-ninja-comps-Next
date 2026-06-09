@@ -517,8 +517,7 @@ const SkillTicker = ({ info, athletesMap, skillScores, cats, lang }) => {
 // ── 13. Ninja-Race — prozedurale Spielfiguren in EINER Landschaft (Modul: NinjaRace.jsx) ─
 // Athlet → stabiler Figuren-Index (Farbe) via Hash
 const athIdx = id => { let h = 0; const s = String(id || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h % 16; };
-// Demo: EIN Läufer durchquert den ganzen Parcours glatt (Dauer skaliert mit Hindernis-Anzahl), jubelt am Ziel · loopt.
-const easeInOut = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+// Demo-Lauf — Fortschritt + Stop-dann-Seil-Sequenzen werden in RaceScene aus der Level-Timeline berechnet.
 const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, cats, lang }) => {
   const activeRuns = useFbVal(`ogn/${compId}/activeRuns`);
   const stage = mainStage(pipelineData, cats);
@@ -550,13 +549,10 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   // Demo-Subjekt = schnellster Lauf
   const bestRun = completedList.slice().sort((a, b) => (a.finalTime || 9e9) - (b.finalTime || 9e9))[0];
   const demoId = bestRun?.athleteId || runners[0]?.athleteId;
-  const demoMs = Math.min(28000, 11000 + obs.length * 600);   // Durchquerung skaliert mit Hindernis-Anzahl
-  let featured = null, leader = null, demoT = null, demoDone = false;
+  let featured = null, leader = null, demoElapsed = null;
   if (demo && demoId) {
-    demoT = performance.now() - demoStart.current;
-    if (demoT > demoMs + 3200) { demoStart.current = performance.now(); demoT = 0; }
-    const raw = Math.min(1, demoT / demoMs); const done = demoT >= demoMs; demoDone = done;
-    featured = { athleteId: demoId, idx: athIdx(demoId), progress: done ? 1 : easeInOut(raw), finished: done, active: !done, time: bestRun?.finalTime || Infinity };
+    demoElapsed = performance.now() - demoStart.current;
+    featured = { athleteId: demoId, idx: athIdx(demoId), progress: 0, time: bestRun?.finalTime || Infinity };
   } else if (hasRunners) {
     leader = runners[0];
     featured = runners.find(r => r.active) || runners[0];
@@ -565,7 +561,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   const anyLive = !demo && runners.some(r => r.active);
   const rightSlot = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-      {demo ? <span style={{ color: demoDone ? 'var(--green)' : '#FF8A5E', fontSize: 11, fontWeight: 800 }}>{demoDone ? '🎉' : '▶ DEMO'}</span> : (anyLive ? <span style={{ color: '#FF5E3A', fontSize: 11, fontWeight: 800 }}>● LIVE</span> : null)}
+      {demo ? <span style={{ color: '#FF8A5E', fontSize: 11, fontWeight: 800 }}>▶ DEMO</span> : (anyLive ? <span style={{ color: '#FF5E3A', fontSize: 11, fontWeight: 800 }}>● LIVE</span> : null)}
       {(hasRunners || completedList.length > 0) && <button onClick={() => { if (!demo) demoStart.current = performance.now(); setDemo(d => !d); }} style={btnSt(demo, demo ? '#FF6B6B' : '#FF8A5E')}>{demo ? '■ Stop' : '▶ Demo'}</button>}
     </span>
   );
@@ -581,7 +577,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,94,58,.14)', border: '1px solid rgba(255,94,58,.4)', borderRadius: 8 }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: RACE_PALETTE[featured.idx][0] }} />
             <NameFlag ath={fAth} lang={lang} size={13} />
-            <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: '#FF5E3A' }}>{demo ? (demoDone ? '🎉' : `${Math.round(featured.progress * 100)}%`) : (featured.active ? 'LIVE' : (featured.finished ? fmtMs(featured.time) : `${Math.round(featured.progress * 100)}%`))}</span>
+            <span style={{ ...mono, fontSize: 11, fontWeight: 800, color: '#FF5E3A' }}>{demo ? 'DEMO' : (featured.active ? 'LIVE' : (featured.finished ? fmtMs(featured.time) : `${Math.round(featured.progress * 100)}%`))}</span>
           </span>
           {lAth && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', background: 'rgba(255,214,10,.1)', border: '1px solid rgba(255,214,10,.3)', borderRadius: 8, opacity: .85 }}>
@@ -592,7 +588,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           )}
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
-        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoT={demoT} lang={lang} />
+        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} lang={lang} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {runners.slice(0, 8).map((r, idx) => {
             const ath = athletesMap?.[r.athleteId];
