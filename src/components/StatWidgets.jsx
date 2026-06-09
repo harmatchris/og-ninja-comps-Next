@@ -591,22 +591,6 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
         <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} lang={lang} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {runners.slice(0, 8).map((r, idx) => {
-            const ath = athletesMap?.[r.athleteId];
-            const hi = r.athleteId === featured.athleteId && !demo;
-            return (
-              <div key={r.athleteId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 6px', borderRadius: 7, background: hi ? 'rgba(255,94,58,.1)' : idx === 0 ? 'rgba(255,214,10,.05)' : 'transparent' }}>
-                <span style={{ ...mono, fontSize: 12, fontWeight: 800, color: idx < 3 ? MEDAL[idx] : 'rgba(255,255,255,.4)', width: 14, textAlign: 'center', flexShrink: 0 }}>{idx + 1}</span>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: RACE_PALETTE[r.idx][0], flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}><NameFlag ath={ath} lang={lang} size={12} /></div>
-                <span style={{ ...mono, fontSize: 11, fontWeight: 700, color: r.finished ? 'var(--green)' : r.active ? '#FF5E3A' : 'rgba(255,255,255,.45)', flexShrink: 0 }}>
-                  {r.finished ? (r.time !== Infinity ? fmtMs(r.time) : '✓') : (r.active ? 'live' : `${Math.round(r.progress * 100)}%`)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </Shell>
   );

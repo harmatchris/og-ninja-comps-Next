@@ -53,7 +53,7 @@ export const buildLevel = (obs, VW) => {
   for (let i = 0; i < N; i++) {
     const o = list[i] || {}, vis = obsVisual(o), action = VIS_ACTION[vis], name = o.name || '';
     push(x - SP * 0.34, base);
-    if (vis === 'gap') { push(x - 26, base); push(x - 15, 0.97); push(x + 15, 0.97); push(x + 26, base); items.push({ x, vis, action, name, kind: 'gap' }); }
+    if (vis === 'gap') { const haz = ['lava', 'spike', 'pit'][i % 3]; const dep = haz === 'spike' ? 0.93 : 0.99; push(x - 28, base); push(x - 16, dep); push(x + 16, dep); push(x + 28, base); items.push({ x, vis, action, name, kind: 'gap', haz, dep }); }
     else if (vis === 'beam') { const top = base - 0.19; push(x - 30, base); push(x - 24, top); push(x + 24, top); push(x + 30, base); items.push({ x, vis, action, name, kind: 'beam', topY: top }); }
     else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 0.40; push(x - 26, base); push(x - 6, top); push(x + 8, top); push(x + 28, base); items.push({ x, vis, action, name, kind: 'climb', topY: top }); }
     else if (vis === 'monkeybars' || vis === 'rings') { push(x - 32, base); push(x - 24, 0.99); push(x + 24, 0.99); push(x + 32, base); items.push({ x, vis, action, name, kind: 'hang', barY: base - 0.40 }); }
@@ -160,6 +160,11 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
     <div style={{ position: 'absolute', left: worldX, bottom, transform: 'translateX(-50%)', transition: trans, zIndex: ghost ? 4 : 6 }}>
       {/* weicher Cast-Shadow (erdet die Füsse) */}
       {!pivot && !climbing && action !== 'hang' && <div style={{ position: 'absolute', bottom: -4, left: '50%', width: figW * 0.62, height: 7, transform: 'translateX(-50%)', borderRadius: '50%', background: 'radial-gradient(ellipse,rgba(8,12,24,.5),transparent 70%)' }} />}
+      {/* Lauf-Staub */}
+      {action === 'run' && !ghost && <>
+        <div className="dust" style={{ bottom: -2, left: '36%', width: 9, height: 6 }} />
+        <div className="dust" style={{ bottom: -2, left: '54%', width: 7, height: 5, animationDelay: '.27s' }} />
+      </>}
       {pivot ? <div className="swing-pivot">{inner}</div> : inner}
       {r.finished && !ghost && <div className="buzzburst" style={{ position: 'absolute', bottom: figH * 0.7, left: '62%' }}>★</div>}
     </div>
@@ -168,16 +173,17 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
 
 // ═══ DIE WELT — heller Side-Scroller mit Terrain ════════════════════════════
 export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, tall = true }) => {
-  const H = tall ? 210 : 158;
-  const scale = tall ? 1.5 : 1.08;
   const sceneRef = useRef(null);
-  const [sw, setSw] = useState(900);
+  const [sz, setSz] = useState({ w: 900, h: tall ? 320 : 168 });
   const camRef = useRef(0);
   useEffect(() => {
     const el = sceneRef.current; if (!el || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => setSw(el.clientWidth || 900)); ro.observe(el); setSw(el.clientWidth || 900);
+    const upd = () => setSz({ w: el.clientWidth || 900, h: el.clientHeight || (tall ? 320 : 168) });
+    const ro = new ResizeObserver(upd); ro.observe(el); upd();
     return () => ro.disconnect();
   }, []);
+  const sw = sz.w, H = sz.h;
+  const scale = tall ? Math.min(2.5, Math.max(1.4, H / 150)) : 1.1;
   const VW = sw, lvl = buildLevel(obs, VW);
   const demo = demoElapsed != null;
   // Demo: Fortschritt + Stop-Sequenzen aus der Timeline
@@ -199,7 +205,7 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
   const terr = `M0,${H} ` + lvl.pts.map(p => `L${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' ') + ` L${lvl.worldW},${H} Z`;
   const topLine = 'M' + lvl.pts.map(p => `${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' L');
   return (
-    <div ref={sceneRef} style={{ position: 'relative', height: H, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)' }}>
+    <div ref={sceneRef} style={{ position: 'relative', height: tall ? 'clamp(260px, 46vh, 580px)' : 168, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)', filter: 'saturate(1.18) contrast(1.06)' }}>
       {/* Himmel — Dämmerung, hell */}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#2b3a66 0%,#4a5b8c 45%,#8fa3c4 100%)' }} />
       <div style={{ position: 'absolute', left: '10%', top: '14%', width: 40, height: 40, borderRadius: '50%', background: 'radial-gradient(circle at 40% 35%,#fff,#dfe8fb 65%,#cdd8f0)', boxShadow: '0 0 34px rgba(205,216,240,.6)', transform: `translateX(${-cam * 0.05}px)`, transition: camTrans }} />
@@ -228,6 +234,24 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
           <path d={topLine} fill="none" stroke="#8a96bd" strokeWidth="2.5" strokeLinejoin="round" />
           <path d={topLine} fill="none" stroke="#aeb9dd" strokeWidth="1" strokeLinejoin="round" opacity=".6" />
         </svg>
+        {/* Gap-Hazards: Lava (glühend) / Stacheln */}
+        {lvl.items.filter(it => it.kind === 'gap').map((it, k) => {
+          const py = it.dep * H, bx = it.x;
+          if (it.haz === 'lava') return (
+            <div key={`lv${k}`} style={{ position: 'absolute', left: bx - 32, top: py - 6, width: 64 }}>
+              <div className="lava-glow" style={{ position: 'absolute', left: -12, top: -26, right: -12, height: 40, borderRadius: '50%', background: 'radial-gradient(60% 100% at 50% 100%,#ff7a10aa,#ff5e0000 72%)', mixBlendMode: 'screen', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: Math.max(14, (1 - it.dep) * H + 6), background: 'linear-gradient(180deg,#ffae00,#ff5e00 40%,#c01200)', borderRadius: '45% 45% 4px 4px' }} />
+              <div className="lava-surf" style={{ position: 'absolute', left: 5, right: 5, top: -2, height: 7, borderRadius: 4, background: 'linear-gradient(90deg,#ffe066,#ff7a10,#ffd24a)', boxShadow: '0 0 10px #ff7a10' }} />
+            </div>
+          );
+          if (it.haz === 'spike') return (
+            <svg key={`sp${k}`} style={{ position: 'absolute', left: bx - 30, top: py - 17, width: 60, height: 19 }} viewBox="0 0 60 19">
+              {[0, 1, 2, 3, 4, 5].map(j => <polygon key={j} points={`${4 + j * 9},19 ${8.5 + j * 9},2 ${13 + j * 9},19`} fill="#c2cadb" stroke="#5a6072" strokeWidth=".6" />)}
+              <polygon points="6,7 9,2 11,7" fill="#fff" opacity=".5" />
+            </svg>
+          );
+          return null;
+        })}
         {/* Hindernis-Aufbauten + Aktions-Akzent */}
         {lvl.items.map((it, k) => {
           const ax = it.x, col = ACTION_COLOR[it.action];
@@ -270,6 +294,14 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
           <div key={i} style={{ position: 'absolute', left: VW * 0.15 + i * VW * 0.5, bottom: 0, width: 26, height: 13, transform: 'translateX(-50%)', borderRadius: '50% 50% 0 0', background: 'linear-gradient(#2e5a22,#16320f)' }} />
         ))}
       </div>
+      {/* Dampf-Schwaden (Metal-Slug-Atmosphäre) */}
+      <div style={lay(0.7, 5)}>
+        {Array.from({ length: Math.ceil(lvl.worldW / (VW * 0.7)) }).map((_, i) => (
+          <div key={i} className="steam" style={{ position: 'absolute', left: VW * 0.3 + i * VW * 0.7, top: `${48 + (i % 3) * 13}%`, width: 44, height: 44, animationDelay: `${(i % 5) * 0.9}s` }} />
+        ))}
+      </div>
+      {/* Vignette (Tiefe) */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9, background: 'radial-gradient(125% 125% at 50% 36%, transparent 52%, rgba(8,10,22,.5))' }} />
       {/* HUD */}
       {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '11%', zIndex: 11, fontSize: 13, fontWeight: 900, color: '#ffe08a', textShadow: '0 1px 3px rgba(0,0,0,.5)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
       {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 11, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: `${fItem ? ACTION_COLOR[fAct] : '#000'}cc`, padding: '3px 9px', borderRadius: 8, boxShadow: '0 1px 4px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{featLbl}</div>}
@@ -438,5 +470,14 @@ export const RaceStyles = () => (
 .spr-bob{animation:sprBob .9s ease-in-out infinite}
 @keyframes spriteRun{0%{background-position:-32px 0}25%{background-position:-64px 0}50%{background-position:-128px 0}75%{background-position:-64px 0}100%{background-position:-32px 0}}
 @keyframes sprBob{0%,100%{margin-top:0}50%{margin-top:-2px}}
+/* ── Metal-Slug Juice: Lava · Dampf · Staub ── */
+.lava-glow{animation:lavaPulse 1.8s ease-in-out infinite}
+.lava-surf{animation:lavaSurf 2.4s ease-in-out infinite}
+@keyframes lavaPulse{0%,100%{opacity:.65;transform:scaleY(1)}50%{opacity:1;transform:scaleY(1.28)}}
+@keyframes lavaSurf{0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)}}
+.steam{border-radius:50%;background:radial-gradient(#cfd8ea,#cfd8ea00 65%);filter:blur(5px);opacity:.3;mix-blend-mode:screen;animation:steamRise 5s linear infinite}
+@keyframes steamRise{0%{transform:translateY(0) scale(.5);opacity:0}25%{opacity:.34}100%{transform:translateY(-70px) scale(1.5);opacity:0}}
+.dust{position:absolute;border-radius:50%;background:radial-gradient(#cdbb95,#cdbb9500 70%);pointer-events:none;animation:dustPuff .55s ease-out infinite}
+@keyframes dustPuff{0%{transform:translate(0,0) scale(.4);opacity:.55}100%{transform:translate(-16px,1px) scale(1.4);opacity:0}}
 `}</style>
 );
