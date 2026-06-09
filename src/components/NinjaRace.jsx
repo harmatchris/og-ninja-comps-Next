@@ -55,7 +55,7 @@ export const buildLevel = (obs, VW) => {
     push(x - SP * 0.34, base);
     if (vis === 'gap') { const haz = ['lava', 'spike', 'pit'][i % 3]; const dep = haz === 'spike' ? 0.93 : 0.99; push(x - 28, base); push(x - 16, dep); push(x + 16, dep); push(x + 28, base); items.push({ x, vis, action, name, kind: 'gap', haz, dep }); }
     else if (vis === 'beam') { const top = base - 0.19; push(x - 30, base); push(x - 24, top); push(x + 24, top); push(x + 30, base); items.push({ x, vis, action, name, kind: 'beam', topY: top }); }
-    else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 0.40; push(x - 26, base); push(x - 6, top); push(x + 8, top); push(x + 28, base); items.push({ x, vis, action, name, kind: 'climb', topY: top }); }
+    else if (vis === 'warpedwall' || vis === 'cargonet' || vis === 'spiderwall') { const top = base - 1.05; push(x - 34, base); push(x - 17, top); push(x + 17, top); push(x + 40, base); items.push({ x, vis, action, name, kind: 'climb', topY: top, tall: true, zone: 56 }); }
     else if (vis === 'monkeybars' || vis === 'rings') { push(x - 32, base); push(x - 24, 0.99); push(x + 24, 0.99); push(x + 32, base); items.push({ x, vis, action, name, kind: 'hang', barY: base - 0.40 }); }
     else if (vis === 'rope') { push(x - 50, base); push(x - 38, 0.99); push(x + 38, 0.99); push(x + 50, base); items.push({ x, vis, action, name, kind: 'swing', pivotY: 0.05 }); }
     else { push(x - 20, base); push(x + 20, base); items.push({ x, vis, action, name, kind: 'run' }); }
@@ -63,7 +63,9 @@ export const buildLevel = (obs, VW) => {
   }
   const lastX = x - SP, finishX = lastX + VW * 0.72;
   push(finishX + VW * 0.1, base); const worldW = finishX + VW * 0.6; push(worldW, base);
-  return { N, SP, startX, firstX, finishX, worldW, items, pts, base, VW };
+  const ys = pts.map(p => p.y);
+  const yMin = Math.min(...ys) - 0.16, yMax = Math.max(...ys) + 0.06;   // Welt-Vertikal-Grenzen (Fraktionen)
+  return { N, SP, startX, firstX, finishX, worldW, items, pts, base, VW, yMin, yMax };
 };
 const surfYF = (x, lvl) => {
   const p = lvl.pts;
@@ -72,7 +74,7 @@ const surfYF = (x, lvl) => {
   return p[p.length - 1].y;
 };
 const progressToX = (p, lvl) => lvl.startX + Math.max(0, Math.min(1, p)) * (lvl.finishX - lvl.startX);
-const nearestItem = (x, lvl) => { let best = null, bd = lvl.SP * 0.4; for (const it of lvl.items) { const d = Math.abs(x - it.x); if (d < bd) { bd = d; best = it; } } return best; };
+const nearestItem = (x, lvl) => { let best = null, bd = Infinity; for (const it of lvl.items) { const z = it.zone || lvl.SP * 0.4; const d = Math.abs(x - it.x); if (d <= z && d < bd) { bd = d; best = it; } } return best; };
 export const getRunnerAction = (worldX, lvl, finished) => { if (finished) return 'celebrate'; const it = nearestItem(worldX, lvl); return it ? it.action : 'run'; };
 
 // ── Demo-Timeline: rennt, HÄLT an Aktions-Hindernissen (länger am Seil) ────────
@@ -175,7 +177,7 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
 export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, tall = true }) => {
   const sceneRef = useRef(null);
   const [sz, setSz] = useState({ w: 900, h: tall ? 320 : 168 });
-  const camRef = useRef(0);
+  const camRef = useRef({ x: 0, y: 0 });
   useEffect(() => {
     const el = sceneRef.current; if (!el || typeof ResizeObserver === 'undefined') return;
     const upd = () => setSz({ w: el.clientWidth || 900, h: el.clientHeight || (tall ? 320 : 168) });
@@ -195,14 +197,18 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
   const fAct = feat && !finishedNow ? getRunnerAction(featX, lvl, false) : null;
   const fItem = feat && !finishedNow ? nearestItem(featX, lvl) : null;
   const featLbl = finishedNow ? '🎉 Buzzer!' : (fAct && fAct !== 'run' ? ACTION_LABEL[fAct]?.[lang] : null);
-  // Kamera: Läufer auf 34% + Look-ahead, geklemmt, weich
-  const target = Math.max(0, Math.min(lvl.worldW - VW, featX - VW * 0.34 + VW * 0.12));
-  if (demo) camRef.current += (target - camRef.current) * 0.16; else camRef.current = target;
-  const cam = camRef.current;
+  // Kamera (horizontal + vertikal): Läufer auf 34%/62%, Look-ahead, geklemmt, weich
+  const featYpx = (feat ? surfYF(featX, lvl) : lvl.base) * H;
+  const yLo = lvl.yMin * H, yHi = lvl.yMax * H;
+  const tX = Math.max(0, Math.min(lvl.worldW - VW, featX - VW * 0.34 + VW * 0.12));
+  const tY = Math.max(yLo, Math.min(Math.max(yLo, yHi - H), featYpx - H * 0.62));
+  if (demo) { camRef.current.x += (tX - camRef.current.x) * 0.16; camRef.current.y += (tY - camRef.current.y) * 0.1; }
+  else { camRef.current.x = tX; camRef.current.y = tY; }
+  const cam = camRef.current.x, camY = camRef.current.y;
   const camTrans = demo ? 'none' : 'transform .3s cubic-bezier(.4,0,.2,1)';
-  const lay = (factor, z, extra) => ({ position: 'absolute', top: 0, bottom: 0, left: 0, width: Math.max(lvl.worldW, VW), transform: `translateX(${-cam * factor}px)`, transition: camTrans, zIndex: z, ...extra });
-  // Terrain-Pfad
-  const terr = `M0,${H} ` + lvl.pts.map(p => `L${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' ') + ` L${lvl.worldW},${H} Z`;
+  const lay = (fx, z, extra, fy = fx) => ({ position: 'absolute', top: 0, bottom: 0, left: 0, width: Math.max(lvl.worldW, VW), transform: `translate(${(-cam * fx).toFixed(1)}px, ${(-camY * fy).toFixed(1)}px)`, transition: camTrans, zIndex: z, ...extra });
+  // Terrain-Pfad (schliesst am Welt-Boden yHi, deckt hohe Wände + tiefe Gruben)
+  const terr = `M0,${yHi.toFixed(1)} ` + lvl.pts.map(p => `L${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' ') + ` L${lvl.worldW},${yHi.toFixed(1)} Z`;
   const topLine = 'M' + lvl.pts.map(p => `${p.x.toFixed(1)},${(p.y * H).toFixed(1)}`).join(' L');
   return (
     <div ref={sceneRef} style={{ position: 'relative', height: tall ? 'clamp(260px, 46vh, 580px)' : 168, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,.1)', filter: 'saturate(1.18) contrast(1.06)' }}>
@@ -228,7 +234,7 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
       {/* WELT-Vordergrund — Terrain, Hindernisse, Figuren */}
       <div style={lay(1, 4)}>
         {/* Terrain-Füllung + Oberkante */}
-        <svg style={{ position: 'absolute', inset: 0 }} width={lvl.worldW} height={H} viewBox={`0 0 ${lvl.worldW} ${H}`} preserveAspectRatio="none">
+        <svg style={{ position: 'absolute', left: 0, top: yLo, width: lvl.worldW, height: yHi - yLo }} viewBox={`0 ${yLo.toFixed(1)} ${lvl.worldW} ${(yHi - yLo).toFixed(1)}`} preserveAspectRatio="none">
           <defs><linearGradient id="grnd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#46506e" /><stop offset="1" stopColor="#262c44" /></linearGradient></defs>
           <path d={terr} fill="url(#grnd)" />
           <path d={topLine} fill="none" stroke="#8a96bd" strokeWidth="2.5" strokeLinejoin="round" />
@@ -265,7 +271,7 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
             <div style={{ position: 'absolute', left: 0, top: 4, width: 2.5, height: (lvl.base - 0.30 - it.pivotY) * H, transform: 'translateX(-50%)', background: 'repeating-linear-gradient(180deg,#b89a55,#8a6d30 5px)' }} />
             <div style={{ position: 'absolute', left: 0, top: (lvl.base - 0.30 - it.pivotY) * H, width: 15, height: 15, borderRadius: '50%', transform: 'translateX(-50%)', background: `radial-gradient(circle at 35% 30%,${col},#5a4015)`, boxShadow: `0 0 8px ${col}66`, border: '2px solid #5a4015' }} />
           </div>;
-          if (it.kind === 'climb') return <div key={k} style={{ position: 'absolute', left: ax - 16, top: it.topY * H, width: 32, height: (lvl.base - it.topY) * H, background: it.vis === 'cargonet' ? 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 11px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 11px)' : 'linear-gradient(180deg,#4a4458,#2e2b3c)', borderRadius: '6px 6px 0 0', borderTop: `2px solid ${col}`, boxShadow: `0 0 8px ${col}44` }} />;
+          if (it.kind === 'climb') return <div key={k} style={{ position: 'absolute', left: ax - 26, top: it.topY * H, width: 52, height: (lvl.base - it.topY) * H, background: it.vis === 'cargonet' ? 'repeating-linear-gradient(45deg,#3a3027 0 1.5px,transparent 1.5px 11px),repeating-linear-gradient(-45deg,#3a3027 0 1.5px,transparent 1.5px 11px)' : 'repeating-linear-gradient(0deg,#403a55 0 10px,#322e44 10px 12px),linear-gradient(90deg,#4a4458,#2e2b3c)', borderTop: `3px solid ${col}`, boxShadow: `0 0 10px ${col}55`, opacity: .9, clipPath: 'polygon(33% 0,67% 0,100% 100%,0 100%)' }} />;
           if (it.kind === 'beam') return <div key={k} style={{ position: 'absolute', left: ax - 30, top: it.topY * H - 3, width: 60, height: 5, background: col, borderRadius: 2, opacity: .85, boxShadow: `0 0 6px ${col}55` }} />;
           return null; // gap → Lücke im Terrain
         })}
