@@ -189,7 +189,7 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
 };
 
 // ═══ DIE WELT — heller Side-Scroller mit Terrain ════════════════════════════
-export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, stageName = '', tall = true }) => {
+export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, stageName = '', lives = '∞', tall = true }) => {
   const sceneRef = useRef(null);
   const [sz, setSz] = useState({ w: 900, h: tall ? 320 : 168 });
   const camRef = useRef({ x: 0, y: 0 });
@@ -212,6 +212,7 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
   const fAct = feat && !finishedNow ? getRunnerAction(featX, lvl, false) : null;
   const fItem = feat && !finishedNow ? nearestItem(featX, lvl) : null;
   const featLbl = finishedNow ? '🎉 Buzzer!' : (fAct && fAct !== 'run' ? ACTION_LABEL[fAct]?.[lang] : null);
+  const staminaPct = feat ? Math.max(12, Math.round(100 - (feat.finished ? 0.95 : feat.progress) * 62)) : 100;
   // Kamera (horizontal + vertikal): Läufer auf 34%/62%, Look-ahead, geklemmt, weich
   const featYpx = (feat ? surfYF(featX, lvl) : lvl.base) * H;
   const yLo = lvl.yMin * H, yHi = lvl.yMax * H;
@@ -324,9 +325,25 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = f
       </div>
       {/* Vignette (Tiefe) */}
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 9, background: 'radial-gradient(125% 125% at 50% 36%, transparent 52%, rgba(8,10,22,.5))' }} />
-      {/* HUD */}
+      {/* HUD — Stamina-Leiste + Leben (oben links, im Stil der Game-Referenz) */}
+      <div style={{ position: 'absolute', left: 9, top: 8, zIndex: 12, pointerEvents: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', height: 17 }}>
+          <div style={{ width: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(#39456a,#1a2236)', border: '1px solid #5a6a8c', borderRight: 'none', borderRadius: '3px 0 0 3px', fontSize: 11, color: '#ffd23f', textShadow: '0 0 4px rgba(255,210,63,.6)' }}>⚡</div>
+          <div style={{ position: 'relative', width: Math.min(VW * 0.32, 240), height: 17, background: '#0e1626', border: '1px solid #5a6a8c', borderRadius: '0 3px 3px 0', overflow: 'hidden' }}>
+            <div style={{ width: `${staminaPct}%`, height: '100%', background: 'linear-gradient(180deg,#8fc8ff,#2a7fd4)', boxShadow: 'inset 0 -3px 5px rgba(0,0,0,.35)', transition: 'width .3s' }} />
+            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 5, background: 'linear-gradient(#e04b3a,#a01f12)' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 1px,transparent 1px 9px)' }} />
+          </div>
+        </div>
+        <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: '.14em', color: 'rgba(255,255,255,.7)', marginLeft: 25, marginTop: 1.5 }}>STAMINA</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, marginLeft: 2 }}>
+          <span style={{ fontSize: 14, color: '#ff4d5e', filter: 'drop-shadow(0 0 3px rgba(255,77,94,.6))', lineHeight: 1 }}>❤</span>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: lives === '∞' ? 17 : 14, fontWeight: 800, color: '#fff', lineHeight: 1, textShadow: '0 1px 2px rgba(0,0,0,.6)' }}>{lives}</span>
+        </div>
+      </div>
+      {/* Aktions-Label (oben mitte) */}
+      {featLbl && <div style={{ position: 'absolute', left: '50%', top: 8, transform: 'translateX(-50%)', zIndex: 12, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: `${fItem ? ACTION_COLOR[fAct] : '#000'}dd`, padding: '3px 10px', borderRadius: 8, boxShadow: '0 1px 4px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{featLbl}</div>}
       {finishedNow && <div style={{ position: 'absolute', right: '7%', top: '11%', zIndex: 11, fontSize: 13, fontWeight: 900, color: '#ffe08a', textShadow: '0 1px 3px rgba(0,0,0,.5)', animation: 'buzzPop .6s ease-out' }}>BUZZ!</div>}
-      {featLbl && <div style={{ position: 'absolute', left: 8, top: 7, zIndex: 11, fontSize: 10, fontWeight: 800, letterSpacing: '.02em', color: '#fff', background: `${fItem ? ACTION_COLOR[fAct] : '#000'}cc`, padding: '3px 9px', borderRadius: 8, boxShadow: '0 1px 4px rgba(0,0,0,.4)', pointerEvents: 'none' }}>{featLbl}</div>}
     </div>
   );
 };

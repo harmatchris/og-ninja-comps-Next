@@ -541,7 +541,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   });
   Object.values(activeRuns || {}).filter(r => r && typeof r === 'object' && inCats(r.catId, cats)).forEach(r => {
     const cp = r.doneCPCount != null ? r.doneCPCount : (r.doneCP?.length || 0);
-    byAth[r.athleteId] = { athleteId: r.athleteId, progress: Math.min(0.98, cp / totalCP), finished: false, time: Infinity, active: true };
+    byAth[r.athleteId] = { athleteId: r.athleteId, progress: Math.min(0.98, cp / totalCP), finished: false, time: Infinity, active: true, livesLeft: r.livesLeft };
   });
   const all = Object.values(byAth).map(r => ({ ...r, idx: athIdx(r.athleteId) }));
   const runners = [...all.filter(r => r.active).sort((a, b) => b.progress - a.progress), ...all.filter(r => !r.active).sort((a, b) => b.progress - a.progress || a.time - b.time)].slice(0, 12).sort((a, b) => b.progress - a.progress || a.time - b.time);
@@ -571,6 +571,12 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   const fAth = athletesMap?.[featured.athleteId];
   const lAth = leader && leader.athleteId !== featured.athleteId ? athletesMap?.[leader.athleteId] : null;
   const gap = lAth ? Math.round((leader.progress - featured.progress) * 100) : 0;
+  // Leben-Anzeige je nach Modus: ∞ (Infinite/kein Lebenssystem) oder Zahl
+  const hasLives = info?.mode === 'lives' || (info?.modes || []).includes('lives');
+  const lifeMode = stage?.lifeMode || ((stage?.totalLives === 0 || stage?.totalLives == null) ? 'infinite' : 'pool');
+  const maxLives = lifeMode === 'perSection' ? (stage?.livesPerSection || 3) : (stage?.totalLives || 0);
+  let lives = (!hasLives || lifeMode === 'infinite' || !maxLives) ? '∞' : maxLives;
+  if (featured && featured.livesLeft != null) lives = featured.livesLeft >= 999 ? '∞' : featured.livesLeft;
   return (
     <Shell title={lang === 'de' ? 'Ninja-Race' : 'Ninja Race'} Icon={I.Ninja} accent="#FF5E3A" right={rightSlot}>
       <RaceStyles />
@@ -590,7 +596,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           )}
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
-        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} stageName={stage?.name || ''} lang={lang} />
+        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} stageName={stage?.name || ''} lives={lives} lang={lang} />
       </div>
     </Shell>
   );
