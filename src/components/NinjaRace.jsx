@@ -114,6 +114,19 @@ export const NinjaFigure = ({ idx = 0, action = 'run', scale = 1, ghost = false 
   );
 };
 
+// ── CC0-Pixel-Sprite (Umschalt-Modus) — "Ninja Animated", OpenGameArt, CC0 ────
+//    32×32-Frames; [col,row]. Lauf = step-end-Keyframe-Zyklus, sonst Einzelpose.
+const SPRITE_FRAME = { idle: [0, 0], jump: [5, 0], climb: [2, 1], hang: [5, 0], swing: [5, 0], balance: [0, 0], celebrate: [5, 0], run: [1, 0] };
+export const SpriteFigure = ({ idx = 0, action = 'run', scale = 1, ghost = false }) => {
+  const fr = SPRITE_FRAME[action] || SPRITE_FRAME.run;
+  const isRun = action === 'run';
+  const hue = (idx % 16) * 22;
+  return (
+    <div className={`spr${isRun ? ' spr-run' : ''}${action === 'climb' || action === 'hang' || action === 'swing' ? ' spr-bob' : ''}`}
+      style={{ backgroundPosition: isRun ? undefined : `${-fr[0] * 32}px ${-fr[1] * 32}px`, transform: `scale(${scale * 2.6})`, transformOrigin: 'bottom center', filter: `hue-rotate(${hue}deg) saturate(1.15)${ghost ? ' grayscale(.4) brightness(.8)' : ''}`, opacity: ghost ? 0.5 : 1 }} />
+  );
+};
+
 // ── Hindernis-Aufbauten (terrain-bezogen) ─────────────────────────────────────
 const Bars = ({ w, col }) => (
   <div style={{ position: 'absolute', left: -w / 2, top: 0, width: w, height: 6 }}>
@@ -123,10 +136,11 @@ const Bars = ({ w, col }) => (
 );
 
 // ── Eine Figur auf dem Terrain ────────────────────────────────────────────────
-const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost }) => {
+const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost, sprite }) => {
   const worldX = progressToX(r.progress, lvl);
   const action = getRunnerAction(worldX, lvl, r.finished);
   const figH = 64 * scale, figW = 40 * scale;
+  const Figure = sprite ? SpriteFigure : NinjaFigure;
   const it = nearestItem(worldX, lvl);
   let surfacePx = surfYF(worldX, lvl) * H;
   let bottom, pivot = false, climbing = false;
@@ -138,7 +152,7 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost }) => {
   const trans = demoT != null ? 'bottom .18s linear' : 'left .55s cubic-bezier(.4,0,.2,1), bottom .25s ease';
   const inner = (
     <div className={action === 'jump' ? 'hop' : ''} style={{ position: 'relative' }}>
-      <NinjaFigure idx={r.idx} action={action} scale={scale} ghost={ghost} />
+      <Figure idx={r.idx} action={action} scale={scale} ghost={ghost} />
       {ghost && <div style={{ position: 'absolute', bottom: figH + 5, left: '50%', transform: 'translateX(-50%)', fontSize: 13 }}>👑</div>}
     </div>
   );
@@ -153,7 +167,7 @@ const RunnerOnCourse = ({ r, lvl, demoT, H, scale, ghost }) => {
 };
 
 // ═══ DIE WELT — heller Side-Scroller mit Terrain ════════════════════════════
-export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, tall = true }) => {
+export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, sprite = false, tall = true }) => {
   const H = tall ? 210 : 158;
   const scale = tall ? 1.5 : 1.08;
   const sceneRef = useRef(null);
@@ -247,8 +261,8 @@ export const RaceScene = ({ featured, leader, obs, demoElapsed, lang, tall = tru
           <div style={{ position: 'absolute', left: 0, top: -Math.round((1 - lvl.base) * H * 0.62) - 52, transform: 'translateX(-50%)', background: '#e23', color: '#fff', fontSize: 10, fontWeight: 900, letterSpacing: '.12em', padding: '2px 11px', borderRadius: 4, border: '2px solid #fff', whiteSpace: 'nowrap' }}>ZIEL</div>
         </div>
         {/* Figuren */}
-        {!same && leader && <RunnerOnCourse r={leader} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} ghost />}
-        {feat && <RunnerOnCourse r={feat} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} />}
+        {!same && leader && <RunnerOnCourse r={leader} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} ghost sprite={sprite} />}
+        {feat && <RunnerOnCourse r={feat} lvl={lvl} demoT={demo ? demoElapsed : null} H={H} scale={scale} sprite={sprite} />}
       </div>
       {/* Vordergrund-Gras (1.25× — whoosh) */}
       <div style={lay(1.25, 7)}>
@@ -418,5 +432,11 @@ export const RaceStyles = () => (
 @keyframes buzzPop{0%{transform:scale(.3);opacity:0}50%{transform:scale(1.25);opacity:1}100%{transform:scale(1);opacity:1}}
 .buzzburst{color:#ffe08a;font-size:14px;animation:sparkle .8s ease-out infinite;text-shadow:0 0 6px rgba(255,214,10,.9)}
 @keyframes sparkle{0%{transform:scale(.4) rotate(0);opacity:0}40%{opacity:1}100%{transform:scale(1.3) rotate(40deg);opacity:0}}
+/* ── CC0-Pixel-Sprite-Modus ── */
+.spr{width:32px;height:32px;background-image:url(/sprites/ninja-sheet.png);background-repeat:no-repeat;image-rendering:pixelated;image-rendering:crisp-edges}
+.spr-run{animation:spriteRun .46s step-end infinite}
+.spr-bob{animation:sprBob .9s ease-in-out infinite}
+@keyframes spriteRun{0%{background-position:-32px 0}25%{background-position:-64px 0}50%{background-position:-128px 0}75%{background-position:-64px 0}100%{background-position:-32px 0}}
+@keyframes sprBob{0%,100%{margin-top:0}50%{margin-top:-2px}}
 `}</style>
 );

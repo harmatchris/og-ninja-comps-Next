@@ -524,6 +524,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   const obs = obsList(stage);
   const totalCP = Math.max(1, obs.length);
   const [demo, setDemo] = useState(false);
+  const [pixel, setPixel] = useState(false);
   const demoStart = useRef(0);
   const [, force] = useState(0);
   useEffect(() => {
@@ -562,6 +563,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
   const rightSlot = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
       {demo ? <span style={{ color: '#FF8A5E', fontSize: 11, fontWeight: 800 }}>▶ DEMO</span> : (anyLive ? <span style={{ color: '#FF5E3A', fontSize: 11, fontWeight: 800 }}>● LIVE</span> : null)}
+      <button onClick={() => setPixel(p => !p)} style={btnSt(pixel, pixel ? '#5AB3FF' : 'rgba(255,255,255,.45)')} title={lang === 'de' ? 'Charakter-Stil wechseln' : 'Toggle character style'}>{pixel ? '◳ Pixel' : '◳ Vektor'}</button>
       {(hasRunners || completedList.length > 0) && <button onClick={() => { if (!demo) demoStart.current = performance.now(); setDemo(d => !d); }} style={btnSt(demo, demo ? '#FF6B6B' : '#FF8A5E')}>{demo ? '■ Stop' : '▶ Demo'}</button>}
     </span>
   );
@@ -588,7 +590,7 @@ const RaceWidget = ({ compId, info, completedRuns, athletesMap, pipelineData, ca
           )}
           {lAth && <span style={{ marginLeft: 'auto', ...mono, fontSize: 11, fontWeight: 700, color: gap > 0 ? '#FF8A5E' : 'var(--green)' }}>{gap > 0 ? `−${gap}%` : '▲'}</span>}
         </div>
-        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} lang={lang} />
+        <RaceScene featured={featured} leader={demo ? null : leader} obs={obs} demoElapsed={demoElapsed} sprite={pixel} lang={lang} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {runners.slice(0, 8).map((r, idx) => {
             const ath = athletesMap?.[r.athleteId];
